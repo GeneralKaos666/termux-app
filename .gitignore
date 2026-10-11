@@ -37,3 +37,10 @@ local.properties
 .swp
 ehthumbs.db
 Thumbs.db
+
+# Agent instructions
+/AGENTS.md
+
+# Local brainstorming specs and plans — never committed
+docs/superpowers/
+.superpowers/
