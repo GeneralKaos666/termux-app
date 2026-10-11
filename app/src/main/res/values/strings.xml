@@ -218,6 +218,18 @@
                     It should be enabled to try to fix the issue where soft keyboard covers part of extra keys/terminal view.
                     If it causes screen flickering on your devices, then disable it. (Default)</string>
 
+            <!-- Background Category -->
+            <string name="termux_terminal_view_background_header">Terminal background</string>
+
+                <!-- Terminal Background -->
+                <string name="termux_terminal_view_terminal_background_title">Background</string>
+                <string name="termux_terminal_view_terminal_background_entry_solid">Solid colour</string>
+                <string name="termux_terminal_view_terminal_background_entry_wallpaper">System wallpaper</string>
+
+                <!-- Terminal Background Dim -->
+                <string name="termux_terminal_view_terminal_background_dim_title">Background dim</string>
+                <string name="termux_terminal_view_terminal_background_dim_summary">Darkens the background picture to keep text readable. Percentage: %1$s</string>
+
 
 
     <!-- Termux:API App Preferences -->

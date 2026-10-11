@@ -104,6 +104,29 @@ public final class TermuxPreferenceConstants {
 
 
         /**
+         * Defines the key for the terminal background mode: a solid colour (the classic terminal
+         * background colour) or the system wallpaper shown behind the terminal.
+         */
+        public static final String KEY_TERMINAL_BACKGROUND = "terminal_background";
+        public static final String IVALUE_TERMINAL_BACKGROUND_SOLID = "solid";
+        public static final String IVALUE_TERMINAL_BACKGROUND_WALLPAPER = "wallpaper";
+        public static final String IVALUE_TERMINAL_BACKGROUND_IMAGE = "image";
+        public static final String DEFAULT_IVALUE_TERMINAL_BACKGROUND = IVALUE_TERMINAL_BACKGROUND_SOLID;
+
+        /**
+         * Defines the key for the dim percentage applied over the terminal background picture to
+         * keep text readable. Range 0-90.
+         */
+        public static final String KEY_TERMINAL_BACKGROUND_DIM = "terminal_background_dim";
+        public static final int DEFAULT_TERMINAL_BACKGROUND_DIM = 60;
+
+        /**
+         * Defines the key for the persisted content URI of the custom terminal background image.
+         */
+        public static final String KEY_TERMINAL_BACKGROUND_IMAGE = "terminal_background_image";
+
+
+        /**
          * Defines the key for whether the soft keyboard will be enabled, for cases where users want
          * to use a hardware keyboard instead.
          */

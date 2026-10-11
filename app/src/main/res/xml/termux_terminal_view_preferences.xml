@@ -1,4 +1,5 @@
-<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory
         app:key="view"
@@ -9,6 +10,27 @@
             app:summaryOff="@string/termux_terminal_view_terminal_margin_adjustment_off"
             app:summaryOn="@string/termux_terminal_view_terminal_margin_adjustment_on"
             app:title="@string/termux_terminal_view_terminal_margin_adjustment_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="background"
+        app:title="@string/termux_terminal_view_background_header">
+
+        <ListPreference
+            app:key="terminal_background"
+            app:title="@string/termux_terminal_view_terminal_background_title"
+            app:defaultValue="solid" />
+
+        <SeekBarPreference
+            app:key="terminal_background_dim"
+            app:title="@string/termux_terminal_view_terminal_background_dim_title"
+            app:summary="@string/termux_terminal_view_terminal_background_dim_summary"
+            app:defaultValue="60"
+            app:min="0"
+            android:max="90"
+            app:showSeekBarValue="true"
+            app:adjustable="true" />
 
     </PreferenceCategory>
 

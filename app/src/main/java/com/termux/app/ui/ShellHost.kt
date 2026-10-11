@@ -23,9 +23,15 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
+import com.termux.app.ui.background.TerminalBackgroundState
 import com.termux.app.ui.keys.ExtraKeysBar
 import com.termux.app.ui.keys.ExtraKeysState
 import com.termux.app.ui.keys.QuickAction
@@ -86,11 +92,20 @@ fun installTerminalShellHost(
     sessionsState: SessionsState,
     extraKeysState: ExtraKeysState,
     snackbarState: SnackbarState,
+    terminalBackgroundState: TerminalBackgroundState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
     composeView.setContent {
-        TerminalShellHost(terminalView, sessionsState, extraKeysState, snackbarState, savedTextInput, callbacks)
+        TerminalShellHost(
+            terminalView,
+            sessionsState,
+            extraKeysState,
+            snackbarState,
+            terminalBackgroundState,
+            savedTextInput,
+            callbacks,
+        )
     }
 }
 
@@ -100,6 +115,7 @@ private fun TerminalShellHost(
     sessionsState: SessionsState,
     extraKeysState: ExtraKeysState,
     snackbarState: SnackbarState,
+    terminalBackgroundState: TerminalBackgroundState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
@@ -121,12 +137,39 @@ private fun TerminalShellHost(
                     onNewSession = callbacks::onNewSession,
                 )
 
-                AndroidView(
-                    factory = { terminalView },
+                // The terminal view is painted transparent (its default background is the window
+                // decor colour behind the Compose host), so the configured background picture and
+                // its dim overlay are drawn behind it here.
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                )
+                        .weight(1f)
+                        .drawBehind {
+                            val picture = terminalBackgroundState.bitmap
+                            val dstW = size.width.toInt()
+                            val dstH = size.height.toInt()
+                            if (picture != null && dstW > 0 && dstH > 0) {
+                                val srcW = picture.width
+                                val srcH = picture.height
+                                // Centre-crop the picture to fill the terminal area.
+                                val scale = maxOf(dstW.toFloat() / srcW, dstH.toFloat() / srcH)
+                                val cropW = (dstW / scale).toInt().coerceAtMost(srcW)
+                                val cropH = (dstH / scale).toInt().coerceAtMost(srcH)
+                                drawImage(
+                                    image = picture.asImageBitmap(),
+                                    srcOffset = IntOffset((srcW - cropW) / 2, (srcH - cropH) / 2),
+                                    srcSize = IntSize(cropW, cropH),
+                                    dstOffset = IntOffset.Zero,
+                                    dstSize = IntSize(dstW, dstH),
+                                )
+
+                                val dim = terminalBackgroundState.dimPercent
+                                if (dim > 0) drawRect(Color.Black.copy(alpha = dim / 100f))
+                            }
+                        },
+                ) {
+                    AndroidView(factory = { terminalView })
+                }
 
                 AnimatedVisibility(
                     visible = extraKeysState.visible,

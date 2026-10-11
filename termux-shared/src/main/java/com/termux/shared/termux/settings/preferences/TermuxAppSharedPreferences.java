@@ -94,6 +94,31 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
 
 
 
+    /** The terminal background mode: {@link TermuxPreferenceConstants.TERMUX_APP#IVALUE_TERMINAL_BACKGROUND_SOLID} by default. */
+    public String getTerminalBackground() {
+        return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND, TERMUX_APP.DEFAULT_IVALUE_TERMINAL_BACKGROUND, false);
+    }
+
+    public void setTerminalBackground(String value) {
+        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND, value, false);
+    }
+
+    /** Whether the system wallpaper is shown behind the terminal. */
+    public boolean shouldUseWallpaperTerminalBackground() {
+        return TERMUX_APP.IVALUE_TERMINAL_BACKGROUND_WALLPAPER.equals(getTerminalBackground());
+    }
+
+    /** The dim percentage applied over the terminal background picture, 0-90, default 60. */
+    public int getTerminalBackgroundDim() {
+        return SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_DIM, TERMUX_APP.DEFAULT_TERMINAL_BACKGROUND_DIM);
+    }
+
+    public void setTerminalBackgroundDim(int value) {
+        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_DIM, value, false);
+    }
+
+
+
     public boolean isSoftKeyboardEnabled() {
         return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_SOFT_KEYBOARD_ENABLED, TERMUX_APP.DEFAULT_VALUE_KEY_SOFT_KEYBOARD_ENABLED);
     }

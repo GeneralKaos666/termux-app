@@ -1,6 +1,7 @@
 package com.termux.app;
 
 import android.app.AlertDialog;
+import android.app.WallpaperManager;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -8,9 +9,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.util.DisplayMetrics;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.Gravity;
@@ -30,6 +35,7 @@ import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
 import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
 import com.termux.app.ui.SnackbarState;
+import com.termux.app.ui.background.TerminalBackgroundState;
 import com.termux.app.ui.keys.ExtraKeysState;
 import com.termux.app.ui.keys.QuickAction;
 import com.termux.app.ui.sessions.SessionItem;
@@ -146,6 +152,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Compose-observable snackbar requests shown by the shell host.
      */
     private SnackbarState mSnackbarState;
+
+    /**
+     * Compose-observable terminal background picture (null = solid background colour).
+     */
+    private TerminalBackgroundState mTerminalBackgroundState;
+
+    /**
+     * Whether a background wallpaper decode is currently running on the background thread.
+     */
+    private boolean mTerminalBackgroundLoading;
 
     /**
      * The action to run if the user presses undo on the current snackbar, or {@code null}.
@@ -415,6 +431,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onResume();
 
+        // Refresh the terminal background (e.g. the user changed it in Settings or the system
+        // wallpaper changed while we were in the background).
+        syncTerminalBackground(false);
+
         // Check if a crash happened on last run of the app or if a plugin crashed and show a
         // notification with the crash details if it did
         TermuxCrashUtils.notifyAppCrashFromCrashLogFile(this, LOG_TAG);
@@ -606,6 +626,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         updateExtraKeysBar();
 
         mSnackbarState = new SnackbarState();
+        mTerminalBackgroundState = new TerminalBackgroundState();
 
         String savedTextInput = null;
         if (savedInstanceState != null)
@@ -613,7 +634,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
         ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState,
-            mExtraKeysState, mSnackbarState, savedTextInput, mShellHostCallbacks);
+            mExtraKeysState, mSnackbarState, mTerminalBackgroundState, savedTextInput, mShellHostCallbacks);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
@@ -717,6 +738,81 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         mExtraKeysState.setGridHeightPx(Math.round(mTerminalToolbarDefaultHeight * rows *
             mProperties.getTerminalToolbarHeightScaleFactor()));
+    }
+
+    /**
+     * Applies the configured terminal background to the Compose state. In solid mode the picture is
+     * cleared; in wallpaper mode the system wallpaper is decoded on a background thread and pushed
+     * in when ready. The dim is always applied immediately.
+     *
+     * @param forceReload Reload the picture even if one is already showing (e.g. the wallpaper changed).
+     */
+    private void syncTerminalBackground(boolean forceReload) {
+        if (mTerminalBackgroundState == null || mPreferences == null) return;
+
+        final boolean wallpaperMode = mPreferences.shouldUseWallpaperTerminalBackground();
+        final int dim = mPreferences.getTerminalBackgroundDim();
+
+        if (!wallpaperMode) {
+            mTerminalBackgroundLoading = false;
+            if (mTerminalBackgroundState.getBitmap() != null)
+                mTerminalBackgroundState.update(null, dim);
+            return;
+        }
+
+        if (forceReload) mTerminalBackgroundState.update(null, dim);
+        else mTerminalBackgroundState.update(mTerminalBackgroundState.getBitmap(), dim);
+
+        if (mTerminalBackgroundState.getBitmap() != null || mTerminalBackgroundLoading) return;
+        mTerminalBackgroundLoading = true;
+
+        new Thread(() -> {
+            final Bitmap wallpaperBitmap = loadSystemWallpaperBitmap();
+            runOnUiThread(() -> {
+                mTerminalBackgroundLoading = false;
+                if (mTerminalBackgroundState != null)
+                    mTerminalBackgroundState.update(wallpaperBitmap, mPreferences.getTerminalBackgroundDim());
+            });
+        }, "terminal-background-loader").start();
+    }
+
+    /** Whether the system wallpaper is configured as the terminal background. */
+    public boolean shouldUseWallpaperTerminalBackground() {
+        return mPreferences != null && mPreferences.shouldUseWallpaperTerminalBackground();
+    }
+
+    /** Loads the current system wallpaper as a bitmap downsampled to at most the screen size. */
+    @Nullable
+    @SuppressWarnings("deprecation")
+    private Bitmap loadSystemWallpaperBitmap() {
+        try {
+            WallpaperManager wallpaperManager = WallpaperManager.getInstance(this);
+            Drawable wallpaperDrawable = wallpaperManager.getDrawable();
+            if (wallpaperDrawable == null) return null;
+            return drawableToScreenBitmap(wallpaperDrawable);
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the system wallpaper", e);
+            return null;
+        }
+    }
+
+    @Nullable
+    private Bitmap drawableToScreenBitmap(@NonNull Drawable drawable) {
+        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+        if (displayMetrics.widthPixels <= 0 || displayMetrics.heightPixels <= 0) return null;
+
+        // Only downscale; smaller wallpapers keep their intrinsic size and are cropped by the shell.
+        int srcW = Math.max(drawable.getIntrinsicWidth(), 1);
+        int srcH = Math.max(drawable.getIntrinsicHeight(), 1);
+        float scale = Math.min(1f, Math.min((float) displayMetrics.widthPixels / srcW, (float) displayMetrics.heightPixels / srcH));
+        int dstW = Math.max(1, Math.round(srcW * scale));
+        int dstH = Math.max(1, Math.round(srcH * scale));
+
+        Bitmap bitmap = Bitmap.createBitmap(dstW, dstH, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, dstW, dstH);
+        drawable.draw(canvas);
+        return bitmap;
     }
 
     public void toggleTerminalToolbar() {
@@ -1072,6 +1168,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         intentFilter.addAction(TERMUX_ACTIVITY.ACTION_NOTIFY_APP_CRASH);
         intentFilter.addAction(TERMUX_ACTIVITY.ACTION_RELOAD_STYLE);
         intentFilter.addAction(TERMUX_ACTIVITY.ACTION_REQUEST_PERMISSIONS);
+        intentFilter.addAction(Intent.ACTION_WALLPAPER_CHANGED);
 
         registerReceiver(mTermuxActivityBroadcastReceiver, intentFilter);
     }
@@ -1110,6 +1207,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     case TERMUX_ACTIVITY.ACTION_REQUEST_PERMISSIONS:
                         Logger.logDebug(LOG_TAG, "Received intent to request storage permissions");
                         requestStoragePermission(false);
+                        return;
+                    case Intent.ACTION_WALLPAPER_CHANGED:
+                        Logger.logDebug(LOG_TAG, "Received intent that the system wallpaper changed");
+                        syncTerminalBackground(true);
                         return;
                     default:
                 }
