@@ -1,6 +1,5 @@
 package com.termux.app;
 
-import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
@@ -21,8 +20,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.EditText;
-import android.widget.ImageButton;
-import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
@@ -31,7 +28,11 @@ import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
+import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
+import com.termux.app.ui.sessions.SessionItem;
+import com.termux.app.ui.sessions.SessionItemKt;
+import com.termux.app.ui.sessions.SessionsState;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.activity.ActivityUtils;
 import com.termux.shared.activity.media.AppCompatActivityUtils;
@@ -44,11 +45,10 @@ import com.termux.app.activities.HelpActivity;
 import com.termux.app.activities.SettingsActivity;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
-import com.termux.app.terminal.TermuxSessionsListViewController;
+import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.app.terminal.io.TerminalToolbarViewPager;
 import com.termux.app.terminal.TermuxTerminalViewClient;
 import com.termux.shared.termux.extrakeys.ExtraKeysView;
-import com.termux.shared.termux.interact.TextInputDialogUtils;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
@@ -64,10 +64,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.compose.ui.platform.ComposeView;
-import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * A terminal emulator activity.
@@ -136,9 +137,35 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     TermuxTerminalExtraKeys mTermuxTerminalExtraKeys;
 
     /**
-     * The termux sessions list controller.
+     * The Compose-observable snapshot of the sessions shown in the top sessions bar.
      */
-    TermuxSessionsListViewController mTermuxSessionListViewController;
+    private SessionsState mSessionsState;
+
+    /**
+     * The callbacks from the Compose sessions bar back into this activity.
+     */
+    private final ShellHostCallbacks mShellHostCallbacks = new ShellHostCallbacks() {
+        @Override
+        public void onSessionSelected(int id) {
+            selectSessionAt(id);
+        }
+
+        @Override
+        public void onSessionRename(int id) {
+            renameSessionAt(id);
+        }
+
+        @Override
+        public void onSessionClose(int id) {
+            closeSessionAt(id);
+        }
+
+        @Override
+        public void onNewSession() {
+            if (mTermuxTerminalSessionActivityClient != null)
+                mTermuxTerminalSessionActivityClient.addNewSession(false, null);
+        }
+    };
 
     /**
      * The {@link TermuxActivity} broadcast receiver for various things like terminal style configuration changes.
@@ -247,12 +274,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setTerminalToolbarView(savedInstanceState);
 
-        setSettingsButtonView();
-
-        setNewSessionButtonView();
-
-        setToggleKeyboardView();
-
         registerForContextMenu(mTerminalView);
 
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
@@ -343,7 +364,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         removeTermuxActivityRootViewGlobalLayoutListener();
 
         unregisterTermuxActivityBroadcastReceiver();
-        getDrawer().closeDrawers();
     }
 
     @Override
@@ -391,7 +411,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         mTermuxService = ((TermuxService.LocalBinder) service).service;
 
-        setTermuxSessionsListView();
+        refreshSessionsBar();
 
         final Intent intent = getIntent();
         setIntent(null);
@@ -494,8 +514,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         // Host the terminal through the Compose shell. The terminal view is the single leaf Android
         // view inside the Compose tree; the rest of the activity layout is unchanged for now.
+        mSessionsState = new SessionsState();
+
         ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
-        ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView);
+        ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState, mShellHostCallbacks);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
@@ -504,12 +526,72 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalSessionActivityClient.onCreate();
     }
 
-    private void setTermuxSessionsListView() {
-        ListView termuxSessionsListView = findViewById(R.id.terminal_sessions_list);
-        mTermuxSessionListViewController = new TermuxSessionsListViewController(this, mTermuxService.getTermuxSessions());
-        termuxSessionsListView.setAdapter(mTermuxSessionListViewController);
-        termuxSessionsListView.setOnItemClickListener(mTermuxSessionListViewController);
-        termuxSessionsListView.setOnItemLongClickListener(mTermuxSessionListViewController);
+    /**
+     * Rebuilds the top sessions bar snapshot from the service session list and the currently
+     * attached session. Called on service connect and whenever the session list or titles change.
+     */
+    public void refreshSessionsBar() {
+        if (mSessionsState == null) return;
+
+        final List<SessionItem> items = new ArrayList<>();
+        final List<TermuxSession> sessions = (mTermuxService != null) ? mTermuxService.getTermuxSessions() : null;
+        final TerminalSession currentSession = getCurrentSession();
+
+        if (sessions != null) {
+            for (int i = 0; i < sessions.size(); i++) {
+                TermuxSession termuxSession = sessions.get(i);
+                TerminalSession terminalSession = (termuxSession != null) ? termuxSession.getTerminalSession() : null;
+                if (terminalSession == null) continue;
+
+                items.add(SessionItemKt.sessionItem(
+                    i,
+                    i + 1,
+                    terminalSession.mSessionName,
+                    terminalSession.getTitle(),
+                    terminalSession.isRunning(),
+                    terminalSession.getExitStatus(),
+                    terminalSession == currentSession));
+            }
+        }
+
+        mSessionsState.setSessions(items);
+    }
+
+    /** Returns the service session at {@code index}, or {@code null} if out of range. */
+    @Nullable
+    private TermuxSession getTermuxSessionAt(int index) {
+        if (mTermuxService == null) return null;
+        List<TermuxSession> sessions = mTermuxService.getTermuxSessions();
+        if (index < 0 || index >= sessions.size()) return null;
+        return sessions.get(index);
+    }
+
+    private void selectSessionAt(int index) {
+        if (mTermuxTerminalSessionActivityClient == null) return;
+        TermuxSession termuxSession = getTermuxSessionAt(index);
+        if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
+        mTermuxTerminalSessionActivityClient.setCurrentSession(termuxSession.getTerminalSession());
+    }
+
+    private void renameSessionAt(int index) {
+        if (mTermuxTerminalSessionActivityClient == null) return;
+        TermuxSession termuxSession = getTermuxSessionAt(index);
+        if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
+        mTermuxTerminalSessionActivityClient.renameSession(termuxSession.getTerminalSession());
+    }
+
+    private void closeSessionAt(int index) {
+        if (mTermuxTerminalSessionActivityClient == null) return;
+        TermuxSession termuxSession = getTermuxSessionAt(index);
+        if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
+
+        TerminalSession session = termuxSession.getTerminalSession();
+        if (session.isRunning()) {
+            // Confirm before closing a session whose process is still running.
+            showCloseSessionDialog(session);
+        } else {
+            mTermuxTerminalSessionActivityClient.closeSession(session);
+        }
     }
 
 
@@ -570,49 +652,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
-    private void setSettingsButtonView() {
-        ImageButton settingsButton = findViewById(R.id.settings_button);
-        settingsButton.setOnClickListener(v -> {
-            ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class));
-        });
-    }
-
-    private void setNewSessionButtonView() {
-        View newSessionButton = findViewById(R.id.new_session_button);
-        newSessionButton.setOnClickListener(v -> mTermuxTerminalSessionActivityClient.addNewSession(false, null));
-        newSessionButton.setOnLongClickListener(v -> {
-            TextInputDialogUtils.textInput(TermuxActivity.this, R.string.title_create_named_session, null,
-                R.string.action_create_named_session_confirm, text -> mTermuxTerminalSessionActivityClient.addNewSession(false, text),
-                R.string.action_new_session_failsafe, text -> mTermuxTerminalSessionActivityClient.addNewSession(true, text),
-                -1, null, null);
-            return true;
-        });
-    }
-
-    private void setToggleKeyboardView() {
-        findViewById(R.id.toggle_keyboard_button).setOnClickListener(v -> {
-            mTermuxTerminalViewClient.onToggleSoftKeyboardRequest();
-            getDrawer().closeDrawers();
-        });
-
-        findViewById(R.id.toggle_keyboard_button).setOnLongClickListener(v -> {
-            toggleTerminalToolbar();
-            return true;
-        });
-    }
-
-
-
-
-
-    @SuppressLint("RtlHardcoded")
     @Override
     public void onBackPressed() {
-        if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
-            getDrawer().closeDrawers();
-        } else {
-            finishActivityIfNotFinishing();
-        }
+        finishActivityIfNotFinishing();
     }
 
     public void finishActivityIfNotFinishing() {
@@ -731,6 +773,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         b.show();
     }
 
+    private void showCloseSessionDialog(TerminalSession session) {
+        if (session == null) return;
+
+        final AlertDialog.Builder b = new AlertDialog.Builder(this);
+        b.setIcon(android.R.drawable.ic_dialog_alert);
+        b.setMessage(R.string.title_confirm_close_session);
+        b.setPositiveButton(android.R.string.yes, (dialog, id) -> {
+            dialog.dismiss();
+            mTermuxTerminalSessionActivityClient.closeSession(session);
+        });
+        b.setNegativeButton(android.R.string.no, null);
+        b.show();
+    }
+
     private void onResetTerminalSession(TerminalSession session) {
         if (session != null) {
             session.reset();
@@ -840,11 +896,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mExtraKeysView = extraKeysView;
     }
 
-    public DrawerLayout getDrawer() {
-        return (DrawerLayout) findViewById(R.id.drawer_layout);
-    }
-
-
     public ViewPager getTerminalToolbarViewPager() {
         return (ViewPager) findViewById(R.id.terminal_toolbar_view_pager);
     }
@@ -863,7 +914,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
     public void termuxSessionListNotifyUpdated() {
-        mTermuxSessionListViewController.notifyDataSetChanged();
+        refreshSessionsBar();
     }
 
     public boolean isVisible() {
@@ -996,7 +1047,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onReloadActivityStyling();
 
-        // To change the activity and drawer theme, activity needs to be recreated.
+        // To change the activity theme, activity needs to be recreated.
         // It will destroy the activity, including all stored variables and views, and onCreate()
         // will be called again. Extra keys input text, terminal sessions and transcripts will be preserved.
         if (recreateActivity) {

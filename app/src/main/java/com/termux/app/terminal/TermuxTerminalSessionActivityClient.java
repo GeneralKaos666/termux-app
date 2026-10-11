@@ -11,7 +11,6 @@ import android.graphics.Typeface;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
 import android.text.TextUtils;
-import android.widget.ListView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -35,7 +34,9 @@ import com.termux.terminal.TextStyle;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 
 /** The {@link TerminalSessionClient} implementation that may require an {@link Activity} for its interface methods. */
 public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionClientBase {
@@ -49,6 +50,13 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     private int mBellSoundId;
 
     private static final String LOG_TAG = "TermuxTerminalSessionActivityClient";
+
+    /**
+     * Handles of terminal sessions that the user has closed from the sessions bar while their
+     * process was still running. Once such a process exits, the session is removed instead of
+     * being kept around as a finished session.
+     */
+    private final Set<String> mSessionHandlesToRemoveOnExit = new HashSet<>();
 
     public TermuxTerminalSessionActivityClient(TermuxActivity activity) {
         this.mActivity = activity;
@@ -165,7 +173,11 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                 mActivity.showToast(toToastTitle(finishedSession) + " - exited", true);
         }
 
-        if (mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+        if (mSessionHandlesToRemoveOnExit.remove(finishedSession.mHandle)) {
+            // The user closed this session from the sessions bar while it was running, so drop it
+            // now that the process has exited instead of keeping it as a finished session.
+            removeFinishedSession(finishedSession);
+        } else if (mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
             // On Android TV devices we need to use older behaviour because we may
             // not be able to have multiple launcher icons.
             if (service.getTermuxSessionsSize() > 1 || isPluginExecutionCommandWithPendingResult) {
@@ -383,8 +395,6 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
             TerminalSession newTerminalSession = newTermuxSession.getTerminalSession();
             setCurrentSession(newTerminalSession);
-
-            mActivity.getDrawer().closeDrawers();
         }
     }
 
@@ -430,6 +440,21 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         return service.getTerminalSessionForHandle(sessionHandle);
     }
 
+    /**
+     * Close a session from the sessions bar. A running session is asked to exit and is removed once
+     * its process has finished, while an already finished session is removed immediately.
+     */
+    public void closeSession(TerminalSession session) {
+        if (session == null) return;
+
+        if (session.isRunning()) {
+            mSessionHandlesToRemoveOnExit.add(session.mHandle);
+            session.finishIfRunning();
+        } else {
+            removeFinishedSession(session);
+        }
+    }
+
     public void removeFinishedSession(TerminalSession finishedSession) {
         // Return pressed with finished session - remove it.
         TermuxService service = mActivity.getTermuxService();
@@ -457,17 +482,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     public void checkAndScrollToSession(TerminalSession session) {
         if (!mActivity.isVisible()) return;
-        TermuxService service = mActivity.getTermuxService();
-        if (service == null) return;
-
-        final int indexOfSession = service.getIndexOfSession(session);
-        if (indexOfSession < 0) return;
-        final ListView termuxSessionsListView = mActivity.findViewById(R.id.terminal_sessions_list);
-        if (termuxSessionsListView == null) return;
-
-        termuxSessionsListView.setItemChecked(indexOfSession, true);
-        // Delay is necessary otherwise sometimes scroll to newly added session does not happen
-        termuxSessionsListView.postDelayed(() -> termuxSessionsListView.smoothScrollToPosition(indexOfSession), 1000);
+        // The top sessions bar shows the active session and scrolls it into view on its own; just
+        // rebuild its snapshot. Config may be stale, e.g. the current-session flag not updated.
+        termuxSessionListNotifyUpdated();
     }
 
 

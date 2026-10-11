@@ -251,7 +251,7 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
             // If invisible despite margin, i.e a margin was added, but the bottom of bottomSpaceViewRect
             // is still below that of windowAvailableRect, this will trigger OnGlobalLayoutListener
             // again, so that margins are set properly. May happen when toolbar/extra keys is disabled
-            // and enabled from left drawer, just like case for isVisibleBecauseExtraMargin.
+            // and enabled from extra keys, just like case for isVisibleBecauseExtraMargin.
             // onMeasure: Setting bottom margin to 176
             // onGlobalLayout: windowAvailableRect 1232, bottomSpaceViewRect 1408, diff 176, bottom 176, isVisible false, isVisibleBecauseMargin false, isVisibleBecauseExtraMargin false
             // onGlobalLayout: Bottom margin already equals 176
