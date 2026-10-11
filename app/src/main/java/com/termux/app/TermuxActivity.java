@@ -31,6 +31,7 @@ import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
+import com.termux.app.ui.ShellHostKt;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.activity.ActivityUtils;
 import com.termux.shared.activity.media.AppCompatActivityUtils;
@@ -62,6 +63,7 @@ import com.termux.view.TerminalViewClient;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.compose.ui.platform.ComposeView;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
 
@@ -487,8 +489,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTermuxTerminalViewClient = new TermuxTerminalViewClient(this, mTermuxTerminalSessionActivityClient);
 
         // Set termux terminal view
-        mTerminalView = findViewById(R.id.terminal_view);
+        mTerminalView = (TerminalView) getLayoutInflater().inflate(R.layout.view_terminal, null);
         mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
+
+        // Host the terminal through the Compose shell. The terminal view is the single leaf Android
+        // view inside the Compose tree; the rest of the activity layout is unchanged for now.
+        ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
+        ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
