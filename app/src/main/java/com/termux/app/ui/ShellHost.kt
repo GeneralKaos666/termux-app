@@ -3,13 +3,25 @@ package com.termux.app.ui
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalView
@@ -19,6 +31,8 @@ import com.termux.app.ui.keys.ExtraKeysState
 import com.termux.app.ui.keys.QuickAction
 import com.termux.app.ui.sessions.SessionsBar
 import com.termux.app.ui.sessions.SessionsState
+import com.termux.app.ui.theme.TermuxShellTheme
+import com.termux.app.ui.theme.shellAnimationsEnabled
 import com.termux.shared.termux.extrakeys.ExtraKeysView
 
 /**
@@ -49,6 +63,9 @@ interface ShellHostCallbacks {
 
     /** Write [text] (or a newline when empty) to the current session. */
     fun onExtraKeysTextSend(text: String)
+
+    /** The user pressed Undo on the last snackbar with an undo action. */
+    fun onSnackbarUndo()
 }
 
 /**
@@ -68,11 +85,12 @@ fun installTerminalShellHost(
     terminalView: View,
     sessionsState: SessionsState,
     extraKeysState: ExtraKeysState,
+    snackbarState: SnackbarState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
     composeView.setContent {
-        TerminalShellHost(terminalView, sessionsState, extraKeysState, savedTextInput, callbacks)
+        TerminalShellHost(terminalView, sessionsState, extraKeysState, snackbarState, savedTextInput, callbacks)
     }
 }
 
@@ -81,39 +99,67 @@ private fun TerminalShellHost(
     terminalView: View,
     sessionsState: SessionsState,
     extraKeysState: ExtraKeysState,
+    snackbarState: SnackbarState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
     val hostView = LocalView.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val animationsEnabled = shellAnimationsEnabled()
 
-    // Dark-first chrome: the terminal and the extra-keys grid are always dark (see the activity
-    // theme), so the shell follows them rather than the system light/dark setting. A5 replaces
-    // this with the Termux palette / guarded Material You dynamic color.
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            SessionsBar(
-                sessions = sessionsState.sessions,
-                onSelect = callbacks::onSessionSelected,
-                onRename = callbacks::onSessionRename,
-                onClose = callbacks::onSessionClose,
-                onNewSession = callbacks::onNewSession,
-            )
-
-            AndroidView(
-                factory = { terminalView },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-            )
-
-            AnimatedVisibility(visible = extraKeysState.visible) {
-                ExtraKeysBar(
-                    state = extraKeysState,
-                    initialText = savedTextInput,
-                    callbacks = callbacks,
+    // Dark-first chrome: the terminal and the extra-keys grid are always dark, so the shell follows
+    // them rather than the system light/dark setting. Material You (dark variant) on API 31+,
+    // Termux palette fallback elsewhere; see the theme module.
+    TermuxShellTheme {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                SessionsBar(
+                    sessions = sessionsState.sessions,
+                    onSelect = callbacks::onSessionSelected,
+                    onRename = callbacks::onSessionRename,
+                    onClose = callbacks::onSessionClose,
+                    onNewSession = callbacks::onNewSession,
                 )
+
+                AndroidView(
+                    factory = { terminalView },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                )
+
+                AnimatedVisibility(
+                    visible = extraKeysState.visible,
+                    enter = if (animationsEnabled) expandVertically() + fadeIn() else EnterTransition.None,
+                    exit = if (animationsEnabled) shrinkVertically() + fadeOut() else ExitTransition.None,
+                ) {
+                    ExtraKeysBar(
+                        state = extraKeysState,
+                        initialText = savedTextInput,
+                        animationsEnabled = animationsEnabled,
+                        callbacks = callbacks,
+                    )
+                }
             }
+
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
+    }
+
+    LaunchedEffect(snackbarState.sequence) {
+        if (snackbarState.sequence <= 0) return@LaunchedEffect
+
+        val message = snackbarState.message ?: return@LaunchedEffect
+        val undoLabel = snackbarState.undoLabel
+        val result = if (undoLabel != null) {
+            snackbarHostState.showSnackbar(message, actionLabel = undoLabel, duration = SnackbarDuration.Short)
+        } else {
+            snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
+        }
+        if (result == SnackbarResult.ActionPerformed) callbacks.onSnackbarUndo()
     }
 
     SideEffect {

@@ -29,6 +29,7 @@ import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
 import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
+import com.termux.app.ui.SnackbarState;
 import com.termux.app.ui.keys.ExtraKeysState;
 import com.termux.app.ui.keys.QuickAction;
 import com.termux.app.ui.sessions.SessionItem;
@@ -142,6 +143,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private SessionsState mSessionsState;
 
     /**
+     * Compose-observable snackbar requests shown by the shell host.
+     */
+    private SnackbarState mSnackbarState;
+
+    /**
+     * The action to run if the user presses undo on the current snackbar, or {@code null}.
+     */
+    private Runnable mSnackbarUndoAction;
+
+    /**
      * The callbacks from the Compose sessions bar back into this activity.
      */
     private final ShellHostCallbacks mShellHostCallbacks = new ShellHostCallbacks() {
@@ -213,6 +224,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 session.write(text.length() == 0 ? "\r" : text);
             } else if (mTermuxTerminalSessionActivityClient != null) {
                 mTermuxTerminalSessionActivityClient.removeFinishedSession(session);
+            }
+        }
+
+        @Override
+        public void onSnackbarUndo() {
+            if (mSnackbarUndoAction != null) {
+                mSnackbarUndoAction.run();
+                mSnackbarUndoAction = null;
             }
         }
     };
@@ -586,13 +605,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mExtraKeysState.setVisible(mPreferences.shouldShowTerminalToolbar());
         updateExtraKeysBar();
 
+        mSnackbarState = new SnackbarState();
+
         String savedTextInput = null;
         if (savedInstanceState != null)
             savedTextInput = savedInstanceState.getString(ARG_TERMINAL_TOOLBAR_TEXT_INPUT);
 
         ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
         ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState,
-            mExtraKeysState, savedTextInput, mShellHostCallbacks);
+            mExtraKeysState, mSnackbarState, savedTextInput, mShellHostCallbacks);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
@@ -652,7 +673,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTermuxTerminalSessionActivityClient == null) return;
         TermuxSession termuxSession = getTermuxSessionAt(index);
         if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
-        mTermuxTerminalSessionActivityClient.renameSession(termuxSession.getTerminalSession());
+
+        final TerminalSession session = termuxSession.getTerminalSession();
+        final String oldName = session.mSessionName;
+        mTermuxTerminalSessionActivityClient.renameSession(session, () -> {
+            mSnackbarUndoAction = () -> {
+                if (mTermuxTerminalSessionActivityClient != null)
+                    mTermuxTerminalSessionActivityClient.renameSession(session, oldName);
+                refreshSessionsBar();
+            };
+            if (mSnackbarState != null)
+                mSnackbarState.post(getString(R.string.msg_session_renamed), getString(R.string.action_undo));
+        });
     }
 
     private void closeSessionAt(int index) {
@@ -666,6 +698,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             showCloseSessionDialog(session);
         } else {
             mTermuxTerminalSessionActivityClient.closeSession(session);
+            if (mSnackbarState != null)
+                mSnackbarState.post(getString(R.string.msg_session_closed));
         }
     }
 
@@ -844,6 +878,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         b.setPositiveButton(android.R.string.yes, (dialog, id) -> {
             dialog.dismiss();
             mTermuxTerminalSessionActivityClient.closeSession(session);
+            if (mSnackbarState != null)
+                mSnackbarState.post(getString(R.string.msg_session_closed));
         });
         b.setNegativeButton(android.R.string.no, null);
         b.show();

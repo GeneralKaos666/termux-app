@@ -64,6 +64,9 @@
     <string name="action_text_input">Text</string>
     <string name="action_hide_keys">Hide keys</string>
     <string name="action_show_keys">Show keys</string>
+    <string name="action_undo">Undo</string>
+    <string name="msg_session_renamed">Session renamed</string>
+    <string name="msg_session_closed">Session closed</string>
 
     <string name="msg_enabling_terminal_toolbar">Enabling Terminal Toolbar</string>
     <string name="msg_disabling_terminal_toolbar">Disabling Terminal Toolbar</string>

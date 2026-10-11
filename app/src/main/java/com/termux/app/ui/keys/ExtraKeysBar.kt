@@ -5,6 +5,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -67,6 +69,7 @@ enum class QuickAction { KEYBOARD, TEXT_INPUT, SETTINGS }
 fun ExtraKeysBar(
     state: ExtraKeysState,
     initialText: String?,
+    animationsEnabled: Boolean,
     callbacks: ShellHostCallbacks,
     modifier: Modifier = Modifier,
 ) {
@@ -83,7 +86,11 @@ fun ExtraKeysBar(
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface),
     ) {
-        AnimatedVisibility(visible = state.textInputVisible) {
+        AnimatedVisibility(
+            visible = state.textInputVisible,
+            enter = if (animationsEnabled) expandVertically(animationSpec = tween(180)) + fadeIn() else EnterTransition.None,
+            exit = if (animationsEnabled) shrinkVertically(animationSpec = tween(180)) + fadeOut() else ExitTransition.None,
+        ) {
             TextInputRow(pendingText = pendingText, callbacks = callbacks)
         }
 
@@ -95,8 +102,8 @@ fun ExtraKeysBar(
 
         AnimatedVisibility(
             visible = keysVisible && state.gridHeightPx > 0,
-            enter = expandVertically(animationSpec = tween(180)) + fadeIn(),
-            exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(),
+            enter = if (animationsEnabled) expandVertically(animationSpec = tween(180)) + fadeIn() else EnterTransition.None,
+            exit = if (animationsEnabled) shrinkVertically(animationSpec = tween(180)) + fadeOut() else ExitTransition.None,
         ) {
             AndroidView(
                 factory = { context ->

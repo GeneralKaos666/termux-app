@@ -354,15 +354,21 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     @SuppressLint("InflateParams")
     public void renameSession(final TerminalSession sessionToRename) {
+        renameSession(sessionToRename, (Runnable) null);
+    }
+
+    /** Same as {@link #renameSession(TerminalSession)} but runs [onRenamed] once the name is set. */
+    public void renameSession(final TerminalSession sessionToRename, final Runnable onRenamed) {
         if (sessionToRename == null) return;
 
         TextInputDialogUtils.textInput(mActivity, R.string.title_rename_session, sessionToRename.mSessionName, R.string.action_rename_session_confirm, text -> {
             renameSession(sessionToRename, text);
             termuxSessionListNotifyUpdated();
+            if (onRenamed != null) onRenamed.run();
         }, -1, null, -1, null, null);
     }
 
-    private void renameSession(TerminalSession sessionToRename, String text) {
+    public void renameSession(TerminalSession sessionToRename, String text) {
         if (sessionToRename == null) return;
         sessionToRename.mSessionName = text;
         TermuxService service = mActivity.getTermuxService();
