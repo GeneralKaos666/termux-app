@@ -17,7 +17,6 @@ import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
@@ -30,6 +29,8 @@ import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
 import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
+import com.termux.app.ui.keys.ExtraKeysState;
+import com.termux.app.ui.keys.QuickAction;
 import com.termux.app.ui.sessions.SessionItem;
 import com.termux.app.ui.sessions.SessionItemKt;
 import com.termux.app.ui.sessions.SessionsState;
@@ -46,8 +47,8 @@ import com.termux.app.activities.SettingsActivity;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
-import com.termux.app.terminal.io.TerminalToolbarViewPager;
 import com.termux.app.terminal.TermuxTerminalViewClient;
+import com.termux.app.terminal.io.FullScreenWorkAround;
 import com.termux.shared.termux.extrakeys.ExtraKeysView;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxUtils;
@@ -64,7 +65,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.compose.ui.platform.ComposeView;
-import androidx.viewpager.widget.ViewPager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -165,6 +165,56 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (mTermuxTerminalSessionActivityClient != null)
                 mTermuxTerminalSessionActivityClient.addNewSession(false, null);
         }
+
+        @Override
+        public void onExtraKeysViewCreated(ExtraKeysView extraKeysView) {
+            setExtraKeysView(extraKeysView);
+            if (mTermuxTerminalExtraKeys == null) return;
+
+            extraKeysView.setExtraKeysViewClient(mTermuxTerminalExtraKeys);
+            extraKeysView.setButtonTextAllCaps(mProperties.shouldExtraKeysTextBeAllCaps());
+            extraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
+
+            // Applied once, only while the bar is shown, matching the old toolbar behaviour.
+            if (!mFullScreenWorkAroundApplied && mProperties.isUsingFullScreen() && mProperties.isUsingFullScreenWorkAround()) {
+                mFullScreenWorkAroundApplied = true;
+                FullScreenWorkAround.apply(TermuxActivity.this);
+            }
+        }
+
+        @Override
+        public void onExtraKeysViewReleased() {
+            setExtraKeysView(null);
+        }
+
+        @Override
+        public void onExtraKeysAction(QuickAction action) {
+            switch (action) {
+                case KEYBOARD:
+                    if (mTermuxTerminalViewClient != null)
+                        mTermuxTerminalViewClient.onToggleSoftKeyboardRequest();
+                    break;
+                case TEXT_INPUT:
+                    setExtraKeysTextInputVisible(mExtraKeysState != null && !mExtraKeysState.getTextInputVisible());
+                    break;
+                case SETTINGS:
+                    startActivity(new Intent(TermuxActivity.this, SettingsActivity.class));
+                    break;
+
+            }
+        }
+
+        @Override
+        public void onExtraKeysTextSend(String text) {
+            TerminalSession session = getCurrentSession();
+            if (session == null) return;
+
+            if (session.isRunning()) {
+                session.write(text.length() == 0 ? "\r" : text);
+            } else if (mTermuxTerminalSessionActivityClient != null) {
+                mTermuxTerminalSessionActivityClient.removeFinishedSession(session);
+            }
+        }
     };
 
     /**
@@ -203,6 +253,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private int mNavBarHeight;
 
     private float mTerminalToolbarDefaultHeight;
+
+    /**
+     * The Compose-observable state of the bottom extra-keys bar.
+     */
+    private ExtraKeysState mExtraKeysState;
+
+    /**
+     * Whether the fullscreen soft-keyboard workaround has already been applied.
+     */
+    private boolean mFullScreenWorkAroundApplied;
 
 
     private static final int CONTEXT_MENU_SELECT_URL_ID = 0;
@@ -270,9 +330,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         }
 
-        setTermuxTerminalViewAndClients();
-
-        setTerminalToolbarView(savedInstanceState);
+        setTermuxTerminalViewAndClients(savedInstanceState);
 
         registerForContextMenu(mTerminalView);
 
@@ -503,7 +561,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
-    private void setTermuxTerminalViewAndClients() {
+    private void setTermuxTerminalViewAndClients(Bundle savedInstanceState) {
         // Set termux terminal view and session clients
         mTermuxTerminalSessionActivityClient = new TermuxTerminalSessionActivityClient(this);
         mTermuxTerminalViewClient = new TermuxTerminalViewClient(this, mTermuxTerminalSessionActivityClient);
@@ -512,12 +570,29 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTerminalView = (TerminalView) getLayoutInflater().inflate(R.layout.view_terminal, null);
         mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
 
-        // Host the terminal through the Compose shell. The terminal view is the single leaf Android
-        // view inside the Compose tree; the rest of the activity layout is unchanged for now.
+        // Set the extra-keys client. It is created before the Compose shell is installed because the
+        // shell's extra-keys bar calls back into it as soon as its first frame is composed.
+        mTermuxTerminalExtraKeys = new TermuxTerminalExtraKeys(this, mTerminalView,
+            mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient);
+
+        // Base height of a single extra-key row, in pixels. The total grid height scales with the
+        // number of rows and the terminal-toolbar height scale factor (see updateExtraKeysBar).
+        mTerminalToolbarDefaultHeight = getResources().getDimensionPixelSize(R.dimen.terminal_toolbar_extra_keys_row_height);
+
+        // Host the terminal and the extra-keys bar through the Compose shell. The terminal view is
+        // the single leaf Android view inside the Compose tree.
         mSessionsState = new SessionsState();
+        mExtraKeysState = new ExtraKeysState();
+        mExtraKeysState.setVisible(mPreferences.shouldShowTerminalToolbar());
+        updateExtraKeysBar();
+
+        String savedTextInput = null;
+        if (savedInstanceState != null)
+            savedTextInput = savedInstanceState.getString(ARG_TERMINAL_TOOLBAR_TEXT_INPUT);
 
         ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
-        ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState, mShellHostCallbacks);
+        ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState,
+            mExtraKeysState, savedTextInput, mShellHostCallbacks);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
@@ -596,48 +671,35 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
-    private void setTerminalToolbarView(Bundle savedInstanceState) {
-        mTermuxTerminalExtraKeys = new TermuxTerminalExtraKeys(this, mTerminalView,
-            mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient);
+    /**
+     * Updates the Compose extra-keys bar state from the active key set: the grid height is the
+     * per-row height times the number of rows and the configured height scale factor.
+     */
+    private void updateExtraKeysBar() {
+        if (mExtraKeysState == null) return;
 
-        final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
-        if (mPreferences.shouldShowTerminalToolbar()) terminalToolbarViewPager.setVisibility(View.VISIBLE);
+        final int rows = (mTermuxTerminalExtraKeys == null || mTermuxTerminalExtraKeys.getExtraKeysInfo() == null)
+            ? 0 : mTermuxTerminalExtraKeys.getExtraKeysInfo().getMatrix().length;
 
-        ViewGroup.LayoutParams layoutParams = terminalToolbarViewPager.getLayoutParams();
-        mTerminalToolbarDefaultHeight = layoutParams.height;
-
-        setTerminalToolbarHeight();
-
-        String savedTextInput = null;
-        if (savedInstanceState != null)
-            savedTextInput = savedInstanceState.getString(ARG_TERMINAL_TOOLBAR_TEXT_INPUT);
-
-        terminalToolbarViewPager.setAdapter(new TerminalToolbarViewPager.PageAdapter(this, savedTextInput));
-        terminalToolbarViewPager.addOnPageChangeListener(new TerminalToolbarViewPager.OnPageChangeListener(this, terminalToolbarViewPager));
-    }
-
-    private void setTerminalToolbarHeight() {
-        final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
-        if (terminalToolbarViewPager == null) return;
-
-        ViewGroup.LayoutParams layoutParams = terminalToolbarViewPager.getLayoutParams();
-        layoutParams.height = Math.round(mTerminalToolbarDefaultHeight *
-            (mTermuxTerminalExtraKeys.getExtraKeysInfo() == null ? 0 : mTermuxTerminalExtraKeys.getExtraKeysInfo().getMatrix().length) *
-            mProperties.getTerminalToolbarHeightScaleFactor());
-        terminalToolbarViewPager.setLayoutParams(layoutParams);
+        mExtraKeysState.setGridHeightPx(Math.round(mTerminalToolbarDefaultHeight * rows *
+            mProperties.getTerminalToolbarHeightScaleFactor()));
     }
 
     public void toggleTerminalToolbar() {
-        final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
-        if (terminalToolbarViewPager == null) return;
+        if (mExtraKeysState == null) return;
 
         final boolean showNow = mPreferences.toogleShowTerminalToolbar();
         Logger.showToast(this, (showNow ? getString(R.string.msg_enabling_terminal_toolbar) : getString(R.string.msg_disabling_terminal_toolbar)), true);
-        terminalToolbarViewPager.setVisibility(showNow ? View.VISIBLE : View.GONE);
-        if (showNow && isTerminalToolbarTextInputViewSelected()) {
-            // Focus the text input view if just revealed.
-            findViewById(R.id.terminal_toolbar_text_input).requestFocus();
-        }
+        mExtraKeysState.setVisible(showNow);
+        if (!showNow) setExtraKeysTextInputVisible(false);
+    }
+
+    /** Shows or hides the inline text-send field, moving focus where the soft keyboard follows it. */
+    private void setExtraKeysTextInputVisible(boolean visible) {
+        if (mExtraKeysState == null) return;
+
+        mExtraKeysState.setTextInputVisible(visible);
+        if (!visible && mTerminalView != null) mTerminalView.requestFocus();
     }
 
     private void saveTerminalToolbarTextInput(Bundle savedInstanceState) {
@@ -896,20 +958,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mExtraKeysView = extraKeysView;
     }
 
-    public ViewPager getTerminalToolbarViewPager() {
-        return (ViewPager) findViewById(R.id.terminal_toolbar_view_pager);
-    }
-
     public float getTerminalToolbarDefaultHeight() {
         return mTerminalToolbarDefaultHeight;
     }
 
     public boolean isTerminalViewSelected() {
-        return getTerminalToolbarViewPager().getCurrentItem() == 0;
+        return !isTerminalToolbarTextInputViewSelected();
     }
 
     public boolean isTerminalToolbarTextInputViewSelected() {
-        return getTerminalToolbarViewPager().getCurrentItem() == 1;
+        return mExtraKeysState != null && mExtraKeysState.getTextInputVisible();
     }
 
 
@@ -1037,7 +1095,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         setMargins();
-        setTerminalToolbarHeight();
+        updateExtraKeysBar();
 
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
 

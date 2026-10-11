@@ -49,6 +49,7 @@
     <string name="action_start_session">Start a session</string>
     <string name="action_rename_session">Rename</string>
     <string name="action_close_session">Close</string>
+    <string name="action_select_session">Switch to</string>
     <string name="session_state_running">Running</string>
     <string name="session_state_exited">Exited</string>
     <string name="session_state_exited_error">Exited with error</string>
@@ -59,6 +60,10 @@
     <string name="action_create_named_session_confirm">Create</string>
 
     <string name="action_toggle_soft_keyboard">Keyboard</string>
+    <string name="action_paste">Paste</string>
+    <string name="action_text_input">Text</string>
+    <string name="action_hide_keys">Hide keys</string>
+    <string name="action_show_keys">Show keys</string>
 
     <string name="msg_enabling_terminal_toolbar">Enabling Terminal Toolbar</string>
     <string name="msg_disabling_terminal_toolbar">Disabling Terminal Toolbar</string>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Height of a single extra-key row. The key grid height is this times the number of rows in
+         the active extra-keys layout and the configured terminal-toolbar height scale factor.
+         Matches the 37.5dp toolbar row used before the extra-keys bar moved to Compose. -->
+    <dimen name="terminal_toolbar_extra_keys_row_height">37.5dp</dimen>
+</resources>
