@@ -155,8 +155,7 @@ private fun SessionTab(
                 .clip(RoundedCornerShape(16.dp))
                 .background(containerColor)
                 .combinedClickable(
-                    onClick = { onSelect(item.id) },
-                    onLongClick = { menuExpanded = true },
+                    onClick = { menuExpanded = true },
                 )
                 .padding(horizontal = 12.dp, vertical = 6.dp)
                 .semantics {
@@ -183,6 +182,13 @@ private fun SessionTab(
         }
 
         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_select_session)) },
+                onClick = {
+                    menuExpanded = false
+                    onSelect(item.id)
+                },
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_rename_session)) },
                 onClick = {
