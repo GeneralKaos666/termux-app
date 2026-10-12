@@ -108,6 +108,21 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         return TERMUX_APP.IVALUE_TERMINAL_BACKGROUND_WALLPAPER.equals(getTerminalBackground());
     }
 
+    /** Whether a custom image is shown behind the terminal. */
+    public boolean shouldUseCustomImageTerminalBackground() {
+        return TERMUX_APP.IVALUE_TERMINAL_BACKGROUND_IMAGE.equals(getTerminalBackground());
+    }
+
+    /** Returns the persisted app-private file path of the custom terminal background image, or null if none. */
+    @Nullable
+    public String getTerminalBackgroundImagePath() {
+        return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_IMAGE, null, true);
+    }
+
+    public void setTerminalBackgroundImagePath(@Nullable String path) {
+        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_IMAGE, path, false);
+    }
+
     /** The dim percentage applied over the terminal background picture, 0-90, default 60. */
     public int getTerminalBackgroundDim() {
         return SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_DIM, TERMUX_APP.DEFAULT_TERMINAL_BACKGROUND_DIM);

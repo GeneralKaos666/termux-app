@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -747,13 +748,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      *
      * @param forceReload Reload the picture even if one is already showing (e.g. the wallpaper changed).
      */
-    private void syncTerminalBackground(boolean forceReload) {
+    public void syncTerminalBackground(boolean forceReload) {
         if (mTerminalBackgroundState == null || mPreferences == null) return;
 
         final boolean wallpaperMode = mPreferences.shouldUseWallpaperTerminalBackground();
+        final boolean imageMode = mPreferences.shouldUseCustomImageTerminalBackground();
         final int dim = mPreferences.getTerminalBackgroundDim();
 
-        if (!wallpaperMode) {
+        if (!wallpaperMode && !imageMode) {
             mTerminalBackgroundLoading = false;
             if (mTerminalBackgroundState.getBitmap() != null)
                 mTerminalBackgroundState.update(null, dim);
@@ -767,11 +769,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTerminalBackgroundLoading = true;
 
         new Thread(() -> {
-            final Bitmap wallpaperBitmap = loadSystemWallpaperBitmap();
+            final Bitmap backgroundBitmap = wallpaperMode ? loadSystemWallpaperBitmap() : loadCustomImageBitmap();
             runOnUiThread(() -> {
                 mTerminalBackgroundLoading = false;
                 if (mTerminalBackgroundState != null)
-                    mTerminalBackgroundState.update(wallpaperBitmap, mPreferences.getTerminalBackgroundDim());
+                    mTerminalBackgroundState.update(backgroundBitmap, mPreferences.getTerminalBackgroundDim());
             });
         }, "terminal-background-loader").start();
     }
@@ -779,6 +781,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /** Whether the system wallpaper is configured as the terminal background. */
     public boolean shouldUseWallpaperTerminalBackground() {
         return mPreferences != null && mPreferences.shouldUseWallpaperTerminalBackground();
+    }
+
+    /** Whether a custom image is configured as the terminal background. */
+    public boolean shouldUseCustomImageTerminalBackground() {
+        return mPreferences != null && mPreferences.shouldUseCustomImageTerminalBackground();
     }
 
     /** Loads the current system wallpaper as a bitmap downsampled to at most the screen size. */
@@ -813,6 +820,36 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         drawable.setBounds(0, 0, dstW, dstH);
         drawable.draw(canvas);
         return bitmap;
+    }
+
+    /** Loads the custom background image from the persisted app-private path, downsampled to about the screen size. */
+    @Nullable
+    private Bitmap loadCustomImageBitmap() {
+        String path = mPreferences != null ? mPreferences.getTerminalBackgroundImagePath() : null;
+        if (path == null || path.isEmpty()) return null;
+        try {
+            DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+            int targetW = displayMetrics.widthPixels;
+            int targetH = displayMetrics.heightPixels;
+
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(path, options);
+            int srcW = Math.max(options.outWidth, 1);
+            int srcH = Math.max(options.outHeight, 1);
+            int inSampleSize = 1;
+            while ((srcW / inSampleSize) > targetW * 2 || (srcH / inSampleSize) > targetH * 2)
+                inSampleSize *= 2;
+
+            options.inJustDecodeBounds = false;
+            options.inSampleSize = inSampleSize;
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            Bitmap bitmap = BitmapFactory.decodeFile(path, options);
+            return bitmap;
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the custom terminal background image", e);
+            return null;
+        }
     }
 
     public void toggleTerminalToolbar() {
@@ -1233,6 +1270,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setMargins();
         updateExtraKeysBar();
+        syncTerminalBackground(true);
 
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
 

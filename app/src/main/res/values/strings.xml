@@ -225,6 +225,9 @@
                 <string name="termux_terminal_view_terminal_background_title">Background</string>
                 <string name="termux_terminal_view_terminal_background_entry_solid">Solid colour</string>
                 <string name="termux_terminal_view_terminal_background_entry_wallpaper">System wallpaper</string>
+                <string name="termux_terminal_view_terminal_background_entry_image">Custom image</string>
+                <string name="termux_terminal_view_terminal_background_choose_image_title">Choose custom image</string>
+                <string name="termux_terminal_view_terminal_background_choose_image_summary">Pick an image file to use as the terminal background</string>
 
                 <!-- Terminal Background Dim -->
                 <string name="termux_terminal_view_terminal_background_dim_title">Background dim</string>

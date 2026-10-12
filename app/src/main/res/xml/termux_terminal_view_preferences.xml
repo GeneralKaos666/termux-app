@@ -22,6 +22,11 @@
             app:title="@string/termux_terminal_view_terminal_background_title"
             app:defaultValue="solid" />
 
+        <Preference
+            app:key="terminal_background_choose_image"
+            app:title="@string/termux_terminal_view_terminal_background_choose_image_title"
+            app:summary="@string/termux_terminal_view_terminal_background_choose_image_summary" />
+
         <SeekBarPreference
             app:key="terminal_background_dim"
             app:title="@string/termux_terminal_view_terminal_background_dim_title"

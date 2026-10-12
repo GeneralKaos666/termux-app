@@ -542,7 +542,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     public void updateBackgroundColor() {
         if (!mActivity.isVisible()) return;
-        if (mActivity.shouldUseWallpaperTerminalBackground()) return;
+        if (mActivity.shouldUseWallpaperTerminalBackground() || mActivity.shouldUseCustomImageTerminalBackground()) return;
         TerminalSession session = mActivity.getCurrentSession();
         if (session != null && session.getEmulator() != null) {
             mActivity.getWindow().getDecorView().setBackgroundColor(session.getEmulator().mColors.mCurrentColors[TextStyle.COLOR_INDEX_BACKGROUND]);
