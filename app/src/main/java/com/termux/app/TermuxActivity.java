@@ -37,6 +37,7 @@ import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
 import com.termux.app.ui.SnackbarState;
 import com.termux.app.ui.background.TerminalBackgroundState;
+import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
 import com.termux.app.ui.keys.QuickAction;
 import com.termux.app.ui.sessions.SessionItem;
@@ -165,6 +166,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private boolean mTerminalBackgroundLoading;
 
     /**
+     * Compose-observable first-run onboarding state (overlay + install progress).
+     */
+    private FirstRunState mFirstRunState;
+
+    /**
+     * Whether the first session to be created after the bootstrap install should be a failsafe session.
+     */
+    private boolean mLaunchFailsafe;
+
+    /**
      * The action to run if the user presses undo on the current snackbar, or {@code null}.
      */
     private Runnable mSnackbarUndoAction;
@@ -250,6 +261,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mSnackbarUndoAction.run();
                 mSnackbarUndoAction = null;
             }
+        }
+
+        @Override
+        public void onFirstRunInstall() {
+            startFirstRunBootstrapInstall();
         }
     };
 
@@ -516,18 +532,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (mTermuxService.isTermuxSessionsEmpty()) {
             if (mIsVisible) {
-                TermuxInstaller.setupBootstrapIfNeeded(TermuxActivity.this, () -> {
-                    if (mTermuxService == null) return; // Activity might have been destroyed.
-                    try {
-                        boolean launchFailsafe = false;
-                        if (intent != null && intent.getExtras() != null) {
-                            launchFailsafe = intent.getExtras().getBoolean(TERMUX_ACTIVITY.EXTRA_FAILSAFE_SESSION, false);
-                        }
-                        mTermuxTerminalSessionActivityClient.addNewSession(launchFailsafe, null);
-                    } catch (WindowManager.BadTokenException e) {
-                        // Activity finished - ignore.
-                    }
-                });
+                mLaunchFailsafe = intent != null && intent.getExtras() != null
+                    && intent.getExtras().getBoolean(TERMUX_ACTIVITY.EXTRA_FAILSAFE_SESSION, false);
+
+                if (TermuxInstaller.isBootstrapInstalled()) {
+                    // Existing install: start a session straight away (setupBootstrapIfNeeded
+                    // returns immediately when the prefix is present).
+                    TermuxInstaller.setupBootstrapIfNeeded(TermuxActivity.this, () -> addSessionAfterBootstrap());
+                } else {
+                    // First run: show the onboarding overlay instead of dropping straight into the
+                    // bootstrap install dialog. The overlay's Install action calls
+                    // startFirstRunBootstrapInstall().
+                    if (mFirstRunState != null) mFirstRunState.setVisible(true);
+                    requestStoragePermission(false);
+                }
             } else {
                 // The service connected while not in foreground - just bail out.
                 finishActivityIfNotFinishing();
@@ -547,6 +565,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         // Update the {@link TerminalSession} and {@link TerminalEmulator} clients.
         mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);
+    }
+
+    /** Adds the first session once the bootstrap install has finished. */
+    private void addSessionAfterBootstrap() {
+        if (mTermuxService == null) return; // Activity might have been destroyed.
+        try {
+            mTermuxTerminalSessionActivityClient.addNewSession(mLaunchFailsafe, null);
+        } catch (WindowManager.BadTokenException e) {
+            // Activity finished - ignore.
+        }
+    }
+
+    /** Starts the bootstrap install from the first-run overlay; the first session appears when done. */
+    public void startFirstRunBootstrapInstall() {
+        if (mFirstRunState != null) mFirstRunState.setInstalling(true);
+        TermuxInstaller.setupBootstrapIfNeeded(this, this::addSessionAfterBootstrap);
     }
 
     @Override
@@ -628,6 +662,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         mSnackbarState = new SnackbarState();
         mTerminalBackgroundState = new TerminalBackgroundState();
+        mFirstRunState = new FirstRunState();
 
         String savedTextInput = null;
         if (savedInstanceState != null)
@@ -635,7 +670,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
         ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState,
-            mExtraKeysState, mSnackbarState, mTerminalBackgroundState, savedTextInput, mShellHostCallbacks);
+            mExtraKeysState, mSnackbarState, mTerminalBackgroundState, mFirstRunState, savedTextInput, mShellHostCallbacks);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();

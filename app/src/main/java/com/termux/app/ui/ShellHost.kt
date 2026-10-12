@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.app.ui.background.TerminalBackgroundState
+import com.termux.app.ui.firstrun.FirstRunOverlay
+import com.termux.app.ui.firstrun.FirstRunState
 import com.termux.app.ui.keys.ExtraKeysBar
 import com.termux.app.ui.keys.ExtraKeysState
 import com.termux.app.ui.keys.QuickAction
@@ -72,6 +74,9 @@ interface ShellHostCallbacks {
 
     /** The user pressed Undo on the last snackbar with an undo action. */
     fun onSnackbarUndo()
+
+    /** The user pressed Install on the first-run overlay; starts the bootstrap install. */
+    fun onFirstRunInstall()
 }
 
 /**
@@ -93,6 +98,7 @@ fun installTerminalShellHost(
     extraKeysState: ExtraKeysState,
     snackbarState: SnackbarState,
     terminalBackgroundState: TerminalBackgroundState,
+    firstRunState: FirstRunState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
@@ -103,6 +109,7 @@ fun installTerminalShellHost(
             extraKeysState,
             snackbarState,
             terminalBackgroundState,
+            firstRunState,
             savedTextInput,
             callbacks,
         )
@@ -116,6 +123,7 @@ private fun TerminalShellHost(
     extraKeysState: ExtraKeysState,
     snackbarState: SnackbarState,
     terminalBackgroundState: TerminalBackgroundState,
+    firstRunState: FirstRunState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
@@ -189,6 +197,14 @@ private fun TerminalShellHost(
                 hostState = snackbarHostState,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
+
+            // First-run onboarding covers the whole shell until the first session exists.
+            if (firstRunState.visible && sessionsState.sessions.isEmpty()) {
+                FirstRunOverlay(
+                    installing = firstRunState.installing,
+                    onInstall = callbacks::onFirstRunInstall,
+                )
+            }
         }
     }
 

@@ -61,6 +61,28 @@ final class TermuxInstaller {
 
     private static final String LOG_TAG = "TermuxInstaller";
 
+    /** Whether a bootstrap install is currently running in the background. */
+    private static boolean mIsBootstrapInstalling;
+
+    /** The most recent install completion callback; the running install invokes it when finished. */
+    private static Runnable sWhenDone;
+
+    /** Whether the bootstrap prefix directory is fully installed (exists and is not empty). */
+    static boolean isBootstrapInstalled() {
+        return FileUtils.directoryFileExists(TERMUX_PREFIX_DIR_PATH, true)
+            && !TermuxFileUtils.isTermuxPrefixDirectoryEmpty();
+    }
+
+    /** Clears the install guard and returns the most recent completion callback, if any. */
+    private static Runnable takeWhenDoneAndMarkFinished() {
+        synchronized (TermuxInstaller.class) {
+            mIsBootstrapInstalling = false;
+            Runnable done = sWhenDone;
+            sWhenDone = null;
+            return done;
+        }
+    }
+
     /** Performs bootstrap setup if necessary. */
     static void setupBootstrapIfNeeded(final Activity activity, final Runnable whenDone) {
         String bootstrapErrorMessage;
@@ -114,10 +136,23 @@ final class TermuxInstaller {
             Logger.logInfo(LOG_TAG, "The termux prefix directory \"" + TERMUX_PREFIX_DIR_PATH + "\" does not exist but another file exists at its destination.");
         }
 
+        synchronized (TermuxInstaller.class) {
+            if (mIsBootstrapInstalling) {
+                // An install is already running (e.g. the activity was recreated mid-install and
+                // the first-run overlay started the install again). The running install invokes
+                // the latest completion callback when it finishes.
+                sWhenDone = whenDone;
+                return;
+            }
+            mIsBootstrapInstalling = true;
+            sWhenDone = whenDone;
+        }
+
         final ProgressDialog progress = ProgressDialog.show(activity, null, activity.getString(R.string.bootstrap_installer_body), true, false);
         new Thread() {
             @Override
             public void run() {
+                boolean installSucceeded = false;
                 try {
                     Logger.logInfo(LOG_TAG, "Installing " + TermuxConstants.TERMUX_APP_NAME + " bootstrap packages.");
 
@@ -221,18 +256,21 @@ final class TermuxInstaller {
                     // Recreate env file since termux prefix was wiped earlier
                     TermuxShellEnvironment.writeEnvironmentToFile(activity);
 
-                    activity.runOnUiThread(whenDone);
+                    installSucceeded = true;
 
                 } catch (final Exception e) {
                     showBootstrapErrorDialog(activity, whenDone, Logger.getStackTracesMarkdownString(null, Logger.getStackTracesStringArray(e)));
 
                 } finally {
+                    final boolean success = installSucceeded;
                     activity.runOnUiThread(() -> {
+                        final Runnable done = takeWhenDoneAndMarkFinished();
                         try {
                             progress.dismiss();
                         } catch (RuntimeException e) {
                             // Activity already dismissed - ignore.
                         }
+                        if (success && done != null) done.run();
                     });
                 }
             }
