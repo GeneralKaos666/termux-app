@@ -239,6 +239,18 @@
                 <string name="termux_terminal_view_terminal_background_dim_title">Background dim</string>
                 <string name="termux_terminal_view_terminal_background_dim_summary">Darkens the background picture to keep text readable. Percentage: %1$s</string>
 
+            <!-- Extra Keys Category -->
+            <string name="termux_terminal_view_extra_keys_header">Extra keys</string>
+
+                <!-- Extra Keys Preset -->
+                <string name="termux_terminal_view_extra_keys_preset_title">Preset</string>
+                <string name="termux_terminal_view_extra_keys_preset_entry_default">Default</string>
+                <string name="termux_terminal_view_extra_keys_preset_entry_compact">Compact</string>
+                <string name="termux_terminal_view_extra_keys_preset_entry_vim">Vim</string>
+                <string name="termux_terminal_view_extra_keys_preset_entry_emacs">Emacs</string>
+                <string name="termux_terminal_view_extra_keys_preset_note_title">Custom layouts win</string>
+                <string name="termux_terminal_view_extra_keys_preset_note_summary">An extra-keys property set in ~/.termux/termux.properties overrides the preset.</string>
+
 
 
     <!-- Termux:API App Preferences -->

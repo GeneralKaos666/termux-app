@@ -176,6 +176,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private boolean mLaunchFailsafe;
 
     /**
+     * The extra-keys preset last applied to the key matrix, used to detect Settings changes on resume.
+     */
+    private String mAppliedExtraKeysPreset = "";
+
+    /**
      * The action to run if the user presses undo on the current snackbar, or {@code null}.
      */
     private Runnable mSnackbarUndoAction;
@@ -452,6 +457,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // wallpaper changed while we were in the background).
         syncTerminalBackground(false);
 
+        // Apply an extra-keys preset change made in Settings. A custom extra-keys property in the
+        // properties file keeps winning over presets (see TermuxTerminalExtraKeys.setExtraKeys()).
+        String extraKeysPreset = mPreferences.getExtraKeysPreset();
+        if (!extraKeysPreset.equals(mAppliedExtraKeysPreset)) {
+            mAppliedExtraKeysPreset = extraKeysPreset;
+            reloadProperties();
+            if (mTermuxTerminalExtraKeys != null) {
+                mTermuxTerminalExtraKeys.reloadExtraKeys();
+                if (mExtraKeysView != null)
+                    mExtraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
+                updateExtraKeysBar();
+            }
+        }
+
         // Check if a crash happened on last run of the app or if a plugin crashed and show a
         // notification with the crash details if it did
         TermuxCrashUtils.notifyAppCrashFromCrashLogFile(this, LOG_TAG);
@@ -648,6 +667,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // shell's extra-keys bar calls back into it as soon as its first frame is composed.
         mTermuxTerminalExtraKeys = new TermuxTerminalExtraKeys(this, mTerminalView,
             mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient);
+        mAppliedExtraKeysPreset = mPreferences.getExtraKeysPreset();
 
         // Base height of a single extra-key row, in pixels. The total grid height scales with the
         // number of rows and the terminal-toolbar height scale factor (see updateExtraKeysBar).

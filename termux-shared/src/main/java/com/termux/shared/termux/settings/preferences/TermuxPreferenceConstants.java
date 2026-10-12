@@ -125,6 +125,13 @@ public final class TermuxPreferenceConstants {
          */
         public static final String KEY_TERMINAL_BACKGROUND_IMAGE = "terminal_background_image";
 
+        /**
+         * Defines the key for the extra-keys preset selected in Settings. Only applies while the
+         * user has no custom `extra-keys` property in the properties file.
+         */
+        public static final String KEY_EXTRA_KEYS_PRESET = "extra_keys_preset";
+        public static final String DEFAULT_IVALUE_EXTRA_KEYS_PRESET = "default";
+
 
         /**
          * Defines the key for whether the soft keyboard will be enabled, for cases where users want

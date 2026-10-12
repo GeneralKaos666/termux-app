@@ -39,4 +39,21 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        app:key="extra_keys"
+        app:title="@string/termux_terminal_view_extra_keys_header">
+
+        <ListPreference
+            app:key="extra_keys_preset"
+            app:title="@string/termux_terminal_view_extra_keys_preset_title"
+            app:defaultValue="default" />
+
+        <Preference
+            app:key="extra_keys_preset_note"
+            app:title="@string/termux_terminal_view_extra_keys_preset_note_title"
+            app:summary="@string/termux_terminal_view_extra_keys_preset_note_summary"
+            app:selectable="false" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

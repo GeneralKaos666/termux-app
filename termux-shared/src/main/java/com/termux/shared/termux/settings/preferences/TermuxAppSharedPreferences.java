@@ -123,6 +123,15 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_IMAGE, path, false);
     }
 
+    /** The extra-keys preset selected in Settings: default, compact, vim or emacs. */
+    public String getExtraKeysPreset() {
+        return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_EXTRA_KEYS_PRESET, TERMUX_APP.DEFAULT_IVALUE_EXTRA_KEYS_PRESET, false);
+    }
+
+    public void setExtraKeysPreset(String value) {
+        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_EXTRA_KEYS_PRESET, value, false);
+    }
+
     /** The dim percentage applied over the terminal background picture, 0-90, default 60. */
     public int getTerminalBackgroundDim() {
         return SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_DIM, TERMUX_APP.DEFAULT_TERMINAL_BACKGROUND_DIM);

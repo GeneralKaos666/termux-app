@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import com.termux.app.TermuxActivity;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalViewClient;
+import com.termux.app.ui.keys.KeySetPresets;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.extrakeys.ExtraKeysConstants;
 import com.termux.shared.termux.extrakeys.ExtraKeysInfo;
@@ -40,6 +41,11 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
         setExtraKeys();
     }
 
+    /** Rebuilds the key matrix from the properties file and the Settings preset. */
+    public void reloadExtraKeys() {
+        setExtraKeys();
+    }
+
 
     /**
      * Set the terminal extra keys and style.
@@ -52,6 +58,13 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
             // Check {@link #getExtraKeysInternalPropertyValueFromValue(String)} and
             // {@link #getExtraKeysStyleInternalPropertyValueFromValue(String)}
             String extrakeys = (String) mActivity.getProperties().getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS, true);
+
+            // A preset selected in Settings only applies while the user has not set their own
+            // extra-keys property in the properties file; the custom property always wins.
+            if (mActivity.getProperties().getPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS, null, true) == null) {
+                extrakeys = KeySetPresets.jsonFor(mActivity.getPreferences().getExtraKeysPreset());
+            }
+
             String extraKeysStyle = (String) mActivity.getProperties().getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_STYLE, true);
 
             ExtraKeysConstants.ExtraKeyDisplayMap extraKeyDisplayMap = ExtraKeysInfo.getCharDisplayMapForStyle(extraKeysStyle);

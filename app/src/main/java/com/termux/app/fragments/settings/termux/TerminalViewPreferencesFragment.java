@@ -55,6 +55,22 @@ public class TerminalViewPreferencesFragment extends PreferenceFragmentCompat {
                 return true;
             });
         }
+
+        ListPreference extraKeysPreset = findPreference("extra_keys_preset");
+        if (extraKeysPreset != null) {
+            extraKeysPreset.setEntries(new CharSequence[] {
+                getString(R.string.termux_terminal_view_extra_keys_preset_entry_default),
+                getString(R.string.termux_terminal_view_extra_keys_preset_entry_compact),
+                getString(R.string.termux_terminal_view_extra_keys_preset_entry_vim),
+                getString(R.string.termux_terminal_view_extra_keys_preset_entry_emacs),
+            });
+            extraKeysPreset.setEntryValues(new CharSequence[] {
+                TERMUX_APP.DEFAULT_IVALUE_EXTRA_KEYS_PRESET,
+                "compact",
+                "vim",
+                "emacs",
+            });
+        }
     }
 
     private static final int REQUEST_CODE_PICK_IMAGE = 1001;
@@ -186,17 +202,30 @@ class TerminalViewPreferencesDataStore extends PreferenceDataStore {
     public void putString(String key, String value) {
         if (mPreferences == null || key == null) return;
 
-        if ("terminal_background".equals(key))
-            mPreferences.setTerminalBackground(value);
+        switch (key) {
+            case "terminal_background":
+                mPreferences.setTerminalBackground(value);
+                break;
+            case "extra_keys_preset":
+                mPreferences.setExtraKeysPreset(value);
+                break;
+            default:
+                break;
+        }
     }
 
     @Override
     public String getString(String key, String defValue) {
         if (mPreferences == null) return defValue;
 
-        if ("terminal_background".equals(key))
-            return mPreferences.getTerminalBackground();
-        return defValue;
+        switch (key) {
+            case "terminal_background":
+                return mPreferences.getTerminalBackground();
+            case "extra_keys_preset":
+                return mPreferences.getExtraKeysPreset();
+            default:
+                return defValue;
+        }
     }
 
     @Override
