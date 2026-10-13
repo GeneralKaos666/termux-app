@@ -1,10 +1,7 @@
 package com.termux.app.ui.keys
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.PathParser
-import androidx.compose.ui.unit.dp
+import com.termux.app.ui.materialIcon
 
 /**
  * Vector icons for the extra-keys quick actions.
@@ -42,18 +39,4 @@ object QuickActionIcons {
         "ChevronUp",
         "M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z",
     )
-
-    private fun materialIcon(name: String, pathData: String): ImageVector =
-        ImageVector.Builder(
-            name = name,
-            defaultWidth = 24.dp,
-            defaultHeight = 24.dp,
-            viewportWidth = 24f,
-            viewportHeight = 24f,
-        ).apply {
-            addPath(
-                pathData = PathParser().parsePathString(pathData).toNodes(),
-                fill = SolidColor(Color.Black),
-            )
-        }.build()
 }

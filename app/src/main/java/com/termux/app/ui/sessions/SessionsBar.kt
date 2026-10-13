@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,9 +41,10 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.termux.R
+import com.termux.app.ui.theme.TermuxShellTheme
 
 /**
  * Always-visible, adaptive top strip of terminal sessions.
@@ -111,10 +113,10 @@ fun SessionsBar(
                 onClick = onNewSession,
                 modifier = Modifier.semantics { contentDescription = newSessionLabel },
             ) {
-                Text(
-                    text = "+",
-                    fontSize = 22.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Icon(
+                    imageVector = SessionIcons.Plus,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -173,10 +175,10 @@ private fun SessionTab(
             Spacer(Modifier.width(6.dp))
             Text(
                 text = item.title,
+                style = MaterialTheme.typography.titleSmall,
                 color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                fontSize = 13.sp,
             )
         }
 
@@ -241,4 +243,37 @@ private fun sessionStateColor(state: SessionState): Color = when (state) {
     SessionState.RUNNING -> Color(0xFF43A047)
     SessionState.EXITED_SUCCESS -> Color(0xFF9E9E9E)
     SessionState.EXITED_ERROR -> Color(0xFFE53935)
+}
+
+@Preview(name = "Sessions bar with sessions", showBackground = true, widthDp = 360)
+@Composable
+private fun SessionsBarPreview() {
+    TermuxShellTheme {
+        SessionsBar(
+            sessions = listOf(
+                SessionItem(1, "shell", true, 0, true),
+                SessionItem(4, "htop", true, 0, false),
+                SessionItem(7, "npm run build", false, 0, false),
+                SessionItem(9, "vim", false, 1, false),
+            ),
+            onSelect = {},
+            onRename = {},
+            onClose = {},
+            onNewSession = {},
+        )
+    }
+}
+
+@Preview(name = "Sessions bar empty", showBackground = true, widthDp = 360)
+@Composable
+private fun SessionsBarEmptyPreview() {
+    TermuxShellTheme {
+        SessionsBar(
+            sessions = emptyList(),
+            onSelect = {},
+            onRename = {},
+            onClose = {},
+            onNewSession = {},
+        )
+    }
 }

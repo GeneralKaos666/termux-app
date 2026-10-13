@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
  * the app's grey accent. Used below API 31 and whenever dynamic color is unavailable.
  */
 internal val TermuxFallbackColors: ColorScheme = darkColorScheme(
-    primary = Color(0xFFFFFFFF),
+    primary = Color(0xFFE0E0E0),
     onPrimary = Color(0xFF000000),
     primaryContainer = Color(0xFF3A3A3A),
     onPrimaryContainer = Color(0xFFECECEC),

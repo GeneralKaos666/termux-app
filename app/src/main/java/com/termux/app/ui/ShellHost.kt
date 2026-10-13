@@ -131,19 +131,26 @@ private fun TerminalShellHost(
     val snackbarHostState = remember { SnackbarHostState() }
     val animationsEnabled = shellAnimationsEnabled()
 
+    // While the first-run overlay is up there are no sessions yet; it is the only content, so the
+    // empty-state "start a session" button in the bar is not composed underneath it (it would be
+    // an unreachable, focusable duplicate).
+    val firstRunOverlayVisible = firstRunState.visible && sessionsState.sessions.isEmpty()
+
     // Dark-first chrome: the terminal and the extra-keys grid are always dark, so the shell follows
     // them rather than the system light/dark setting. Material You (dark variant) on API 31+,
     // Termux palette fallback elsewhere; see the theme module.
     TermuxShellTheme {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
-                SessionsBar(
-                    sessions = sessionsState.sessions,
-                    onSelect = callbacks::onSessionSelected,
-                    onRename = callbacks::onSessionRename,
-                    onClose = callbacks::onSessionClose,
-                    onNewSession = callbacks::onNewSession,
-                )
+                if (!firstRunOverlayVisible) {
+                    SessionsBar(
+                        sessions = sessionsState.sessions,
+                        onSelect = callbacks::onSessionSelected,
+                        onRename = callbacks::onSessionRename,
+                        onClose = callbacks::onSessionClose,
+                        onNewSession = callbacks::onNewSession,
+                    )
+                }
 
                 // The terminal view is painted transparent (its default background is the window
                 // decor colour behind the Compose host), so the configured background picture and
@@ -199,7 +206,7 @@ private fun TerminalShellHost(
             )
 
             // First-run onboarding covers the whole shell until the first session exists.
-            if (firstRunState.visible && sessionsState.sessions.isEmpty()) {
+            if (firstRunOverlayVisible) {
                 FirstRunOverlay(
                     installing = firstRunState.installing,
                     onInstall = callbacks::onFirstRunInstall,
