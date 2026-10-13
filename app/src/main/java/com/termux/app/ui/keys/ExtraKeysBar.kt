@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -207,7 +206,7 @@ private fun QuickActionsRow(
             Icon(
                 imageVector = if (keysVisible) QuickActionIcons.ChevronDown else QuickActionIcons.ChevronUp,
                 contentDescription = null,
-                tint = LocalContentColor.current,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
     }
@@ -225,7 +224,7 @@ private fun QuickActionIconButton(label: String, icon: ImageVector, view: View, 
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = LocalContentColor.current,
+            tint = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
