@@ -6,9 +6,10 @@ package com.termux.app.ui.sessions
  * This is the Compose-facing model; it deliberately carries no Android or session-service
  * references so it can be built and diffed purely from primitive session fields.
  *
- * @property id Stable identity of the session for as long as it exists, currently its index in the
- *   service session list. Indices are only reused after the list changes, at which point the bar is
- *   rebuilt from scratch.
+ * @property id Stable identity of the session for as long as it exists, assigned by the activity
+ *   and never reused while it lives. This is deliberately not the service list index: selection
+ *   callbacks carry it and the activity maps it back to the session, and list mutations cannot
+ *   shift one session's identity onto another.
  * @property title Single-line label shown on the tab.
  * @property running Whether the session process is still running.
  * @property exitCode Exit code of the session process; only meaningful when [running] is false.

@@ -77,7 +77,10 @@ import androidx.compose.ui.platform.ComposeView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A terminal emulator activity.
@@ -151,6 +154,24 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private SessionsState mSessionsState;
 
     /**
+     * Maps each live {@link TerminalSession} to the stable id shown by the Compose sessions bar.
+     * TerminalSession objects do not change identity across list mutations or title refreshes, so
+     * the id stays stable for the lifetime of a session and the bar's LazyRow keys never shift.
+     * Entries for closed sessions are kept; ids are never reused within an activity lifetime.
+     */
+    private final Map<TerminalSession, Integer> mSessionIds = new IdentityHashMap<>();
+
+    /**
+     * Reverse map from the stable session id back to its session, rebuilt on every refresh.
+     */
+    private final Map<Integer, TermuxSession> mSessionsById = new HashMap<>();
+
+    /**
+     * Monotonic counter for stable session ids; 0 is reserved.
+     */
+    private int mNextSessionId = 1;
+
+    /**
      * Compose-observable snackbar requests shown by the shell host.
      */
     private SnackbarState mSnackbarState;
@@ -191,17 +212,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private final ShellHostCallbacks mShellHostCallbacks = new ShellHostCallbacks() {
         @Override
         public void onSessionSelected(int id) {
-            selectSessionAt(id);
+            selectSessionById(id);
         }
 
         @Override
         public void onSessionRename(int id) {
-            renameSessionAt(id);
+            renameSessionById(id);
         }
 
         @Override
         public void onSessionClose(int id) {
-            closeSessionAt(id);
+            closeSessionById(id);
         }
 
         @Override
@@ -710,14 +731,24 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         final List<TermuxSession> sessions = (mTermuxService != null) ? mTermuxService.getTermuxSessions() : null;
         final TerminalSession currentSession = getCurrentSession();
 
+        mSessionsById.clear();
         if (sessions != null) {
             for (int i = 0; i < sessions.size(); i++) {
                 TermuxSession termuxSession = sessions.get(i);
                 TerminalSession terminalSession = (termuxSession != null) ? termuxSession.getTerminalSession() : null;
                 if (terminalSession == null) continue;
 
+                // Assign each session a stable id on first sight; entries for closed sessions stay
+                // in mSessionIds so a later session can never inherit a dead id.
+                Integer stableId = mSessionIds.get(terminalSession);
+                if (stableId == null) {
+                    stableId = ++mNextSessionId;
+                    mSessionIds.put(terminalSession, stableId);
+                }
+                mSessionsById.put(stableId, termuxSession);
+
                 items.add(SessionItemKt.sessionItem(
-                    i,
+                    stableId,
                     i + 1,
                     terminalSession.mSessionName,
                     terminalSession.getTitle(),
@@ -730,25 +761,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSessionsState.setSessions(items);
     }
 
-    /** Returns the service session at {@code index}, or {@code null} if out of range. */
+    /** Returns the session with the given stable bar id, or {@code null} if it was closed. */
     @Nullable
-    private TermuxSession getTermuxSessionAt(int index) {
-        if (mTermuxService == null) return null;
-        List<TermuxSession> sessions = mTermuxService.getTermuxSessions();
-        if (index < 0 || index >= sessions.size()) return null;
-        return sessions.get(index);
+    private TermuxSession getTermuxSessionById(int id) {
+        return mSessionsById.get(id);
     }
 
-    private void selectSessionAt(int index) {
+    private void selectSessionById(int id) {
         if (mTermuxTerminalSessionActivityClient == null) return;
-        TermuxSession termuxSession = getTermuxSessionAt(index);
+        TermuxSession termuxSession = getTermuxSessionById(id);
         if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
         mTermuxTerminalSessionActivityClient.setCurrentSession(termuxSession.getTerminalSession());
     }
 
-    private void renameSessionAt(int index) {
+    private void renameSessionById(int id) {
         if (mTermuxTerminalSessionActivityClient == null) return;
-        TermuxSession termuxSession = getTermuxSessionAt(index);
+        TermuxSession termuxSession = getTermuxSessionById(id);
         if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
 
         final TerminalSession session = termuxSession.getTerminalSession();
@@ -764,9 +792,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         });
     }
 
-    private void closeSessionAt(int index) {
+    private void closeSessionById(int id) {
         if (mTermuxTerminalSessionActivityClient == null) return;
-        TermuxSession termuxSession = getTermuxSessionAt(index);
+        TermuxSession termuxSession = getTermuxSessionById(id);
         if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
 
         TerminalSession session = termuxSession.getTerminalSession();
