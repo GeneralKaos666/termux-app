@@ -68,6 +68,7 @@
     <string name="action_toggle_soft_keyboard">Keyboard</string>
     <string name="action_paste">Paste</string>
     <string name="action_text_input">Text</string>
+    <string name="extra_keys_text_input_hint">Type a line to send</string>
     <string name="action_hide_keys">Hide keys</string>
     <string name="action_show_keys">Show keys</string>
     <string name="action_undo">Undo</string>

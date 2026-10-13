@@ -211,6 +211,7 @@ private fun TextInputRow(pendingText: Ref<String?>, callbacks: ShellHostCallback
         factory = { context ->
             val editText = LayoutInflater.from(context)
                 .inflate(R.layout.view_terminal_toolbar_text_input, null) as EditText
+            editText.hint = context.getString(R.string.extra_keys_text_input_hint)
             pendingText.value?.takeIf { it.isNotEmpty() }?.let { editText.setText(it) }
             pendingText.value = null
             editText.setOnEditorActionListener { v, _, _ ->

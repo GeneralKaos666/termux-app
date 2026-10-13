@@ -2,12 +2,14 @@ package com.termux.app.ui.sessions
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,10 +47,10 @@ import com.termux.R
 /**
  * Always-visible, adaptive top strip of terminal sessions.
  *
- * Renders one tab per [SessionItem]: the title plus a status dot (running / exited successfully /
- * exited with an error). Tapping a tab switches to that session; long-pressing one opens a menu to
- * rename or close it. A trailing "+" starts a new session. With many sessions the row scrolls, and
- * the active tab is always scrolled into view.
+ * Renders one tab per [SessionItem]: the title plus a status indicator (running / exited
+ * successfully / exited with an error). Tapping a tab switches to that session; long-pressing one
+ * opens a menu with actions for it. A trailing "+" starts a new session. With many sessions the
+ * row scrolls, and the active tab is always scrolled into view.
  *
  * This replaces the old navigation drawer session list.
  */
@@ -154,10 +156,12 @@ private fun SessionTab(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
                 .background(containerColor)
+                .heightIn(min = 48.dp)
                 .combinedClickable(
-                    onClick = { menuExpanded = true },
+                    onClick = { onSelect(item.id) },
+                    onLongClick = { menuExpanded = true },
                 )
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .padding(horizontal = 12.dp)
                 .semantics {
                     contentDescription = item.title
                     selected = item.active
@@ -165,12 +169,7 @@ private fun SessionTab(
                 },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(sessionStateColor(state))
-            )
+            SessionStateDot(state)
             Spacer(Modifier.width(6.dp))
             Text(
                 text = item.title,
@@ -204,6 +203,36 @@ private fun SessionTab(
                 },
             )
         }
+    }
+}
+
+/**
+ * Status indicator for a session state. Each state is a distinct shape as well as a distinct
+ * colour, so state is not conveyed by colour alone: running is a filled circle, exited-success is
+ * a hollow ring, exited-with-error is a square (WCAG 1.4.1).
+ */
+@Composable
+private fun SessionStateDot(state: SessionState) {
+    val color = sessionStateColor(state)
+    when (state) {
+        SessionState.RUNNING -> Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        SessionState.EXITED_SUCCESS -> Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .border(width = 2.dp, color = color, shape = CircleShape)
+        )
+        SessionState.EXITED_ERROR -> Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(color)
+        )
     }
 }
 
