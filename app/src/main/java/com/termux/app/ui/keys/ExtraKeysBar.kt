@@ -7,6 +7,9 @@ import android.widget.EditText
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -14,6 +17,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,11 +36,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.invisibleToUser
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -73,13 +80,30 @@ fun ExtraKeysBar(
     callbacks: ShellHostCallbacks,
     modifier: Modifier = Modifier,
 ) {
-    // Hoisted above AnimatedVisibility so restored text is applied once, and not again every time
-    // the field is hidden and re-shown.
+    // Hoisted above the animated container so restored text is applied once, and not again every
+    // time the field is hidden and re-shown.
     val pendingText = remember { Ref<String?>(initialText) }
     var keysVisible by rememberSaveable { mutableStateOf(true) }
 
     val density = LocalDensity.current
     val gridHeight = with(density) { state.gridHeightPx.toDp() }
+
+    // The grid's AndroidView stays composed and is only hidden by animating its container height
+    // and alpha: re-creating it on every collapse would re-inflate the view, re-wire the client and
+    // re-parse the custom extra-keys layout each time the user toggles the keys. The create/release
+    // contract with the activity therefore fires only when the whole bar is hidden or the activity
+    // is torn down, not on grid collapse.
+    val gridShown = keysVisible && state.gridHeightPx > 0
+    val gridHeightAnim by animateDpAsState(
+        targetValue = if (gridShown) gridHeight else 0.dp,
+        animationSpec = if (animationsEnabled) tween(180) else snap(),
+        label = "extraKeysGridHeight",
+    )
+    val gridAlpha by animateFloatAsState(
+        targetValue = if (gridShown) 1f else 0f,
+        animationSpec = if (animationsEnabled) tween(180) else snap(),
+        label = "extraKeysGridAlpha",
+    )
 
     Column(
         modifier = modifier
@@ -100,10 +124,17 @@ fun ExtraKeysBar(
             callbacks = callbacks,
         )
 
-        AnimatedVisibility(
-            visible = keysVisible && state.gridHeightPx > 0,
-            enter = if (animationsEnabled) expandVertically(animationSpec = tween(180)) + fadeIn() else EnterTransition.None,
-            exit = if (animationsEnabled) shrinkVertically(animationSpec = tween(180)) + fadeOut() else ExitTransition.None,
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(gridHeightAnim)
+                .clipToBounds()
+                .graphicsLayer { alpha = gridAlpha }
+                .then(
+                    // A zero-height clipped node would still expose its key buttons to screen
+                    // readers; hide it from them while collapsed.
+                    if (gridShown) Modifier else Modifier.semantics { invisibleToUser() }
+                ),
         ) {
             AndroidView(
                 factory = { context ->
