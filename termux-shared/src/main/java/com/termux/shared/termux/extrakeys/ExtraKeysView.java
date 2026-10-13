@@ -2,6 +2,9 @@ package com.termux.shared.termux.extrakeys;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.res.ColorStateList;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -414,6 +417,14 @@ public final class ExtraKeysView extends GridLayout {
                 button.setAllCaps(mButtonTextAllCaps);
                 button.setPadding(0, 0, 0, 0);
 
+                // Capture the MaterialButton's stock background and its theme background tint before
+                // any gesture can replace them. The stock background is a RippleDrawable whose
+                // backgroundTint is fully transparent in the normal state, so a pressed color painted
+                // with setBackground(setBackgroundColor()) alone would be tinted away. Both must be
+                // saved and restored on release, or a press would leave the key shaded forever.
+                final Drawable defaultButtonBackground = button.getBackground();
+                final ColorStateList defaultButtonBackgroundTint = button.getBackgroundTintList();
+
                 button.setOnClickListener(view -> {
                     performExtraKeyButtonHapticFeedback(view, buttonInfo, button);
                     onAnyExtraKeyButtonClick(view, buttonInfo, button);
@@ -422,7 +433,11 @@ public final class ExtraKeysView extends GridLayout {
                 button.setOnTouchListener((view, event) -> {
                     switch (event.getAction()) {
                         case MotionEvent.ACTION_DOWN:
-                            view.setBackgroundColor(mButtonActiveBackgroundColor);
+                            // Paint the pressed background with a plain ColorDrawable. The stock
+                            // background tint is transparent in the normal state, so it must be
+                            // cleared or it would tint the pressed color away entirely.
+                            view.setBackground(new ColorDrawable(mButtonActiveBackgroundColor));
+                            view.setBackgroundTintList(null);
                             // Start long press scheduled executors which will be stopped in next MotionEvent
                             startScheduledExecutors(view, buttonInfo, button);
                             return true;
@@ -432,23 +447,31 @@ public final class ExtraKeysView extends GridLayout {
                                 // Show popup on swipe up
                                 if (mPopupWindow == null && event.getY() < 0) {
                                     stopScheduledExecutors();
-                                    view.setBackgroundColor(mButtonBackgroundColor);
+                                    view.setBackground(defaultButtonBackground);
+                                    view.setBackgroundTintList(defaultButtonBackgroundTint);
                                     showPopup(view, buttonInfo.getPopup());
                                 }
                                 if (mPopupWindow != null && event.getY() > 0) {
-                                    view.setBackgroundColor(mButtonActiveBackgroundColor);
+                                    view.setBackground(new ColorDrawable(mButtonActiveBackgroundColor));
+                                    view.setBackgroundTintList(null);
                                     dismissPopup();
                                 }
                             }
                             return true;
 
                         case MotionEvent.ACTION_CANCEL:
-                            view.setBackgroundColor(mButtonBackgroundColor);
+                            view.setBackground(defaultButtonBackground);
+                            view.setBackgroundTintList(defaultButtonBackgroundTint);
                             stopScheduledExecutors();
                             return true;
 
                         case MotionEvent.ACTION_UP:
-                            view.setBackgroundColor(mButtonBackgroundColor);
+                            // Restore the stock background and its tint exactly so a gesture can
+                            // never leave the key painted. setBackgroundColor() would keep the key
+                            // filled with the theme's normal button color (black), which is why a
+                            // pressed key used to stay shaded forever until its view was recreated.
+                            view.setBackground(defaultButtonBackground);
+                            view.setBackgroundTintList(defaultButtonBackgroundTint);
                             stopScheduledExecutors();
                             // If ACTION_UP up was not from a repetitive key or was with a key with a popup button
                             if (mLongPressCount == 0 || mPopupWindow != null) {
@@ -606,7 +629,10 @@ public final class ExtraKeysView extends GridLayout {
         button.setMinimumHeight(0);
         button.setWidth(width);
         button.setHeight(height);
-        button.setBackgroundColor(mButtonActiveBackgroundColor);
+        // Same setBackground() reasoning as in the touch handler: the stock background tint is
+        // transparent in the normal state, so clear it or the pressed color is tinted away.
+        button.setBackground(new ColorDrawable(mButtonActiveBackgroundColor));
+        button.setBackgroundTintList(null);
         mPopupWindow = new PopupWindow(this);
         mPopupWindow.setWidth(LayoutParams.WRAP_CONTENT);
         mPopupWindow.setHeight(LayoutParams.WRAP_CONTENT);
