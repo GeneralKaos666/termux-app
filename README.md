@@ -31,5 +31,17 @@ needed Conscrypt natives, and one where Compose previews broke the release build
 
 ## What's next
 
-I have no fixed plan. The shell is a maybe, along with the terminal engine and emulator
-(`:terminal-emulator`) and the terminal view (`:terminal-view`).
+I have a shortlist now, and a plan written down for the first piece.
+
+Next up is how the terminal looks. That is handled by the separate Termux:Styling app today, and
+without it the Style menu just offers to install it. I want to bring it in-house: a full-screen
+Appearance screen with colour-scheme presets, a custom colour editor, a font picker, font size and
+cursor style, and a preview so you can see a scheme before you apply it. It replaces the styling app
+rather than sitting beside it.
+
+Sessions come after that. The bar works, but its tabs cannot be reordered or pinned yet, which is
+the easy half. The bigger half is durability: a running shell cannot outlive the app process,
+because the terminal lives inside it, so restoring really means remembering a session snapshot and
+starting fresh ones on the next launch. I will write that one up separately before building it.
+
+The shell, the emulator (`:terminal-emulator`) and the view (`:terminal-view`) are still maybes.
