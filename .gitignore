@@ -28,6 +28,10 @@ local.properties
 *.swo
 *.swp
 
+# Backup files
+*.bak
+*.bak-*
+
 # OS-specific files
 .DS_Store
 .DS_Store?
