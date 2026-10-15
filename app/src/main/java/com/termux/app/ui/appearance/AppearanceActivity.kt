@@ -16,8 +16,8 @@ import java.io.File
 
 /**
  * Hosts the Compose [AppearanceScreen]. Reached from the terminal's Style action and Settings; on
- * Apply it writes the appearance and finishes with [RESULT_OK] so the caller can reload the live
- * terminal (the reload broadcast is ignored while the terminal is not visible).
+ * Apply it writes the appearance and bumps the styling revision, so the terminal reloads when it
+ * next resumes (the reload broadcast is ignored while the terminal is not visible).
  */
 class AppearanceActivity : ComponentActivity() {
 
@@ -65,7 +65,9 @@ class AppearanceActivity : ComponentActivity() {
         result.fontError?.let { error ->
             Toast.makeText(this, fontErrorMessage(error), Toast.LENGTH_LONG).show()
         }
-        setResult(RESULT_OK)
+        // Bump the revision so the terminal reloads when it next resumes; the reload cannot be a
+        // broadcast because the terminal is stopped while this screen is on top (see AppearanceStyling).
+        AppearanceStyling.bumpRevision(this)
         finish()
     }
 
@@ -112,7 +114,10 @@ class AndroidAppearancePreferences(context: Context) : AppearancePreferences {
         TermuxAppSharedPreferences.build(context.applicationContext)
 
     private val appearancePreferences =
-        context.applicationContext.getSharedPreferences(APPEARANCE_PREFERENCES_FILE, Context.MODE_PRIVATE)
+        context.applicationContext.getSharedPreferences(
+            AppearancePreferenceKeys.PREFERENCES_FILE,
+            Context.MODE_PRIVATE,
+        )
 
     /**
      * The selectable font-size range in physical pixels, from the app's density-aware defaults
@@ -159,7 +164,6 @@ class AndroidAppearancePreferences(context: Context) : AppearancePreferences {
         TermuxAppSharedProperties.getProperties()?.getTerminalCursorBlinkRate()
 
     private companion object {
-        const val APPEARANCE_PREFERENCES_FILE = "termux_appearance"
         const val DEFAULT_FONT_SIZE = 14
     }
 }

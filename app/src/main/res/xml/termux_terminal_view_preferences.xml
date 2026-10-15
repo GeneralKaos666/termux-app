@@ -5,6 +5,11 @@
         app:key="view"
         app:title="@string/termux_terminal_view_view_header">
 
+        <Preference
+            app:key="appearance"
+            app:title="@string/termux_terminal_view_appearance_title"
+            app:summary="@string/termux_terminal_view_appearance_summary" />
+
         <SwitchPreferenceCompat
             app:key="terminal_margin_adjustment"
             app:summaryOff="@string/termux_terminal_view_terminal_margin_adjustment_off"

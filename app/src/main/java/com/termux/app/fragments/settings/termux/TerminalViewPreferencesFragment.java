@@ -13,6 +13,7 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceManager;
 
 import com.termux.R;
+import com.termux.app.ui.appearance.AppearanceActivity;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_APP;
 
@@ -28,6 +29,14 @@ public class TerminalViewPreferencesFragment extends PreferenceFragmentCompat {
         preferenceManager.setPreferenceDataStore(TerminalViewPreferencesDataStore.getInstance(context));
 
         setPreferencesFromResource(R.xml.termux_terminal_view_preferences, rootKey);
+
+        Preference appearance = findPreference("appearance");
+        if (appearance != null) {
+            appearance.setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(getContext(), AppearanceActivity.class));
+                return true;
+            });
+        }
 
         ListPreference terminalBackground = findPreference("terminal_background");
         if (terminalBackground != null) {

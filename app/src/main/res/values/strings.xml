@@ -157,6 +157,9 @@
     <string name="appearance_font_error_too_large">The font file is too large.</string>
     <string name="appearance_font_error_copy_failed">Could not install the font.</string>
 
+    <string name="termux_terminal_view_appearance_title">Appearance</string>
+    <string name="termux_terminal_view_appearance_summary">Colours, font and cursor</string>
+
 
 
     <!-- Termux Notifications -->
