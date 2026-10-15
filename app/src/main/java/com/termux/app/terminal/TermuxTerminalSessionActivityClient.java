@@ -20,6 +20,7 @@ import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.interact.TextInputDialogUtils;
 import com.termux.app.TermuxActivity;
+import com.termux.app.ui.appearance.CursorPreferences;
 import com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.app.TermuxService;
@@ -27,6 +28,7 @@ import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 import com.termux.shared.termux.terminal.io.BellHandler;
 import com.termux.shared.logger.Logger;
 import com.termux.terminal.TerminalColors;
+import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.terminal.TextStyle;
@@ -42,6 +44,9 @@ import java.util.Set;
 public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionClientBase {
 
     private final TermuxActivity mActivity;
+
+    /** Resolves the cursor style the terminal should use: the appearance pref, else `termux.properties`. */
+    private final CursorPreferences mCursorPreferences;
 
     private static final int MAX_SESSIONS = 8;
 
@@ -60,6 +65,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     public TermuxTerminalSessionActivityClient(TermuxActivity activity) {
         this.mActivity = activity;
+        this.mCursorPreferences = new CursorPreferences(activity);
     }
 
     /**
@@ -118,6 +124,11 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void onReloadActivityStyling() {
         // Set terminal fonts and colors
         checkForFontAndColors();
+
+        // Re-read the cursor style: the emulator only reads it when the session client is set or the
+        // emulator is reset, so a change from the appearance screen has to be pushed here.
+        TerminalEmulator emulator = mActivity.getTerminalView().mEmulator;
+        if (emulator != null) emulator.setCursorStyle();
     }
 
 
@@ -270,7 +281,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     @Override
     public Integer getTerminalCursorStyle() {
-        return mActivity.getProperties().getTerminalCursorStyle();
+        return mCursorPreferences.cursorStyle();
     }
 
 

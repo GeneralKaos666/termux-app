@@ -11,7 +11,6 @@ import com.termux.R
 import com.termux.app.ui.theme.TermuxShellTheme
 import com.termux.shared.termux.TermuxConstants
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences
-import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties
 import java.io.File
 
 /**
@@ -105,19 +104,15 @@ class AppearanceActivity : ComponentActivity() {
 
 /**
  * The Android-backed [AppearancePreferences]. Font size uses the app's existing preference; the
- * cursor settings live in an app-local file, falling back to `termux.properties` so a value set
- * there is still shown and honoured until the screen overrides it.
+ * cursor settings are resolved by [CursorPreferences], which prefers an app-local override and
+ * falls back to `termux.properties`.
  */
 class AndroidAppearancePreferences(context: Context) : AppearancePreferences {
 
     private val appPreferences: TermuxAppSharedPreferences? =
         TermuxAppSharedPreferences.build(context.applicationContext)
 
-    private val appearancePreferences =
-        context.applicationContext.getSharedPreferences(
-            AppearancePreferenceKeys.PREFERENCES_FILE,
-            Context.MODE_PRIVATE,
-        )
+    private val cursorPreferences = CursorPreferences(context)
 
     /**
      * The selectable font-size range in physical pixels, from the app's density-aware defaults
@@ -132,36 +127,13 @@ class AndroidAppearancePreferences(context: Context) : AppearancePreferences {
         appPreferences?.setFontSize(size)
     }
 
-    override fun getCursorStyle(): Int? =
-        if (appearancePreferences.contains(AppearancePreferenceKeys.CURSOR_STYLE)) {
-            appearancePreferences.getInt(AppearancePreferenceKeys.CURSOR_STYLE, CursorStyle.BLOCK.value)
-        } else {
-            propertiesCursorStyle()
-        }
+    override fun getCursorStyle(): Int? = cursorPreferences.cursorStyle()
 
-    override fun setCursorStyle(style: Int?) = putCursorPreference(AppearancePreferenceKeys.CURSOR_STYLE, style)
+    override fun setCursorStyle(style: Int?) = cursorPreferences.setCursorStyle(style)
 
-    override fun getCursorBlinkRate(): Int? =
-        if (appearancePreferences.contains(AppearancePreferenceKeys.CURSOR_BLINK_RATE)) {
-            appearancePreferences.getInt(AppearancePreferenceKeys.CURSOR_BLINK_RATE, 0)
-        } else {
-            propertiesCursorBlinkRate()
-        }
+    override fun getCursorBlinkRate(): Int? = cursorPreferences.cursorBlinkRate()
 
-    override fun setCursorBlinkRate(rate: Int?) =
-        putCursorPreference(AppearancePreferenceKeys.CURSOR_BLINK_RATE, rate)
-
-    private fun putCursorPreference(key: String, value: Int?) {
-        appearancePreferences.edit().apply {
-            if (value == null) remove(key) else putInt(key, value)
-        }.apply()
-    }
-
-    private fun propertiesCursorStyle(): Int? =
-        TermuxAppSharedProperties.getProperties()?.getTerminalCursorStyle()
-
-    private fun propertiesCursorBlinkRate(): Int? =
-        TermuxAppSharedProperties.getProperties()?.getTerminalCursorBlinkRate()
+    override fun setCursorBlinkRate(rate: Int?) = cursorPreferences.setCursorBlinkRate(rate)
 
     private companion object {
         const val DEFAULT_FONT_SIZE = 14
