@@ -105,6 +105,7 @@
         <activity
             android:name=".app.ui.appearance.AppearanceActivity"
             android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|density|screenLayout|keyboard|keyboardHidden|navigation"
             android:label="@string/title_activity_appearance"
             android:resizeableActivity="true"
             android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar"

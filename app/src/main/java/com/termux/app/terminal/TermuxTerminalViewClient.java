@@ -150,6 +150,9 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         // Show the soft keyboard if required
         setSoftKeyboardState(false, true);
 
+        // Re-apply the font size: it is an app preference and a styling reload does not recreate the view
+        mActivity.getTerminalView().setTextSize(mActivity.getPreferences().getFontSize());
+
         // Start terminal cursor blinking if enabled
         setTerminalCursorBlinkerState(true);
     }

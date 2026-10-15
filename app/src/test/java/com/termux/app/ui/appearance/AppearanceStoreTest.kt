@@ -10,6 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.io.IOException
 
 /**
  * Unit tests for reading and writing the appearance: `colors.properties` (managed keys rewritten,
@@ -285,6 +286,31 @@ class AppearanceStoreTest {
 
         assertEquals(FontError.TOO_LARGE, result.fontError)
         assertEquals(false, fontFile.exists())
+    }
+
+    @Test
+    fun `write installs the font without leaving a temp file behind`() {
+        val source = temp.newFile("MyFont.ttf").apply { writeBytes(ttfBytes()) }
+        val store = store()
+
+        store.write(appearance(), fontSource = source)
+
+        assertEquals(setOf(fontFile.name, colorsFile.name), fontFile.parentFile!!.list()!!.toSet())
+    }
+
+    @Test
+    fun `write keeps the previous font when installing the new one fails partway`() {
+        fontFile.writeBytes(ttfBytes())
+        val previous = fontFile.readBytes().toList()
+        val source = temp.newFile("MyFont.ttf").apply { writeBytes(ttfBytes()) }
+        val store = AppearanceStore(colorsFile, fontFile, FakePreferences()) { _, target ->
+            target.outputStream().use { it.write(0x6a) } // a partial write, then a failure
+            throw IOException("simulated install failure")
+        }
+        val result = store.write(appearance(), fontSource = source)
+        assertEquals(FontError.COPY_FAILED, result.fontError)
+        assertEquals(previous, fontFile.readBytes().toList())
+        assertFalse(File(fontFile.parentFile, fontFile.name + ".tmp").exists())
     }
 
     @Test

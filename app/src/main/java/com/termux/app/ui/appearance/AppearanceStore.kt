@@ -93,6 +93,13 @@ class AppearanceStore(
     private val colorsFile: File,
     private val fontFile: File,
     private val preferences: AppearancePreferences,
+    /**
+     * How a validated candidate font is copied onto its install target. Injectable so a test can
+     * force the copy to fail and check that the previously installed font survives.
+     */
+    private val copyForInstall: (source: File, target: File) -> Unit = { source, target ->
+        source.copyTo(target, overwrite = true)
+    },
 ) {
 
     /** Reads the effective appearance, falling back to the Termux default scheme. */
@@ -171,17 +178,32 @@ class AppearanceStore(
     private fun installedFontPath(): String? =
         if (fontFile.isFile && fontFile.length() > 0) fontFile.path else null
 
-    private fun installFont(source: File): Boolean = try {
-        source.copyTo(fontFile, overwrite = true)
-        true
-    } catch (e: IOException) {
-        false
+    /**
+     * Installs [source] by copying it to a sibling temp file and renaming it into place, so a copy
+     * that fails partway leaves the previously installed font untouched instead of truncating it.
+     */
+    private fun installFont(source: File): Boolean {
+        val directory = fontFile.parentFile ?: return false
+        val temp = File(directory, fontFile.name + INSTALL_TEMP_SUFFIX)
+        return try {
+            copyForInstall(source, temp)
+            if (temp.renameTo(fontFile)) {
+                true
+            } else {
+                temp.delete()
+                false
+            }
+        } catch (e: Exception) {
+            temp.delete()
+            false
+        }
     }
 
     private companion object {
         const val BACKGROUND_BRIGHTNESS_THRESHOLD = 130
         const val CURSOR_ON_DARK = 0xffffffff.toInt()
         const val CURSOR_ON_LIGHT = 0xff000000.toInt()
+        const val INSTALL_TEMP_SUFFIX = ".tmp"
     }
 }
 

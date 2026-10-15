@@ -12,6 +12,7 @@ import com.termux.app.ui.theme.TermuxShellTheme
 import com.termux.shared.termux.TermuxConstants
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences
 import java.io.File
+import java.io.InputStream
 
 /**
  * Hosts the Compose [AppearanceScreen]. Reached from the terminal's Style action and Settings; on
@@ -23,6 +24,9 @@ class AppearanceActivity : ComponentActivity() {
     private lateinit var controller: AppearanceController
     private lateinit var preferences: AndroidAppearancePreferences
 
+    /** The cache file staged for the last pick, deleted when a newer pick replaces it. */
+    private var pendingFontCandidate: File? = null
+
     private val pickFont = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@registerForActivityResult
 
@@ -30,8 +34,17 @@ class AppearanceActivity : ComponentActivity() {
         val error = candidate?.let(FontValidator::validate)
         when {
             candidate == null -> Toast.makeText(this, R.string.appearance_font_error_not_found, Toast.LENGTH_SHORT).show()
-            error != null -> Toast.makeText(this, fontErrorMessage(error), Toast.LENGTH_SHORT).show()
-            else -> controller.chooseFont(candidate)
+            error != null -> {
+                candidate.delete()
+                Toast.makeText(this, fontErrorMessage(error), Toast.LENGTH_SHORT).show()
+            }
+            else -> {
+                // Each pick gets its own cache file, so the preview reloads the typeface instead of
+                // reusing the one already cached against the previous file's (unchanged) path.
+                pendingFontCandidate?.delete()
+                pendingFontCandidate = candidate
+                controller.chooseFont(candidate)
+            }
         }
     }
 
@@ -71,22 +84,54 @@ class AppearanceActivity : ComponentActivity() {
     }
 
     /**
-     * Copies the picked document into the cache so the store installs a stable file. Returns `null`
-     * when the document cannot be read or is obviously not a font-sized file.
+     * Copies the picked document into a fresh cache file so the store installs a stable file and the
+     * preview sees a distinct path per pick. Returns `null` when the document cannot be read or is
+     * obviously not a font-sized file.
      */
-    private fun copyFontToCache(uri: Uri): File? = try {
-        val length = contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
-        if (length == 0L || length > FontValidator.MAX_FONT_BYTES) {
-            null
-        } else {
-            val target = File(cacheDir, FONT_CANDIDATE_FILE_NAME)
-            contentResolver.openInputStream(uri)?.use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
-            }
-            target.takeIf { it.isFile && it.length() > 0 }
+    private fun copyFontToCache(uri: Uri): File? {
+        val target = try {
+            File.createTempFile(FONT_CANDIDATE_PREFIX, FONT_CANDIDATE_SUFFIX, cacheDir)
+        } catch (t: Throwable) {
+            return null
         }
-    } catch (t: Throwable) {
-        null
+        return try {
+            val length = contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+            if (length == 0L || length > FontValidator.MAX_FONT_BYTES) {
+                target.delete()
+                null
+            } else {
+                // A descriptor with an unknown length still gets bounded, so a huge stream is not
+                // copied into the cache before the size cap rejects it.
+                val copied = contentResolver.openInputStream(uri)?.use { input ->
+                    writeBounded(input, target, FontValidator.MAX_FONT_BYTES)
+                } ?: false
+                if (copied && target.length() > 0) {
+                    target
+                } else {
+                    target.delete()
+                    null
+                }
+            }
+        } catch (t: Throwable) {
+            target.delete()
+            null
+        }
+    }
+
+    /** Copies at most [limit] bytes, returning `false` without a complete file when it is exceeded. */
+    private fun writeBounded(input: InputStream, target: File, limit: Long): Boolean {
+        target.outputStream().use { output ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var total = 0L
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                total += read
+                if (total > limit) return false
+                output.write(buffer, 0, read)
+            }
+        }
+        return true
     }
 
     private fun fontErrorMessage(error: FontError): Int = when (error) {
@@ -97,7 +142,8 @@ class AppearanceActivity : ComponentActivity() {
     }
 
     private companion object {
-        const val FONT_CANDIDATE_FILE_NAME = "appearance-font.ttf"
+        const val FONT_CANDIDATE_PREFIX = "appearance-font-"
+        const val FONT_CANDIDATE_SUFFIX = ".ttf"
         const val FONT_MIME_TYPE = "*/*"
     }
 }
