@@ -35,6 +35,16 @@ enum class FontError { NOT_FOUND, INVALID, TOO_LARGE, COPY_FAILED }
  */
 data class AppearanceWriteResult(val fontInstalled: Boolean, val fontError: FontError?)
 
+/**
+ * Shared-preferences keys the appearance screen owns for the cursor settings, kept app-local so
+ * `:termux-shared` needs no change. The read sites on the terminal view consume these constants
+ * rather than literals.
+ */
+object AppearancePreferenceKeys {
+    const val CURSOR_STYLE = "appearance_cursor_style"
+    const val CURSOR_BLINK_RATE = "appearance_cursor_blink_rate"
+}
+
 /** Validates a candidate font before it replaces the installed one. */
 object FontValidator {
 
