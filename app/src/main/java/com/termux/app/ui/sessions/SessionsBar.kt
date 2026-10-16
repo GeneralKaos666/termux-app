@@ -3,7 +3,7 @@ package com.termux.app.ui.sessions
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -35,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -43,6 +45,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.termux.R
 import com.termux.app.ui.theme.TermuxShellTheme
 
@@ -62,6 +65,7 @@ fun SessionsBar(
     onSelect: (Int) -> Unit,
     onRename: (Int) -> Unit,
     onClose: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
     onNewSession: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -102,9 +106,11 @@ fun SessionsBar(
                 items(sessions, key = { it.id }) { item ->
                     SessionTab(
                         item = item,
+                        allSessions = sessions,
                         onSelect = onSelect,
                         onRename = onRename,
                         onClose = onClose,
+                        onMove = onMove,
                     )
                 }
             }
@@ -127,9 +133,11 @@ fun SessionsBar(
 @Composable
 private fun SessionTab(
     item: SessionItem,
+    allSessions: List<SessionItem>,
     onSelect: (Int) -> Unit,
     onRename: (Int) -> Unit,
     onClose: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -153,22 +161,62 @@ private fun SessionTab(
         MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    Box {
+    val menuLabel = stringResource(R.string.action_session_menu)
+
+    val fromIndex = remember(allSessions, item.id) {
+        allSessions.indexOfFirst { it.id == item.id }
+    }
+
+    var dragOffsetX by remember(item.id) { mutableStateOf(0f) }
+    var isDragging by remember(item.id) { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .zIndex(if (isDragging) 1f else 0f)
+            .graphicsLayer {
+                translationX = if (isDragging) dragOffsetX else 0f
+            }
+            .semantics {
+                contentDescription = item.title
+                selected = item.active
+                stateDescription = stateLabel
+            },
+    ) {
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
                 .background(containerColor)
                 .heightIn(min = 48.dp)
-                .combinedClickable(
-                    onClick = { onSelect(item.id) },
-                    onLongClick = { menuExpanded = true },
-                )
-                .padding(horizontal = 12.dp)
-                .semantics {
-                    contentDescription = item.title
-                    selected = item.active
-                    stateDescription = stateLabel
-                },
+                .pointerInput(item.id, allSessions) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = {
+                            isDragging = true
+                            dragOffsetX = 0f
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            dragOffsetX += dragAmount.x
+                        },
+                        onDragEnd = {
+                            isDragging = false
+                            dragOffsetX = 0f
+                            if (fromIndex >= 0) {
+                                // Simple heuristic: move by one if offset large enough
+                                val itemWidth = 100f // approximate
+                                val target = (fromIndex + (dragOffsetX / itemWidth).toInt()).coerceIn(0, allSessions.size - 1)
+                                if (target != fromIndex) {
+                                    onMove(item.id, target)
+                                }
+                            }
+                            dragOffsetX = 0f
+                        },
+                        onDragCancel = {
+                            isDragging = false
+                            dragOffsetX = 0f
+                        },
+                    )
+                }
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SessionStateDot(state)
@@ -180,30 +228,52 @@ private fun SessionTab(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (item.active) {
+                Spacer(Modifier.width(4.dp))
+                IconButton(
+                    onClick = { menuExpanded = true },
+                    modifier = Modifier.size(24.dp),
+                ) {
+                    Icon(
+                        imageVector = SessionIcons.MoreVert,
+                        contentDescription = menuLabel,
+                        tint = contentColor,
+                    )
+                }
+            }
         }
 
-        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_select_session)) },
-                onClick = {
-                    menuExpanded = false
-                    onSelect(item.id)
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_rename_session)) },
-                onClick = {
-                    menuExpanded = false
-                    onRename(item.id)
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_close_session)) },
-                onClick = {
-                    menuExpanded = false
-                    onClose(item.id)
-                },
-            )
+        if (item.active) {
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_rename_session)) },
+                    onClick = {
+                        menuExpanded = false
+                        onRename(item.id)
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_close_session)) },
+                    onClick = {
+                        menuExpanded = false
+                        onClose(item.id)
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_move_session_left)) },
+                    onClick = {
+                        menuExpanded = false
+                        if (fromIndex > 0) onMove(item.id, fromIndex - 1)
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_move_session_right)) },
+                    onClick = {
+                        menuExpanded = false
+                        if (fromIndex >= 0 && fromIndex < allSessions.size - 1) onMove(item.id, fromIndex + 1)
+                    },
+                )
+            }
         }
     }
 }
@@ -259,6 +329,7 @@ private fun SessionsBarPreview() {
             onSelect = {},
             onRename = {},
             onClose = {},
+            onMove = { _, _ -> },
             onNewSession = {},
         )
     }
@@ -273,6 +344,7 @@ private fun SessionsBarEmptyPreview() {
             onSelect = {},
             onRename = {},
             onClose = {},
+            onMove = { _, _ -> },
             onNewSession = {},
         )
     }
