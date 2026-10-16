@@ -16,6 +16,12 @@
             app:summaryOn="@string/termux_terminal_view_key_logging_enabled_on"
             app:title="@string/termux_terminal_view_key_logging_enabled_title" />
 
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="notifications"
+        app:title="@string/termux_notifications_header">
+
         <SwitchPreferenceCompat
             app:key="plugin_error_notifications_enabled"
             app:summaryOff="@string/termux_plugin_error_notifications_enabled_off"

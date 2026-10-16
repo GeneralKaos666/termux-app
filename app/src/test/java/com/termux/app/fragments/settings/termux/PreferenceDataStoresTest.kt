@@ -18,6 +18,7 @@ class PreferenceDataStoresTest {
     fun reset() {
         clearInstance(KeyboardPreferencesDataStore::class.java)
         clearInstance(DisplayPreferencesDataStore::class.java)
+        clearInstance(DebuggingPreferencesDataStore::class.java)
     }
 
     private fun clearInstance(type: Class<*>) {
@@ -47,5 +48,16 @@ class PreferenceDataStoresTest {
         store.putInt("terminal_background_dim", 42)
         assertEquals(42, store.getInt("terminal_background_dim", 60))
         assertEquals("fallback", store.getString("extra_keys_preset", "fallback"))
+    }
+
+    @Test
+    fun `debugging store round-trips the advanced leaves`() {
+        val store = DebuggingPreferencesDataStore.getInstance(context)
+        store.putBoolean("terminal_view_key_logging_enabled", true)
+        assertEquals(true, store.getBoolean("terminal_view_key_logging_enabled", false))
+        store.putBoolean("plugin_error_notifications_enabled", false)
+        assertEquals(false, store.getBoolean("plugin_error_notifications_enabled", true))
+        store.putBoolean("crash_report_notifications_enabled", false)
+        assertEquals(false, store.getBoolean("crash_report_notifications_enabled", true))
     }
 }

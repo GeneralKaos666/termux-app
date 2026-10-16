@@ -210,6 +210,14 @@
     <string name="termux_preferences_title">&TERMUX_APP_NAME;</string>
     <string name="termux_preferences_summary">Preferences for &TERMUX_APP_NAME; app</string>
 
+        <!-- Advanced Preferences -->
+        <string name="termux_advanced_preferences_title">Advanced</string>
+        <string name="termux_advanced_preferences_summary">Logging, notifications and diagnostics</string>
+
+            <!-- Notifications Category -->
+            <string name="termux_notifications_header">Notifications</string>
+
+
         <!-- Debugging Preferences -->
         <string name="termux_debugging_preferences_title">Debugging</string>
         <string name="termux_debugging_preferences_summary">Preferences for debugging</string>
