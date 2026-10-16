@@ -39,14 +39,20 @@ needed Conscrypt natives, and one where Compose previews broke the release build
 brought a pair of bugs of its own, both fixed now: tapping a tab had stopped switching sessions,
 and a drag that finished never moved the tab.
 
-## What's next
+## What's not done yet
 
-I have a shortlist now, and a plan written down for the next piece.
+That is what is built. This is what is not, kept short so it stays honest:
 
-Sessions come next. The bar works and its tabs can be reordered by hand now, though they cannot be
-pinned yet, which is the easy half. The bigger half is durability: a running shell cannot outlive
-the app process, because the terminal lives inside it, so restoring really means remembering a
-session snapshot and starting fresh ones on the next launch. I will write that one up separately
-before building it.
-
-The shell, the emulator (`:terminal-emulator`) and the view (`:terminal-view`) are still maybes.
+| Area | Not done yet | State |
+|---|---|---|
+| Sessions | Pin a tab | Small; the bar reorders by hand already. |
+| Sessions | Keep a shell alive across app restarts | Needs its own design: shells live in the app process, so restoring means saving a snapshot and starting fresh sessions. |
+| Sessions bar | Fallback titles follow the list position, so a reorder renames untitled sessions | Small. |
+| Sessions bar | Reach rename, close and move on a non-active tab without tapping it first | Small; only the active tab shows its ⋮ menu. |
+| Shell | Route activity lifecycle and window insets through the Compose shell | Deferred; the XML shell is still in place. |
+| Device checks | Onboarding cancel/retry, rotation mid-install and the back key | Never exercised. |
+| Device checks | The Solarized Light, Gruvbox Dark and One Dark presets | Never checked on device. |
+| Appearance | Dead string resources; a cursor override cannot be cleared | Small. |
+| Background | A live wallpaper | Only a static image works; a live one yields no usable frame. |
+| Android | targetSdk is still 28, plus edge-to-edge, notification permission and predictive back | Deferred. |
+| Settings | The preferences rework and a setup wizard | Only the defaults half shipped. |
