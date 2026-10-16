@@ -31,6 +31,7 @@ import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.models.ReportInfo;
 import com.termux.app.models.UserAction;
 import com.termux.app.terminal.io.KeyboardShortcut;
+import com.termux.app.ui.appearance.CursorPreferences;
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 import com.termux.shared.data.DataUtils;
 import com.termux.shared.logger.Logger;
@@ -57,6 +58,9 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
 
     final TermuxTerminalSessionActivityClient mTermuxTerminalSessionActivityClient;
 
+    /** Resolves the cursor blink rate the terminal should use: the appearance pref, else `termux.properties`. */
+    private final CursorPreferences mCursorPreferences;
+
     /** Keeping track of the special keys acting as Ctrl and Fn for the soft keyboard and other hardware keys. */
     boolean mVirtualControlKeyDown, mVirtualFnKeyDown;
 
@@ -74,6 +78,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     public TermuxTerminalViewClient(TermuxActivity activity, TermuxTerminalSessionActivityClient termuxTerminalSessionActivityClient) {
         this.mActivity = activity;
         this.mTermuxTerminalSessionActivityClient = termuxTerminalSessionActivityClient;
+        this.mCursorPreferences = new CursorPreferences(activity);
     }
 
     public TermuxActivity getActivity() {
@@ -144,6 +149,9 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     public void onReloadActivityStyling() {
         // Show the soft keyboard if required
         setSoftKeyboardState(false, true);
+
+        // Re-apply the font size: it is an app preference and a styling reload does not recreate the view
+        mActivity.getTerminalView().setTextSize(mActivity.getPreferences().getFontSize());
 
         // Start terminal cursor blinking if enabled
         setTerminalCursorBlinkerState(true);
@@ -653,7 +661,8 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     public void setTerminalCursorBlinkerState(boolean start) {
         if (start) {
             // If set/update the cursor blinking rate is successful, then enable cursor blinker
-            if (mActivity.getTerminalView().setTerminalCursorBlinkerRate(mActivity.getProperties().getTerminalCursorBlinkRate()))
+            Integer blinkRate = mCursorPreferences.cursorBlinkRate();
+            if (mActivity.getTerminalView().setTerminalCursorBlinkerRate(blinkRate != null ? blinkRate : 0))
                 mActivity.getTerminalView().setTerminalCursorBlinkerState(true, true);
             else
                 Logger.logError(LOG_TAG,"Failed to start cursor blinker");

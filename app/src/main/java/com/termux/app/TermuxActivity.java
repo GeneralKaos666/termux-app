@@ -2,7 +2,6 @@ package com.termux.app;
 
 import android.app.AlertDialog;
 import android.app.WallpaperManager;
-import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -13,7 +12,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.DisplayMetrics;
@@ -43,13 +41,14 @@ import com.termux.app.ui.keys.QuickAction;
 import com.termux.app.ui.sessions.SessionItem;
 import com.termux.app.ui.sessions.SessionItemKt;
 import com.termux.app.ui.sessions.SessionsState;
+import com.termux.app.ui.appearance.AppearanceActivity;
+import com.termux.app.ui.appearance.AppearanceStyling;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.activity.ActivityUtils;
 import com.termux.shared.activity.media.AppCompatActivityUtils;
 import com.termux.shared.data.IntentUtils;
 import com.termux.shared.android.PermissionUtils;
 import com.termux.shared.data.DataUtils;
-import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY;
 import com.termux.app.activities.HelpActivity;
 import com.termux.app.activities.SettingsActivity;
@@ -200,6 +199,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * The extra-keys preset last applied to the key matrix, used to detect Settings changes on resume.
      */
     private String mAppliedExtraKeysPreset = "";
+
+    /**
+     * The appearance revision last applied to the terminal, used to detect an appearance change made
+     * while this activity was not visible (from the Style screen or Settings) on resume.
+     */
+    private long mAppliedAppearanceRevision = 0;
 
     /**
      * The action to run if the user presses undo on the current snackbar, or {@code null}.
@@ -492,6 +497,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             }
         }
 
+        // Apply an appearance change made while this activity was not visible (from the Style screen
+        // or Settings). The ACTION_RELOAD_STYLE broadcast is dropped while the activity is stopped, so
+        // the stored appearance revision is the reliable signal.
+        if (AppearanceStyling.hasChanged(this, mAppliedAppearanceRevision)) {
+            mAppliedAppearanceRevision = AppearanceStyling.revision(this);
+            reloadActivityStyling(false);
+        }
+
         // Check if a crash happened on last run of the app or if a plugin crashed and show a
         // notification with the crash details if it did
         TermuxCrashUtils.notifyAppCrashFromCrashLogFile(this, LOG_TAG);
@@ -689,6 +702,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTermuxTerminalExtraKeys = new TermuxTerminalExtraKeys(this, mTerminalView,
             mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient);
         mAppliedExtraKeysPreset = mPreferences.getExtraKeysPreset();
+        mAppliedAppearanceRevision = AppearanceStyling.revision(this);
 
         // Base height of a single extra-key row, in pixels. The total grid height scales with the
         // number of rows and the terminal-toolbar height scale factor (see updateExtraKeysBar).
@@ -1045,7 +1059,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 showKillSessionDialog(session);
                 return true;
             case CONTEXT_MENU_STYLING_ID:
-                showStylingDialog();
+                launchAppearanceScreen();
                 return true;
             case CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON:
                 toggleKeepScreenOn();
@@ -1111,19 +1125,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
 
-    private void showStylingDialog() {
-        Intent stylingIntent = new Intent();
-        stylingIntent.setClassName(TermuxConstants.TERMUX_STYLING_PACKAGE_NAME, TermuxConstants.TERMUX_STYLING_APP.TERMUX_STYLING_ACTIVITY_NAME);
-        try {
-            startActivity(stylingIntent);
-        } catch (ActivityNotFoundException | IllegalArgumentException e) {
-            // The startActivity() call is not documented to throw IllegalArgumentException.
-            // However, crash reporting shows that it sometimes does, so catch it here.
-            new AlertDialog.Builder(this).setMessage(getString(R.string.error_styling_not_installed))
-                .setPositiveButton(R.string.action_styling_install,
-                    (dialog, which) -> ActivityUtils.startActivity(this, new Intent(Intent.ACTION_VIEW, Uri.parse(TermuxConstants.TERMUX_STYLING_FDROID_PACKAGE_URL))))
-                .setNegativeButton(android.R.string.cancel, null).show();
-        }
+    private void launchAppearanceScreen() {
+        ActivityUtils.startActivity(this, new Intent(this, AppearanceActivity.class));
     }
     private void toggleKeepScreenOn() {
         if (mTerminalView.getKeepScreenOn()) {

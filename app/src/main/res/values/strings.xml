@@ -118,6 +118,50 @@
 
 
 
+    <!-- Terminal Appearance -->
+    <string name="title_activity_appearance">Terminal appearance</string>
+    <string name="appearance_section_scheme">Colour scheme</string>
+    <string name="appearance_section_colors">Colours</string>
+    <string name="appearance_section_cursor">Cursor</string>
+    <string name="appearance_section_font">Font</string>
+
+    <string name="appearance_color_background">Background</string>
+    <string name="appearance_color_foreground">Foreground</string>
+    <string name="appearance_color_cursor">Cursor</string>
+    <string name="appearance_color_ansi">ANSI colour %1$d, %2$s</string>
+
+    <string name="appearance_color_picker_title">Choose colour</string>
+    <string name="appearance_color_picker_hex">Hex</string>
+
+    <string name="appearance_cursor_blink">Blinking</string>
+    <string name="appearance_cursor_style_block">Block</string>
+    <string name="appearance_cursor_style_underline">Underline</string>
+    <string name="appearance_cursor_style_bar">Bar</string>
+
+    <string name="appearance_font_none">Monospace (default)</string>
+    <string name="appearance_font_size">Font size</string>
+    <string name="appearance_action_choose_font">Choose font</string>
+    <string name="appearance_action_remove_font">Remove</string>
+
+    <string name="appearance_action_reset">Reset to default</string>
+    <string name="appearance_action_apply">Apply</string>
+    <string name="appearance_action_confirm">OK</string>
+    <string name="appearance_action_cancel">Cancel</string>
+    <string name="appearance_action_discard">Discard</string>
+
+    <string name="appearance_discard_title">Discard changes?</string>
+    <string name="appearance_discard_message">You have unsaved appearance changes.</string>
+
+    <string name="appearance_font_error_not_found">Could not read the chosen file.</string>
+    <string name="appearance_font_error_invalid">The chosen file is not a font.</string>
+    <string name="appearance_font_error_too_large">The font file is too large.</string>
+    <string name="appearance_font_error_copy_failed">Could not install the font.</string>
+
+    <string name="termux_terminal_view_appearance_title">Appearance</string>
+    <string name="termux_terminal_view_appearance_summary">Colours, font and cursor</string>
+
+
+
     <!-- Termux Notifications -->
     <string name="notification_action_exit">Exit</string>
     <string name="notification_action_wake_lock">Acquire wakelock</string>
