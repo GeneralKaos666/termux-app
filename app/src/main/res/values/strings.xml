@@ -237,9 +237,18 @@
                 <string name="termux_crash_report_notifications_enabled_on">Show notifications for crash reports. (Default)</string>
 
 
+        <!-- Keyboard Preferences -->
+        <string name="termux_keyboard_preferences_title">Keyboard</string>
+        <string name="termux_keyboard_preferences_summary">On-screen keyboard and extra keys</string>
+
+            <!-- Soft Keyboard Category -->
+            <string name="termux_keyboard_soft_keyboard_header">Soft keyboard</string>
+
+            <!-- Extra Keys Category -->
+            <string name="termux_keyboard_extra_keys_header">Extra keys</string>
+
+
         <!-- Terminal IO Preferences -->
-        <string name="termux_terminal_io_preferences_title">Terminal I/O</string>
-        <string name="termux_terminal_io_preferences_summary">Preferences for terminal I/O</string>
 
             <!-- Keyboard Category -->
             <string name="termux_keyboard_header">Keyboard</string>
