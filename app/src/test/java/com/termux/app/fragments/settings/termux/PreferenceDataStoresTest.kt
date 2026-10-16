@@ -59,5 +59,7 @@ class PreferenceDataStoresTest {
         assertEquals(false, store.getBoolean("plugin_error_notifications_enabled", true))
         store.putBoolean("crash_report_notifications_enabled", false)
         assertEquals(false, store.getBoolean("crash_report_notifications_enabled", true))
+        store.putString("log_level", "2")
+        assertEquals("2", store.getString("log_level", "1"))
     }
 }
