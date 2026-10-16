@@ -29,18 +29,20 @@ class AppearanceStoreTest {
         var storedFontSize: Int = 14,
         var storedCursorStyle: Int? = null,
         var storedCursorBlinkRate: Int? = null,
+        var propertyCursorStyle: Int? = null,
     ) : AppearancePreferences {
         override fun getFontSize(): Int = storedFontSize
         override fun setFontSize(size: Int) {
             storedFontSize = size
         }
 
-        override fun getCursorStyle(): Int? = storedCursorStyle
+        override fun getCursorStyleOverride(): Int? = storedCursorStyle
+        override fun getDefaultCursorStyle(): Int? = propertyCursorStyle
         override fun setCursorStyle(style: Int?) {
             storedCursorStyle = style
         }
 
-        override fun getCursorBlinkRate(): Int? = storedCursorBlinkRate
+        override fun getCursorBlinkRateOverride(): Int? = storedCursorBlinkRate
         override fun setCursorBlinkRate(rate: Int?) {
             storedCursorBlinkRate = rate
         }
@@ -61,8 +63,8 @@ class AppearanceStoreTest {
         background: Int = 0xff445566.toInt(),
         cursor: Int = 0xff778899.toInt(),
         fontSize: Int = 18,
-        cursorStyle: CursorStyle = CursorStyle.UNDERLINE,
-        cursorBlinkRate: Int = 600,
+        cursorStyle: CursorStyle? = CursorStyle.UNDERLINE,
+        cursorBlinkRate: Int? = 600,
     ) = TerminalAppearance(
         colors = TerminalColorSet(foreground, background, cursor, List(16) { 0xff000000.toInt() + it }),
         fontPath = null,
@@ -158,11 +160,18 @@ class AppearanceStoreTest {
     }
 
     @Test
-    fun `read falls back to the default cursor when no preference is effective`() {
+    fun `read leaves the cursor unset when no override is stored`() {
         val read = store(FakePreferences(storedCursorStyle = null, storedCursorBlinkRate = null)).read()
 
-        assertEquals(CursorStyle.BLOCK, read.cursorStyle)
-        assertEquals(0, read.cursorBlinkRate)
+        // No app-local override means "follow termux.properties", which the screen represents as null.
+        assertNull(read.cursorStyle)
+        assertNull(read.cursorBlinkRate)
+    }
+
+    @Test
+    fun `default cursor resolution uses the property value or the engine default`() {
+        assertEquals(CursorStyle.BAR, store(FakePreferences(propertyCursorStyle = CursorStyle.BAR.value)).defaultCursorStyle())
+        assertEquals(CursorStyle.BLOCK, store(FakePreferences(propertyCursorStyle = null)).defaultCursorStyle())
     }
 
     // --- writing -----------------------------------------------------------------------------
@@ -243,6 +252,15 @@ class AppearanceStoreTest {
         store(preferences).write(appearance(cursorBlinkRate = 50))
 
         assertEquals(0, preferences.storedCursorBlinkRate)
+    }
+
+    @Test
+    fun `write clears the cursor override when the appearance follows the default`() {
+        val preferences = FakePreferences(storedCursorStyle = CursorStyle.BAR.value, storedCursorBlinkRate = 1200)
+        store(preferences).write(appearance(cursorStyle = null, cursorBlinkRate = null))
+
+        assertNull(preferences.storedCursorStyle)
+        assertNull(preferences.storedCursorBlinkRate)
     }
 
     // --- font handling -----------------------------------------------------------------------

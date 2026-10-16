@@ -19,8 +19,8 @@ class AppearanceStateTest {
         foreground: Int = 0xffffffff.toInt(),
         fontPath: String? = null,
         fontSize: Int = 14,
-        cursorStyle: CursorStyle = CursorStyle.BLOCK,
-        cursorBlinkRate: Int = 0,
+        cursorStyle: CursorStyle? = CursorStyle.BLOCK,
+        cursorBlinkRate: Int? = 0,
     ) = TerminalAppearance(
         colors = TerminalColorSet(
             foreground = foreground,
@@ -90,7 +90,7 @@ class AppearanceStateTest {
     }
 
     @Test
-    fun `reset to default restores the Termux default colors and cursor`() {
+    fun `reset to default restores the Termux default colors and clears the cursor overrides`() {
         val state = AppearanceState(appearance(fontPath = "/tmp/my.ttf", fontSize = 22, cursorStyle = CursorStyle.BAR, cursorBlinkRate = 500))
         state.setBackground(0xffffffff.toInt())
         state.setAnsiColor(3, 0xff00ff00.toInt())
@@ -98,8 +98,9 @@ class AppearanceStateTest {
         state.resetToDefault()
 
         assertEquals(ColorSchemes.TERMUX_DEFAULT.colors, state.draft.colors)
-        assertEquals(CursorStyle.BLOCK, state.draft.cursorStyle)
-        assertEquals(0, state.draft.cursorBlinkRate)
+        // Default means "follow termux.properties", so Reset must not pin a cursor value.
+        assertNull(state.draft.cursorStyle)
+        assertNull(state.draft.cursorBlinkRate)
         assertTrue(state.isDirty)
     }
 
@@ -168,6 +169,27 @@ class AppearanceStateTest {
 
         state.setCursorBlinkRate(600)
         assertEquals(600, state.draft.cursorBlinkRate)
+    }
+
+    @Test
+    fun `a cursor override can be cleared back to the default`() {
+        val state = AppearanceState(appearance(cursorStyle = CursorStyle.BAR, cursorBlinkRate = 600))
+
+        state.setCursorStyle(null)
+        state.setCursorBlinkRate(null)
+
+        assertNull(state.draft.cursorStyle)
+        assertNull(state.draft.cursorBlinkRate)
+    }
+
+    @Test
+    fun `clearing an override that was never set is not a change`() {
+        val state = AppearanceState(appearance(cursorStyle = null, cursorBlinkRate = null))
+
+        state.setCursorStyle(null)
+        state.setCursorBlinkRate(null)
+
+        assertFalse(state.isDirty)
     }
 
     @Test

@@ -27,18 +27,20 @@ class AppearanceControllerTest {
         var storedFontSize: Int = 14,
         var storedCursorStyle: Int? = null,
         var storedCursorBlinkRate: Int? = null,
+        var propertyCursorStyle: Int? = null,
     ) : AppearancePreferences {
         override fun getFontSize(): Int = storedFontSize
         override fun setFontSize(size: Int) {
             storedFontSize = size
         }
 
-        override fun getCursorStyle(): Int? = storedCursorStyle
+        override fun getCursorStyleOverride(): Int? = storedCursorStyle
+        override fun getDefaultCursorStyle(): Int? = propertyCursorStyle
         override fun setCursorStyle(style: Int?) {
             storedCursorStyle = style
         }
 
-        override fun getCursorBlinkRate(): Int? = storedCursorBlinkRate
+        override fun getCursorBlinkRateOverride(): Int? = storedCursorBlinkRate
         override fun setCursorBlinkRate(rate: Int?) {
             storedCursorBlinkRate = rate
         }
@@ -87,6 +89,24 @@ class AppearanceControllerTest {
     @Test
     fun `preview font is null when no font is installed`() {
         assertNull(controller().previewFontFile)
+    }
+
+    @Test
+    fun `preview cursor follows the property default when nothing is staged`() {
+        val controller = controller(FakePreferences(propertyCursorStyle = CursorStyle.BAR.value))
+
+        assertEquals(CursorStyle.BAR, controller.previewCursorStyle)
+    }
+
+    @Test
+    fun `preview cursor follows the staged override and Default again after clearing it`() {
+        val controller = controller(FakePreferences(propertyCursorStyle = CursorStyle.BAR.value))
+
+        controller.state.setCursorStyle(CursorStyle.UNDERLINE)
+        assertEquals(CursorStyle.UNDERLINE, controller.previewCursorStyle)
+
+        controller.state.setCursorStyle(null)
+        assertEquals(CursorStyle.BAR, controller.previewCursorStyle)
     }
 
     // --- staging -----------------------------------------------------------------------------
@@ -215,6 +235,33 @@ class AppearanceControllerTest {
         assertTrue(text, text.contains("background=#ffffff"))
         assertTrue(text, text.contains("foreground=#000000"))
         assertFalse(controller.hasUnsavedChanges)
+    }
+
+    @Test
+    fun `apply of a colour change alone does not create a cursor override`() {
+        val preferences = FakePreferences(storedCursorStyle = null, storedCursorBlinkRate = null)
+        val controller = controller(preferences)
+
+        controller.state.setBackground(0xffffffff.toInt())
+        controller.apply()
+
+        // The cursor must keep following termux.properties: colours and cursor are independent.
+        assertNull(preferences.storedCursorStyle)
+        assertNull(preferences.storedCursorBlinkRate)
+    }
+
+    @Test
+    fun `apply clears a stored cursor override when Default is selected`() {
+        val preferences = FakePreferences(storedCursorStyle = CursorStyle.BAR.value, storedCursorBlinkRate = 1200)
+        val controller = controller(preferences)
+        assertEquals(CursorStyle.BAR, controller.state.draft.cursorStyle)
+
+        controller.state.setCursorStyle(null)
+        controller.state.setCursorBlinkRate(null)
+        controller.apply()
+
+        assertNull(preferences.storedCursorStyle)
+        assertNull(preferences.storedCursorBlinkRate)
     }
 
     @Test

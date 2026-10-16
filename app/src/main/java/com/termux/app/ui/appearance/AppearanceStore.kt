@@ -7,9 +7,10 @@ import java.io.IOException
  * App-local settings the appearance screen owns.
  *
  * Font size already lives in the app's shared preferences. Cursor style and blink rate stay
- * app-local (a `termux.properties` value is only the fallback) so `:termux-shared` needs no change;
- * an implementation therefore returns the *effective* value: the app preference when one is set,
- * the property value otherwise, or `null` when neither exists.
+ * app-local, and `termux.properties` is only the fallback: the override getters return the
+ * app-local value (or `null` when unset), so the screen can represent and clear an override, while
+ * [AppearancePreferences.getDefaultCursorStyle] exposes the `termux.properties` value the terminal
+ * would use instead.
  */
 interface AppearancePreferences {
 
@@ -17,11 +18,16 @@ interface AppearancePreferences {
 
     fun setFontSize(size: Int)
 
-    fun getCursorStyle(): Int?
+    /** The app-local cursor-style override, or `null` when `termux.properties` governs. */
+    fun getCursorStyleOverride(): Int?
+
+    /** The `termux.properties` cursor style, or `null` when it sets none. */
+    fun getDefaultCursorStyle(): Int?
 
     fun setCursorStyle(style: Int?)
 
-    fun getCursorBlinkRate(): Int?
+    /** The app-local blink-rate override, or `null` when `termux.properties` governs. */
+    fun getCursorBlinkRateOverride(): Int?
 
     fun setCursorBlinkRate(rate: Int?)
 }
@@ -102,7 +108,11 @@ class AppearanceStore(
     },
 ) {
 
-    /** Reads the effective appearance, falling back to the Termux default scheme. */
+    /**
+     * Reads the staged appearance: the managed colours from `colors.properties` (falling back to
+     * the Termux default scheme per key), the installed font, the font size, and any app-local
+     * cursor override (`null` when `termux.properties` governs the cursor instead).
+     */
     fun read(): TerminalAppearance {
         val document = ColorPropertiesDocument(existingColorsText())
         val defaults = ColorSchemes.TERMUX_DEFAULT.colors
@@ -119,10 +129,17 @@ class AppearanceStore(
             colors = colors,
             fontPath = installedFontPath(),
             fontSize = preferences.getFontSize(),
-            cursorStyle = CursorStyle.fromValue(preferences.getCursorStyle()),
-            cursorBlinkRate = CursorBlink.sanitize(preferences.getCursorBlinkRate() ?: 0),
+            cursorStyle = preferences.getCursorStyleOverride()?.let(CursorStyle::fromValue),
+            cursorBlinkRate = preferences.getCursorBlinkRateOverride()?.let(CursorBlink::sanitize),
         )
     }
+
+    /**
+     * The cursor shape the terminal falls back to when the appearance sets no override: the
+     * `termux.properties` value, or the engine default when it sets none either. Used to resolve
+     * the screen's "Default" state for the live preview.
+     */
+    fun defaultCursorStyle(): CursorStyle = CursorStyle.fromValue(preferences.getDefaultCursorStyle())
 
     /**
      * Writes [appearance]. When [fontSource] is given it replaces the installed font if it is a
@@ -143,8 +160,9 @@ class AppearanceStore(
         colorsFile.writeText(document.render())
 
         preferences.setFontSize(appearance.fontSize)
-        preferences.setCursorStyle(appearance.cursorStyle.value)
-        preferences.setCursorBlinkRate(CursorBlink.sanitize(appearance.cursorBlinkRate))
+        // A null cursor value clears the override, handing the cursor back to termux.properties.
+        preferences.setCursorStyle(appearance.cursorStyle?.value)
+        preferences.setCursorBlinkRate(appearance.cursorBlinkRate?.let(CursorBlink::sanitize))
 
         var fontError: FontError? = null
         if (fontSource != null) {

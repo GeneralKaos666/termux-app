@@ -133,9 +133,12 @@
     <string name="appearance_color_picker_hex">Hex</string>
 
     <string name="appearance_cursor_blink">Blinking</string>
+    <string name="appearance_cursor_style_default">Default</string>
     <string name="appearance_cursor_style_block">Block</string>
     <string name="appearance_cursor_style_underline">Underline</string>
     <string name="appearance_cursor_style_bar">Bar</string>
+    <string name="appearance_cursor_blink_default">Default</string>
+    <string name="appearance_cursor_blink_steady">Steady</string>
 
     <string name="appearance_font_none">Monospace (default)</string>
     <string name="appearance_font_size">Font size</string>

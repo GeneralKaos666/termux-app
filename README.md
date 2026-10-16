@@ -15,8 +15,8 @@ Kotlin and Jetpack Compose.
 - **Extra-keys presets** in a Compose row that replaces the old swipeable pager.
 - **Appearance screen** under the terminal's Style menu and in Settings: colour schemes, an
   editor for the background, foreground, cursor and all sixteen ANSI colours, font and size,
-  cursor style and blink, all with a live preview. It replaces the separate Termux:Styling
-  app.
+  and cursor style and blink, all with a live preview. Both cursor settings can be left at
+  their Default, which follows `termux.properties`. It replaces the separate Termux:Styling app.
 - **Wallpaper backgrounds**: point the terminal at your system wallpaper or an image of your
   own.
 - **First-run walkthrough** and roomier touch targets across the shell chrome.
@@ -61,8 +61,8 @@ problem and its workarounds in
 
 The fork keeps moving. These are the pieces in progress or next up.
 
-- **Appearance follow-ups**: clearing a cursor override, and checking the remaining colour
-  presets (Solarized Light, Gruvbox Dark, One Dark) on real devices.
+- **Appearance verification**: the three newer colour presets (Solarized Light, Gruvbox Dark, One
+  Dark) still need a look on real devices. There is a short checklist in `docs/ideas/ideas.md`.
 - **Settings rework and a setup wizard.** The first-run walkthrough shipped; the preferences
   themselves still need reorganising.
 - **Terminal engine upgrade** (exploratory): kitty graphics, OSC 8 hyperlinks, richer underline

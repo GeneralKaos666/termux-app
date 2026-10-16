@@ -73,4 +73,25 @@ class CursorPreferencesTest {
         assertNull(cursor.cursorStyle())
         assertNull(cursor.cursorBlinkRate())
     }
+
+    @Test
+    fun `the override getters report whether an app-local preference exists`() {
+        val cursor = preferences()
+
+        assertNull(cursor.cursorStyleOverride())
+        assertNull(cursor.cursorBlinkRateOverride())
+
+        cursor.setCursorStyle(CursorStyle.BAR.value)
+        cursor.setCursorBlinkRate(0)
+
+        assertEquals(CursorStyle.BAR.value, cursor.cursorStyleOverride())
+        assertEquals(0, cursor.cursorBlinkRateOverride())
+    }
+
+    @Test
+    fun `the default cursor style reports the property value`() {
+        val cursor = preferences()
+
+        assertEquals(propertyStyle, cursor.defaultCursorStyle())
+    }
 }

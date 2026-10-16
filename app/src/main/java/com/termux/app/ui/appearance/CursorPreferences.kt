@@ -28,22 +28,31 @@ class CursorPreferences @JvmOverloads constructor(
         )
 
     /** The cursor style to use: the app preference when set, the property value otherwise. */
-    fun cursorStyle(): Int? =
+    fun cursorStyle(): Int? = cursorStyleOverride() ?: propertyCursorStyle()
+
+    /** The app-local cursor-style override, or `null` when `termux.properties` governs. */
+    fun cursorStyleOverride(): Int? =
         if (appearancePreferences.contains(AppearancePreferenceKeys.CURSOR_STYLE)) {
             appearancePreferences.getInt(AppearancePreferenceKeys.CURSOR_STYLE, CursorStyle.BLOCK.value)
         } else {
-            propertyCursorStyle()
+            null
         }
+
+    /** The value `termux.properties` sets for the cursor style, or `null` when it sets none. */
+    fun defaultCursorStyle(): Int? = propertyCursorStyle()
 
     /** Stores the cursor style, or removes the override when [style] is `null`. */
     fun setCursorStyle(style: Int?) = putPreference(AppearancePreferenceKeys.CURSOR_STYLE, style)
 
     /** The blink rate to use: the app preference when set, the property value otherwise. */
-    fun cursorBlinkRate(): Int? =
+    fun cursorBlinkRate(): Int? = cursorBlinkRateOverride() ?: propertyCursorBlinkRate()
+
+    /** The app-local blink-rate override, or `null` when `termux.properties` governs. */
+    fun cursorBlinkRateOverride(): Int? =
         if (appearancePreferences.contains(AppearancePreferenceKeys.CURSOR_BLINK_RATE)) {
             appearancePreferences.getInt(AppearancePreferenceKeys.CURSOR_BLINK_RATE, 0)
         } else {
-            propertyCursorBlinkRate()
+            null
         }
 
     /** Stores the blink rate, or removes the override when [rate] is `null`. */

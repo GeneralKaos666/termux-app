@@ -23,7 +23,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -92,6 +91,13 @@ class AppearanceController(private val store: AppearanceStore) {
         removeInstalledFont = state.loaded.fontPath != null
         state.setFontPath(null)
     }
+
+    /**
+     * The cursor the preview should draw: the staged override, or the `termux.properties`/engine
+     * default when the staged appearance follows the properties file.
+     */
+    val previewCursorStyle: CursorStyle
+        get() = state.draft.cursorStyle ?: store.defaultCursorStyle()
 
     /** Stages the Termux default scheme. */
     fun resetToDefault() = state.resetToDefault()
@@ -166,7 +172,7 @@ fun AppearanceScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        PreviewPane(draft, previewFontFamily(controller.previewFontFile))
+        PreviewPane(draft, controller.previewCursorStyle, previewFontFamily(controller.previewFontFile))
 
         Column(
             modifier = Modifier
@@ -261,7 +267,7 @@ private fun previewFontFamily(file: File?): FontFamily = remember(file) {
 
 /** Sample terminal output rendered with the staged colours, cursor and typeface. */
 @Composable
-private fun PreviewPane(appearance: TerminalAppearance, fontFamily: FontFamily) {
+private fun PreviewPane(appearance: TerminalAppearance, cursorStyle: CursorStyle, fontFamily: FontFamily) {
     val colors = appearance.colors
     val density = LocalDensity.current
     // The engine's font size is in physical pixels; convert so the preview matches the terminal.
@@ -279,7 +285,7 @@ private fun PreviewPane(appearance: TerminalAppearance, fontFamily: FontFamily) 
                 fontFamily = fontFamily,
                 fontSize = textSize,
             )
-            Cursor(style = appearance.cursorStyle, color = Color(colors.cursor), fontSize = appearance.fontSize)
+            Cursor(style = cursorStyle, color = Color(colors.cursor), fontSize = appearance.fontSize)
         }
         Text(
             text = "Documents  Downloads  notes.txt",
@@ -396,8 +402,16 @@ private fun AnsiSwatches(colors: TerminalColorSet, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-private fun CursorStyleRow(style: CursorStyle, onSelect: (CursorStyle) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun CursorStyleRow(style: CursorStyle?, onSelect: (CursorStyle?) -> Unit) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = style == null,
+            onClick = { onSelect(null) },
+            label = { Text(stringResource(R.string.appearance_cursor_style_default)) },
+        )
         CursorStyle.entries.forEach { candidate ->
             FilterChip(
                 selected = candidate == style,
@@ -408,19 +422,31 @@ private fun CursorStyleRow(style: CursorStyle, onSelect: (CursorStyle) -> Unit) 
     }
 }
 
+/**
+ * Blink controls. The chips are the three states the override can hold — follow `termux.properties`,
+ * steady, or blinking — and the rate slider only appears for the blinking state.
+ */
 @Composable
-private fun BlinkRow(rate: Int, onChange: (Int) -> Unit) {
-    val blinking = rate != 0
-    val blinkLabel = stringResource(R.string.appearance_cursor_blink)
+private fun BlinkRow(rate: Int?, onChange: (Int?) -> Unit) {
+    val blinking = rate != null && rate != 0
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(blinkLabel, modifier = Modifier.weight(1f))
-        Switch(
-            checked = blinking,
-            onCheckedChange = { on -> onChange(if (on) DEFAULT_BLINK_RATE else 0) },
-            modifier = Modifier.semantics { contentDescription = blinkLabel },
+        FilterChip(
+            selected = rate == null,
+            onClick = { onChange(null) },
+            label = { Text(stringResource(R.string.appearance_cursor_blink_default)) },
+        )
+        FilterChip(
+            selected = rate == 0,
+            onClick = { onChange(0) },
+            label = { Text(stringResource(R.string.appearance_cursor_blink_steady)) },
+        )
+        FilterChip(
+            selected = blinking,
+            onClick = { onChange(if (blinking) rate else DEFAULT_BLINK_RATE) },
+            label = { Text(stringResource(R.string.appearance_cursor_blink)) },
         )
     }
     if (blinking) {

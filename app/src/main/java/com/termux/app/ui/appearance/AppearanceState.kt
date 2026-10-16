@@ -53,8 +53,10 @@ data class TerminalAppearance(
     val colors: TerminalColorSet,
     val fontPath: String?,
     val fontSize: Int,
-    val cursorStyle: CursorStyle,
-    val cursorBlinkRate: Int,
+    /** The cursor shape override, or `null` to follow `termux.properties`. */
+    val cursorStyle: CursorStyle?,
+    /** The blink-rate override in ms, or `null` to follow `termux.properties`. */
+    val cursorBlinkRate: Int?,
 )
 
 /**
@@ -139,13 +141,15 @@ class AppearanceState(private val defaultAppearance: TerminalAppearance) {
 
     /**
      * Stages the Termux default scheme: colors, cursor shape and blink. The chosen font family and
-     * size are separate settings and are left alone.
+     * size are separate settings and are left alone. Cursor shape and blink are staged as "follow
+     * `termux.properties`", so applying Reset hands control of the cursor back to the properties
+     * file instead of pinning it to a value the user never chose.
      */
     fun resetToDefault() {
         draft = draft.copy(
             colors = ColorSchemes.TERMUX_DEFAULT.colors,
-            cursorStyle = CursorStyle.BLOCK,
-            cursorBlinkRate = 0,
+            cursorStyle = null,
+            cursorBlinkRate = null,
         )
     }
 
@@ -180,11 +184,13 @@ class AppearanceState(private val defaultAppearance: TerminalAppearance) {
         draft = draft.copy(fontSize = size)
     }
 
-    fun setCursorStyle(style: CursorStyle) {
+    /** Stages a cursor shape, or `null` to clear the override and follow `termux.properties`. */
+    fun setCursorStyle(style: CursorStyle?) {
         draft = draft.copy(cursorStyle = style)
     }
 
-    fun setCursorBlinkRate(rate: Int) {
-        draft = draft.copy(cursorBlinkRate = CursorBlink.sanitize(rate))
+    /** Stages a blink rate, or `null` to clear the override and follow `termux.properties`. */
+    fun setCursorBlinkRate(rate: Int?) {
+        draft = draft.copy(cursorBlinkRate = rate?.let(CursorBlink::sanitize))
     }
 }

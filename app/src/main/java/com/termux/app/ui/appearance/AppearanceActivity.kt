@@ -173,11 +173,13 @@ class AndroidAppearancePreferences(context: Context) : AppearancePreferences {
         appPreferences?.setFontSize(size)
     }
 
-    override fun getCursorStyle(): Int? = cursorPreferences.cursorStyle()
+    override fun getCursorStyleOverride(): Int? = cursorPreferences.cursorStyleOverride()
+
+    override fun getDefaultCursorStyle(): Int? = cursorPreferences.defaultCursorStyle()
 
     override fun setCursorStyle(style: Int?) = cursorPreferences.setCursorStyle(style)
 
-    override fun getCursorBlinkRate(): Int? = cursorPreferences.cursorBlinkRate()
+    override fun getCursorBlinkRateOverride(): Int? = cursorPreferences.cursorBlinkRateOverride()
 
     override fun setCursorBlinkRate(rate: Int?) = cursorPreferences.setCursorBlinkRate(rate)
 
