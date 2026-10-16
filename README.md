@@ -6,8 +6,8 @@ you type on and the terminal emulation behind it. The packages you install insid
 
 I keep my own version of the app here. My goal is a friendlier shell and tidier session handling
 on top of the terminal engine that already works. I built it on upstream
-[termux/termux-app](https://github.com/termux/termux-app) commit `8629e632` (2026-09-26), and my
-34 commits since then sit on top of it.
+[termux/termux-app](https://github.com/termux/termux-app) commit `8629e632` (2026-09-26), and a few
+dozen commits of my own sit on top of it.
 
 ## What I changed so far
 
