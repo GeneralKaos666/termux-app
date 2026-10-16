@@ -39,16 +39,20 @@ not move the tab.
 
 ## What I have not done yet
 
-| Area | What I have not done | State |
-|---|---|---|
-| Sessions | I have not added tab pinning | Small. I can reorder by hand. |
-| Sessions | I cannot keep a shell alive across app restarts | Needs its own design: shells live in the app process, so I would save a snapshot and start fresh sessions. |
-| Sessions bar | I have not given untitled tabs a stable name, so a reorder renames them | Small. |
-| Sessions bar | I cannot rename, close or move a tab without switching to it first | Small. I show the ⋮ menu only on the active tab. |
-| Shell | I have not routed the activity lifecycle and window insets through the Compose shell | Deferred. I still run the XML shell. |
-| Device checks | I have not exercised onboarding cancel/retry, rotation mid-install or the back key | I left this for a later pass. |
-| Device checks | I have not checked the Solarized Light, Gruvbox Dark and One Dark presets | I shipped them but have not checked them on device. |
-| Appearance | I left some dead string resources in, and I cannot clear a cursor override | Small. |
-| Background | I only support a static wallpaper | A live one gives me no usable frame. |
-| Android | I still target SDK 28 | I still have edge-to-edge, the notification permission and predictive back to do. |
-| Settings | I have not reworked the preferences or added a setup wizard | I shipped only the defaults half. |
+- I have not added tab pinning (small). I can reorder by hand.
+- I cannot keep a shell alive across app restarts. That needs its own design: shells live in the app
+  process, so I would save a snapshot and start fresh sessions on the next launch.
+- I have not given untitled tabs a stable name, so a reorder renames them (small).
+- I cannot rename, close or move a tab without switching to it first (small). I show the ⋮ menu only
+  on the active tab.
+- I have not routed the activity lifecycle and window insets through the Compose shell (deferred). I
+  still run the XML shell.
+- I have not exercised onboarding cancel/retry, rotation mid-install or the back key. I left that for
+  a later pass.
+- I have not checked the Solarized Light, Gruvbox Dark and One Dark presets. I shipped them but have
+  not checked them on device.
+- I left some dead string resources in, and I cannot clear a cursor override (small).
+- I only support a static wallpaper; a live one gives me no usable frame.
+- I still target SDK 28. Edge-to-edge, the notification permission and predictive back are still to
+  come.
+- I have not reworked the preferences or added a setup wizard. I shipped only the defaults half.
