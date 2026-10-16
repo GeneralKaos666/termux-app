@@ -2,25 +2,19 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory
-        app:key="view"
-        app:title="@string/termux_terminal_view_view_header">
+        app:key="style"
+        app:title="@string/termux_display_style_header">
 
         <Preference
             app:key="appearance"
             app:title="@string/termux_terminal_view_appearance_title"
             app:summary="@string/termux_terminal_view_appearance_summary" />
 
-        <SwitchPreferenceCompat
-            app:key="terminal_margin_adjustment"
-            app:summaryOff="@string/termux_terminal_view_terminal_margin_adjustment_off"
-            app:summaryOn="@string/termux_terminal_view_terminal_margin_adjustment_on"
-            app:title="@string/termux_terminal_view_terminal_margin_adjustment_title" />
-
     </PreferenceCategory>
 
     <PreferenceCategory
         app:key="background"
-        app:title="@string/termux_terminal_view_background_header">
+        app:title="@string/termux_display_background_header">
 
         <ListPreference
             app:key="terminal_background"
@@ -45,19 +39,14 @@
     </PreferenceCategory>
 
     <PreferenceCategory
-        app:key="extra_keys"
-        app:title="@string/termux_terminal_view_extra_keys_header">
+        app:key="layout"
+        app:title="@string/termux_display_layout_header">
 
-        <ListPreference
-            app:key="extra_keys_preset"
-            app:title="@string/termux_terminal_view_extra_keys_preset_title"
-            app:defaultValue="default" />
-
-        <Preference
-            app:key="extra_keys_preset_note"
-            app:title="@string/termux_terminal_view_extra_keys_preset_note_title"
-            app:summary="@string/termux_terminal_view_extra_keys_preset_note_summary"
-            app:selectable="false" />
+        <SwitchPreferenceCompat
+            app:key="terminal_margin_adjustment"
+            app:summaryOff="@string/termux_terminal_view_terminal_margin_adjustment_off"
+            app:summaryOn="@string/termux_terminal_view_terminal_margin_adjustment_on"
+            app:title="@string/termux_terminal_view_terminal_margin_adjustment_title" />
 
     </PreferenceCategory>
 

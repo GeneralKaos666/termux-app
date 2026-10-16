@@ -18,7 +18,7 @@ import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_APP;
 
 @Keep
-public class TerminalViewPreferencesFragment extends PreferenceFragmentCompat {
+public class DisplayPreferencesFragment extends PreferenceFragmentCompat {
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -26,9 +26,9 @@ public class TerminalViewPreferencesFragment extends PreferenceFragmentCompat {
         if (context == null) return;
 
         PreferenceManager preferenceManager = getPreferenceManager();
-        preferenceManager.setPreferenceDataStore(TerminalViewPreferencesDataStore.getInstance(context));
+        preferenceManager.setPreferenceDataStore(DisplayPreferencesDataStore.getInstance(context));
 
-        setPreferencesFromResource(R.xml.termux_terminal_view_preferences, rootKey);
+        setPreferencesFromResource(R.xml.termux_display_preferences, rootKey);
 
         Preference appearance = findPreference("appearance");
         if (appearance != null) {
@@ -62,22 +62,6 @@ public class TerminalViewPreferencesFragment extends PreferenceFragmentCompat {
             chooseImage.setOnPreferenceClickListener(preference -> {
                 launchImagePicker();
                 return true;
-            });
-        }
-
-        ListPreference extraKeysPreset = findPreference("extra_keys_preset");
-        if (extraKeysPreset != null) {
-            extraKeysPreset.setEntries(new CharSequence[] {
-                getString(R.string.termux_terminal_view_extra_keys_preset_entry_default),
-                getString(R.string.termux_terminal_view_extra_keys_preset_entry_compact),
-                getString(R.string.termux_terminal_view_extra_keys_preset_entry_vim),
-                getString(R.string.termux_terminal_view_extra_keys_preset_entry_emacs),
-            });
-            extraKeysPreset.setEntryValues(new CharSequence[] {
-                TERMUX_APP.DEFAULT_IVALUE_EXTRA_KEYS_PRESET,
-                "compact",
-                "vim",
-                "emacs",
             });
         }
     }
@@ -152,7 +136,7 @@ public class TerminalViewPreferencesFragment extends PreferenceFragmentCompat {
             }
             return outFile.getAbsolutePath();
         } catch (Exception e) {
-            com.termux.shared.logger.Logger.logStackTraceWithMessage("TerminalViewPreferencesFragment",
+            com.termux.shared.logger.Logger.logStackTraceWithMessage("DisplayPreferencesFragment",
                 "Failed to copy the selected background image", e);
             return null;
         }
@@ -160,21 +144,21 @@ public class TerminalViewPreferencesFragment extends PreferenceFragmentCompat {
 
 }
 
-class TerminalViewPreferencesDataStore extends PreferenceDataStore {
+class DisplayPreferencesDataStore extends PreferenceDataStore {
 
     private final Context mContext;
     private final TermuxAppSharedPreferences mPreferences;
 
-    private static TerminalViewPreferencesDataStore mInstance;
+    private static DisplayPreferencesDataStore mInstance;
 
-    private TerminalViewPreferencesDataStore(Context context) {
+    private DisplayPreferencesDataStore(Context context) {
         mContext = context;
         mPreferences = TermuxAppSharedPreferences.build(context, true);
     }
 
-    public static synchronized TerminalViewPreferencesDataStore getInstance(Context context) {
+    public static synchronized DisplayPreferencesDataStore getInstance(Context context) {
         if (mInstance == null) {
-            mInstance = new TerminalViewPreferencesDataStore(context);
+            mInstance = new DisplayPreferencesDataStore(context);
         }
         return mInstance;
     }
@@ -215,9 +199,6 @@ class TerminalViewPreferencesDataStore extends PreferenceDataStore {
             case "terminal_background":
                 mPreferences.setTerminalBackground(value);
                 break;
-            case "extra_keys_preset":
-                mPreferences.setExtraKeysPreset(value);
-                break;
             default:
                 break;
         }
@@ -230,8 +211,6 @@ class TerminalViewPreferencesDataStore extends PreferenceDataStore {
         switch (key) {
             case "terminal_background":
                 return mPreferences.getTerminalBackground();
-            case "extra_keys_preset":
-                return mPreferences.getExtraKeysPreset();
             default:
                 return defValue;
         }

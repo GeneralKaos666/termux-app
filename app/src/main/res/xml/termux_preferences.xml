@@ -11,8 +11,8 @@
         app:fragment="com.termux.app.fragments.settings.termux.KeyboardPreferencesFragment"/>
 
     <Preference
-        app:title="@string/termux_terminal_view_preferences_title"
-        app:summary="@string/termux_terminal_view_preferences_summary"
-        app:fragment="com.termux.app.fragments.settings.termux.TerminalViewPreferencesFragment"/>
+        app:title="@string/termux_display_preferences_title"
+        app:summary="@string/termux_display_preferences_summary"
+        app:fragment="com.termux.app.fragments.settings.termux.DisplayPreferencesFragment"/>
 
 </PreferenceScreen>

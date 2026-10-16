@@ -237,6 +237,20 @@
                 <string name="termux_crash_report_notifications_enabled_on">Show notifications for crash reports. (Default)</string>
 
 
+        <!-- Display Preferences -->
+        <string name="termux_display_preferences_title">Display</string>
+        <string name="termux_display_preferences_summary">Colours, font, background and layout</string>
+
+            <!-- Style Category -->
+            <string name="termux_display_style_header">Style</string>
+
+            <!-- Background Category -->
+            <string name="termux_display_background_header">Background</string>
+
+            <!-- Layout Category -->
+            <string name="termux_display_layout_header">Layout</string>
+
+
         <!-- Keyboard Preferences -->
         <string name="termux_keyboard_preferences_title">Keyboard</string>
         <string name="termux_keyboard_preferences_summary">On-screen keyboard and extra keys</string>
@@ -251,7 +265,6 @@
         <!-- Terminal IO Preferences -->
 
             <!-- Keyboard Category -->
-            <string name="termux_keyboard_header">Keyboard</string>
 
                 <!-- Soft Keyboard -->
                 <string name="termux_soft_keyboard_enabled_title">Soft Keyboard Enabled</string>
@@ -267,11 +280,8 @@
 
 
         <!-- Terminal View Preferences -->
-        <string name="termux_terminal_view_preferences_title">Terminal View</string>
-        <string name="termux_terminal_view_preferences_summary">Preferences for terminal view</string>
 
             <!-- View Category -->
-            <string name="termux_terminal_view_view_header">View</string>
 
                 <!-- Terminal View Margin Adjustment -->
                 <string name="termux_terminal_view_terminal_margin_adjustment_title">Terminal Margin Adjustment</string>
@@ -281,7 +291,6 @@
                     If it causes screen flickering on your devices, then disable it. (Default)</string>
 
             <!-- Background Category -->
-            <string name="termux_terminal_view_background_header">Terminal background</string>
 
                 <!-- Terminal Background -->
                 <string name="termux_terminal_view_terminal_background_title">Background</string>
@@ -296,7 +305,6 @@
                 <string name="termux_terminal_view_terminal_background_dim_summary">Darkens the background picture to keep text readable. Percentage: %1$s</string>
 
             <!-- Extra Keys Category -->
-            <string name="termux_terminal_view_extra_keys_header">Extra keys</string>
 
                 <!-- Extra Keys Preset -->
                 <string name="termux_terminal_view_extra_keys_preset_title">Preset</string>

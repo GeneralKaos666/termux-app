@@ -50,4 +50,38 @@ class SettingsPreferencesXmlTest {
         assertTrue("plugin xml no longer resolves the shared 'Debugging' title", titles.contains("Debugging"))
         assertTrue("plugin xml no longer resolves the shared 'Logging' header", titles.contains("Logging"))
     }
+
+    @Test
+    fun `display screen has exactly its expected leaves`() {
+        assertEquals(
+            setOf(
+                "appearance",
+                "terminal_background",
+                "terminal_background_choose_image",
+                "terminal_background_dim",
+                "terminal_margin_adjustment",
+            ),
+            leafKeysOf(R.xml.termux_display_preferences).toSet(),
+        )
+    }
+
+    @Test
+    fun `hub points the display entry at the display fragment`() {
+        val entries = parsePreferenceScreen(R.xml.termux_preferences).filter { it.tag == "Preference" }
+        assertTrue(
+            "no hub entry targets DisplayPreferencesFragment",
+            entries.any {
+                it.fragment == "com.termux.app.fragments.settings.termux.DisplayPreferencesFragment"
+            },
+        )
+    }
+
+    @Test
+    fun `the superseded terminal screens are gone`() {
+        val res = RuntimeEnvironment.getApplication().resources
+        val pkg = RuntimeEnvironment.getApplication().packageName
+        for (name in listOf("termux_terminal_view_preferences", "termux_terminal_io_preferences")) {
+            assertEquals("$name should have been deleted", 0, res.getIdentifier(name, "xml", pkg))
+        }
+    }
 }
