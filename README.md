@@ -41,7 +41,8 @@ and a drag that finished never moved the tab.
 
 ## What's not done yet
 
-That is what is built. This is what is not, kept short so it stays honest:
+Everything above is what I changed. This is the other half of the README: what is not done,
+kept short so it stays honest:
 
 | Area | Not done yet | State |
 |---|---|---|
