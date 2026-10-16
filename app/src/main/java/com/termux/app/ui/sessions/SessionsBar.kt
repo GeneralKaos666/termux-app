@@ -59,9 +59,9 @@ import kotlin.math.roundToInt
  *
  * Renders one tab per [SessionItem]: the title plus a status indicator (running / exited
  * successfully / exited with an error). Tapping a tab switches to that session; long-pressing one
- * and dragging reorders it. The active tab carries a menu button for rename / close / move. A
- * trailing "+" starts a new session. With many sessions the row scrolls, and the active tab is
- * always scrolled into view.
+ * and dragging reorders it. Every tab carries a menu button for rename / close / move, so those
+ * actions reach background sessions too. A trailing "+" starts a new session. With many sessions
+ * the row scrolls, and the active tab is always scrolled into view.
  *
  * This replaces the old navigation drawer session list.
  */
@@ -277,53 +277,80 @@ private fun SessionTab(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (item.active) {
-                Spacer(Modifier.width(4.dp))
-                IconButton(
-                    onClick = { menuExpanded = true },
-                    modifier = Modifier.size(24.dp),
-                ) {
-                    Icon(
-                        imageVector = SessionIcons.MoreVert,
-                        contentDescription = menuLabel,
-                        tint = contentColor,
-                    )
-                }
+            Spacer(Modifier.width(4.dp))
+            IconButton(
+                onClick = { menuExpanded = true },
+                modifier = Modifier.size(24.dp),
+            ) {
+                Icon(
+                    imageVector = SessionIcons.MoreVert,
+                    contentDescription = menuLabel,
+                    tint = contentColor,
+                )
             }
         }
 
-        if (item.active) {
-            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.action_rename_session)) },
-                    onClick = {
-                        menuExpanded = false
-                        onRename(item.id)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.action_close_session)) },
-                    onClick = {
-                        menuExpanded = false
-                        onClose(item.id)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.action_move_session_left)) },
-                    onClick = {
-                        menuExpanded = false
-                        if (fromIndex > 0) onMove(item.id, fromIndex - 1)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.action_move_session_right)) },
-                    onClick = {
-                        menuExpanded = false
-                        if (fromIndex >= 0 && fromIndex < allSessions.size - 1) onMove(item.id, fromIndex + 1)
-                    },
-                )
-            }
-        }
+        SessionActionsMenu(
+            expanded = menuExpanded,
+            onDismiss = { menuExpanded = false },
+            sessionId = item.id,
+            fromIndex = fromIndex,
+            sessionCount = allSessions.size,
+            onRename = onRename,
+            onClose = onClose,
+            onMove = onMove,
+        )
+    }
+}
+
+/**
+ * The per-tab menu: rename, close, and move one position left or right.
+ *
+ * The move items are enabled rather than hidden at the ends of the row, so the menu looks the same
+ * on every tab and the disabled direction states why it cannot go further.
+ */
+@Composable
+private fun SessionActionsMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    sessionId: Int,
+    fromIndex: Int,
+    sessionCount: Int,
+    onRename: (Int) -> Unit,
+    onClose: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_rename_session)) },
+            onClick = {
+                onDismiss()
+                onRename(sessionId)
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_close_session)) },
+            onClick = {
+                onDismiss()
+                onClose(sessionId)
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_move_session_left)) },
+            enabled = fromIndex > 0,
+            onClick = {
+                onDismiss()
+                onMove(sessionId, fromIndex - 1)
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_move_session_right)) },
+            enabled = fromIndex in 0 until sessionCount - 1,
+            onClick = {
+                onDismiss()
+                onMove(sessionId, fromIndex + 1)
+            },
+        )
     }
 }
 
@@ -395,6 +422,24 @@ private fun SessionsBarEmptyPreview() {
             onClose = {},
             onMove = { _, _ -> },
             onNewSession = {},
+        )
+    }
+}
+
+/** A background (non-active) tab's menu, at the head of the row so move-left is disabled. */
+@Preview(name = "Menu on a background tab", showBackground = true, widthDp = 360)
+@Composable
+private fun SessionActionsMenuPreview() {
+    TermuxShellTheme {
+        SessionActionsMenu(
+            expanded = true,
+            onDismiss = {},
+            sessionId = 4,
+            fromIndex = 0,
+            sessionCount = 4,
+            onRename = {},
+            onClose = {},
+            onMove = { _, _ -> },
         )
     }
 }

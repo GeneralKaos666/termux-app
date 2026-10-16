@@ -11,7 +11,7 @@ Kotlin and Jetpack Compose.
 ## What this fork adds
 
 - **Sessions bar** across the top: tap a tab to switch, long-press and drag to reorder, and
-  rename or close a session from its menu.
+  rename, close or move any session from its tab's menu.
 - **Extra-keys presets** in a Compose row that replaces the old swipeable pager.
 - **Appearance screen** under the terminal's Style menu and in Settings: colour schemes, an
   editor for the background, foreground, cursor and all sixteen ANSI colours, font and size,
@@ -61,7 +61,6 @@ problem and its workarounds in
 
 The fork keeps moving. These are the pieces in progress or next up.
 
-- **Rename, close and move from any tab.** Those actions only reach the active tab right now.
 - **Appearance follow-ups**: clearing a cursor override, and checking the remaining colour
   presets (Solarized Light, Gruvbox Dark, One Dark) on real devices.
 - **Settings rework and a setup wizard.** The first-run walkthrough shipped; the preferences
