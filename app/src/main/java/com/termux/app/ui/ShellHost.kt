@@ -57,6 +57,9 @@ interface ShellHostCallbacks {
     /** Close the session with the given [id], confirming first if it is still running. */
     fun onSessionClose(id: Int)
 
+    /** Move the session with the given [id] to the target position [toIndex]. */
+    fun onSessionMoved(id: Int, toIndex: Int)
+
     /** Start a new session. */
     fun onNewSession()
 
@@ -148,6 +151,7 @@ private fun TerminalShellHost(
                         onSelect = callbacks::onSessionSelected,
                         onRename = callbacks::onSessionRename,
                         onClose = callbacks::onSessionClose,
+                        onMove = callbacks::onSessionMoved,
                         onNewSession = callbacks::onNewSession,
                     )
                 }

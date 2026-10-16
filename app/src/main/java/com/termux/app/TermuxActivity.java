@@ -231,6 +231,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         @Override
+        public void onSessionMoved(int id, int toIndex) {
+            moveSessionById(id, toIndex);
+        }
+
+        @Override
         public void onNewSession() {
             if (mTermuxTerminalSessionActivityClient != null)
                 mTermuxTerminalSessionActivityClient.addNewSession(false, null);
@@ -820,6 +825,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (mSnackbarState != null)
                 mSnackbarState.post(getString(R.string.msg_session_closed));
         }
+    }
+
+    private void moveSessionById(int id, int toIndex) {
+        if (mTermuxService == null) return;
+        TermuxSession termuxSession = getTermuxSessionById(id);
+        if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
+
+        final int fromIndex = mTermuxService.getIndexOfSession(termuxSession.getTerminalSession());
+        if (fromIndex < 0) return;
+        if (fromIndex == toIndex) return;
+        mTermuxService.moveTermuxSession(fromIndex, toIndex);
+        refreshSessionsBar();
     }
 
 

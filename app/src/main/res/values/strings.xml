@@ -55,7 +55,6 @@
     <string name="action_start_session">Start a session</string>
     <string name="action_rename_session">Rename</string>
     <string name="action_close_session">Close</string>
-    <string name="action_select_session">Switch to</string>
     <string name="session_state_running">Running</string>
     <string name="session_state_exited">Exited</string>
     <string name="session_state_exited_error">Exited with error</string>
@@ -327,5 +326,8 @@
 
     <!-- Donate Preference -->
     <string name="donate_preference_title">Donate</string>
+    <string name="action_move_session_left">Move left</string>
+    <string name="action_move_session_right">Move right</string>
+    <string name="action_session_menu">Session actions</string>
 
 </resources>
