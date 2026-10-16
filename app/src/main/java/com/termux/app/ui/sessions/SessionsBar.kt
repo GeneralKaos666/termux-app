@@ -1,8 +1,8 @@
 package com.termux.app.ui.sessions
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,7 +29,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +39,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -48,14 +52,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.termux.R
 import com.termux.app.ui.theme.TermuxShellTheme
+import kotlin.math.roundToInt
 
 /**
  * Always-visible, adaptive top strip of terminal sessions.
  *
  * Renders one tab per [SessionItem]: the title plus a status indicator (running / exited
  * successfully / exited with an error). Tapping a tab switches to that session; long-pressing one
- * opens a menu with actions for it. A trailing "+" starts a new session. With many sessions the
- * row scrolls, and the active tab is always scrolled into view.
+ * and dragging reorders it. The active tab carries a menu button for rename / close / move. A
+ * trailing "+" starts a new session. With many sessions the row scrolls, and the active tab is
+ * always scrolled into view.
  *
  * This replaces the old navigation drawer session list.
  */
@@ -74,6 +80,20 @@ fun SessionsBar(
 
     val startSessionLabel = stringResource(R.string.action_start_session)
     val newSessionLabel = stringResource(R.string.action_new_session)
+
+    // Horizontal extent of each tab in the root coordinate space, keyed by session id, recorded by
+    // the tab itself once it has been laid out. Only read from gesture callbacks, never during
+    // composition, so updating it does not invalidate any composable.
+    val tabBounds = remember { mutableStateMapOf<Int, TabBounds>() }
+
+    // Bounds in session order, for the drop-index maths. Tabs that have not been laid out yet are
+    // skipped rather than guessed at, and the index is taken from the session order here because
+    // that is the order a move is expressed in.
+    val snapshotTabBounds: () -> List<TabBounds> = {
+        sessions.mapIndexedNotNull { index, session ->
+            tabBounds[session.id]?.copy(index = index)
+        }
+    }
 
     // Keep the active session visible when it changes. Deliberately not keyed on the whole list:
     // session titles update constantly while commands run, and re-running this on every refresh
@@ -111,6 +131,8 @@ fun SessionsBar(
                         onRename = onRename,
                         onClose = onClose,
                         onMove = onMove,
+                        onTabBoundsChanged = { id, bounds -> tabBounds[id] = bounds },
+                        snapshotTabBounds = snapshotTabBounds,
                     )
                 }
             }
@@ -129,7 +151,6 @@ fun SessionsBar(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SessionTab(
     item: SessionItem,
@@ -138,6 +159,8 @@ private fun SessionTab(
     onRename: (Int) -> Unit,
     onClose: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
+    onTabBoundsChanged: (Int, TabBounds) -> Unit,
+    snapshotTabBounds: () -> List<TabBounds>,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -167,8 +190,18 @@ private fun SessionTab(
         allSessions.indexOfFirst { it.id == item.id }
     }
 
+    // The gesture handler is created once per session and outlives a composition, so read the
+    // values it needs through rememberUpdatedState rather than capturing a stale snapshot of them.
+    val currentFromIndex by rememberUpdatedState(fromIndex)
+    val currentOnMove by rememberUpdatedState(onMove)
+    val currentOnTabBoundsChanged by rememberUpdatedState(onTabBoundsChanged)
+    val currentSnapshotTabBounds by rememberUpdatedState(snapshotTabBounds)
+
     var dragOffsetX by remember(item.id) { mutableStateOf(0f) }
     var isDragging by remember(item.id) { mutableStateOf(false) }
+    // Tab extent captured when the drag starts. The drop maths measures the dragged centre against
+    // the layout as it was before the drag, so the tab changing place mid-drag cannot skew it.
+    var boundsAtDragStart by remember(item.id) { mutableStateOf(emptyList<TabBounds>()) }
 
     Box(
         modifier = Modifier
@@ -176,6 +209,7 @@ private fun SessionTab(
             .graphicsLayer {
                 translationX = if (isDragging) dragOffsetX else 0f
             }
+            .clickable { onSelect(item.id) }
             .semantics {
                 contentDescription = item.title
                 selected = item.active
@@ -187,9 +221,23 @@ private fun SessionTab(
                 .clip(RoundedCornerShape(16.dp))
                 .background(containerColor)
                 .heightIn(min = 48.dp)
-                .pointerInput(item.id, allSessions) {
+                .onGloballyPositioned { coordinates ->
+                    val bounds = coordinates.boundsInRoot()
+                    // The index is fixed up by SessionsBar from the session order; only the extent
+                    // is meaningful here.
+                    currentOnTabBoundsChanged(
+                        item.id,
+                        TabBounds(
+                            index = currentFromIndex,
+                            startPx = bounds.left.roundToInt(),
+                            endPx = bounds.right.roundToInt(),
+                        ),
+                    )
+                }
+                .pointerInput(item.id) {
                     detectDragGesturesAfterLongPress(
                         onDragStart = {
+                            boundsAtDragStart = currentSnapshotTabBounds()
                             isDragging = true
                             dragOffsetX = 0f
                         },
@@ -198,17 +246,18 @@ private fun SessionTab(
                             dragOffsetX += dragAmount.x
                         },
                         onDragEnd = {
+                            val draggedBy = dragOffsetX
                             isDragging = false
                             dragOffsetX = 0f
-                            if (fromIndex >= 0) {
-                                // Simple heuristic: move by one if offset large enough
-                                val itemWidth = 100f // approximate
-                                val target = (fromIndex + (dragOffsetX / itemWidth).toInt()).coerceIn(0, allSessions.size - 1)
-                                if (target != fromIndex) {
-                                    onMove(item.id, target)
-                                }
+
+                            val from = currentFromIndex
+                            val own = boundsAtDragStart.firstOrNull { it.index == from }
+                            val target = if (own == null) {
+                                from
+                            } else {
+                                dropIndex(boundsAtDragStart, (own.startPx + own.endPx) / 2f + draggedBy)
                             }
-                            dragOffsetX = 0f
+                            if (target != from) currentOnMove(item.id, target)
                         },
                         onDragCancel = {
                             isDragging = false
