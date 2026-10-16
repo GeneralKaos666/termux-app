@@ -119,4 +119,46 @@ class SettingsPreferencesXmlTest {
         }
         assertEquals("Advanced", resolveString(advanced.title))
     }
+
+    @Test
+    fun `hub lists display, keyboard and advanced in that order`() {
+        val entries = parsePreferenceScreen(R.xml.termux_preferences).filter { it.tag == "Preference" }
+        assertEquals(
+            listOf(
+                "com.termux.app.fragments.settings.termux.DisplayPreferencesFragment",
+                "com.termux.app.fragments.settings.termux.KeyboardPreferencesFragment",
+                "com.termux.app.fragments.settings.termux.DebuggingPreferencesFragment",
+            ),
+            entries.map { it.fragment },
+        )
+        assertEquals(listOf("Display", "Keyboard", "Advanced"), entries.map { resolveString(it.title) })
+        assertEquals(
+            listOf(
+                "Colours, font, background and layout",
+                "On-screen keyboard and extra keys",
+                "Logging, notifications and diagnostics",
+            ),
+            entries.map { resolveString(it.summary) },
+        )
+    }
+
+    @Test
+    fun `every termux leaf key appears exactly once`() {
+        val all = listOf(
+            R.xml.termux_display_preferences,
+            R.xml.termux_keyboard_preferences,
+            R.xml.termux_debugging_preferences,
+        ).flatMap { leafKeysOf(it) }
+        assertEquals(all.size, all.toSet().size)
+        assertEquals(
+            setOf(
+                "appearance", "terminal_background", "terminal_background_choose_image",
+                "terminal_background_dim", "terminal_margin_adjustment", "soft_keyboard_enabled",
+                "soft_keyboard_enabled_only_if_no_hardware", "extra_keys_preset", "extra_keys_preset_note",
+                "log_level", "terminal_view_key_logging_enabled", "plugin_error_notifications_enabled",
+                "crash_report_notifications_enabled",
+            ),
+            all.toSet(),
+        )
+    }
 }
