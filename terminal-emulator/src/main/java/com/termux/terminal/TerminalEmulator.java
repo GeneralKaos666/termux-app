@@ -422,6 +422,13 @@ public final class TerminalEmulator {
     int mEffect;
 
     /**
+     * Current underline style, stored in bits 11-13 of the {@link TextStyle} word. Refines, but does not replace,
+     * {@link TextStyle#CHARACTER_ATTRIBUTE_UNDERLINE}: the attribute bit says an underline is drawn, while this says
+     * how. Set by {@code SGR 4:n} and {@code SGR 21}.
+     */
+    int mUnderlineStyle;
+
+    /**
      * The number of scrolled lines since last calling {@link #clearScrollCounter()}. Used for moving selection up along
      * with the scrolling text.
      */
@@ -2108,6 +2115,7 @@ public final class TerminalEmulator {
         state.mSavedCursorRow = mCursorRow;
         state.mSavedCursorCol = mCursorCol;
         state.mSavedEffect = mEffect;
+        state.mSavedUnderlineStyle = mUnderlineStyle;
         state.mSavedForeColor = mForeColor;
         state.mSavedBackColor = mBackColor;
         state.mSavedDecFlags = mCurrentDecSetFlags;
@@ -2121,6 +2129,7 @@ public final class TerminalEmulator {
         SavedScreenState state = (mScreen == mMainBuffer) ? mSavedStateMain : mSavedStateAlt;
         setCursorRowCol(state.mSavedCursorRow, state.mSavedCursorCol);
         mEffect = state.mSavedEffect;
+        mUnderlineStyle = state.mSavedUnderlineStyle;
         mForeColor = state.mSavedForeColor;
         mBackColor = state.mSavedBackColor;
         int mask = (DECSET_BIT_AUTOWRAP | DECSET_BIT_ORIGIN_MODE);
@@ -2478,6 +2487,7 @@ public final class TerminalEmulator {
                 mForeColor = TextStyle.COLOR_INDEX_FOREGROUND;
                 mBackColor = TextStyle.COLOR_INDEX_BACKGROUND;
                 mEffect = 0;
+                mUnderlineStyle = TextStyle.UNDERLINE_STYLE_NONE;
             } else if (code == 1) {
                 mEffect |= TextStyle.CHARACTER_ATTRIBUTE_BOLD;
             } else if (code == 2) {
@@ -2488,15 +2498,24 @@ public final class TerminalEmulator {
                 if (i + 1 <= mArgIndex && ((mArgsSubParamsBitSet & (1 << (i + 1))) != 0)) {
                     // Sub parameter, see https://sw.kovidgoyal.net/kitty/underlines/
                     i++;
-                    if (mArgs[i] == 0) {
+                    int style = mArgs[i];
+                    if (style == TextStyle.UNDERLINE_STYLE_NONE) {
                         // No underline.
                         mEffect &= ~TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
-                    } else {
+                        mUnderlineStyle = TextStyle.UNDERLINE_STYLE_NONE;
+                    } else if (style >= TextStyle.UNDERLINE_STYLE_SINGLE && style <= TextStyle.UNDERLINE_STYLE_DASHED) {
                         // Different variations of underlines: https://sw.kovidgoyal.net/kitty/underlines/
                         mEffect |= TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                        mUnderlineStyle = style;
+                    } else {
+                        // Unknown or out of range style - fall back to a plain underline.
+                        mEffect |= TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                        mUnderlineStyle = TextStyle.UNDERLINE_STYLE_SINGLE;
                     }
                 } else {
                     mEffect |= TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                    // A plain "SGR 4" is a straight underline, resetting any previously set variant.
+                    mUnderlineStyle = TextStyle.UNDERLINE_STYLE_SINGLE;
                 }
             } else if (code == 5) {
                 mEffect |= TextStyle.CHARACTER_ATTRIBUTE_BLINK;
@@ -2510,12 +2529,16 @@ public final class TerminalEmulator {
                 // Exit alt charset (TERM=linux) - ignore.
             } else if (code == 11) {
                 // Enter alt charset (TERM=linux) - ignore.
+            } else if (code == 21) { // Double underline (xterm).
+                mEffect |= TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                mUnderlineStyle = TextStyle.UNDERLINE_STYLE_DOUBLE;
             } else if (code == 22) { // Normal color or intensity, neither bright, bold nor faint.
                 mEffect &= ~(TextStyle.CHARACTER_ATTRIBUTE_BOLD | TextStyle.CHARACTER_ATTRIBUTE_DIM);
             } else if (code == 23) { // not italic, but rarely used as such; clears standout with TERM=screen
                 mEffect &= ~TextStyle.CHARACTER_ATTRIBUTE_ITALIC;
             } else if (code == 24) { // underline: none
                 mEffect &= ~TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                mUnderlineStyle = TextStyle.UNDERLINE_STYLE_NONE;
             } else if (code == 25) { // blink: none
                 mEffect &= ~TextStyle.CHARACTER_ATTRIBUTE_BLINK;
             } else if (code == 27) { // image: positive
@@ -3023,7 +3046,7 @@ public final class TerminalEmulator {
     }
 
     private long getStyle() {
-        return TextStyle.encode(mForeColor, mBackColor, mEffect);
+        return TextStyle.encodeUnderline(TextStyle.encode(mForeColor, mBackColor, mEffect), mUnderlineStyle);
     }
 
     /** "CSI P_m h" for set or "CSI P_m l" for reset ANSI mode. */
@@ -3500,8 +3523,8 @@ public final class TerminalEmulator {
         mUseLineDrawingG0 = mUseLineDrawingG1 = false;
         mUseLineDrawingUsesG0 = true;
 
-        mSavedStateMain.mSavedCursorRow = mSavedStateMain.mSavedCursorCol = mSavedStateMain.mSavedEffect = mSavedStateMain.mSavedDecFlags = 0;
-        mSavedStateAlt.mSavedCursorRow = mSavedStateAlt.mSavedCursorCol = mSavedStateAlt.mSavedEffect = mSavedStateAlt.mSavedDecFlags = 0;
+        mSavedStateMain.mSavedCursorRow = mSavedStateMain.mSavedCursorCol = mSavedStateMain.mSavedEffect = mSavedStateMain.mSavedUnderlineStyle = mSavedStateMain.mSavedDecFlags = 0;
+        mSavedStateAlt.mSavedCursorRow = mSavedStateAlt.mSavedCursorCol = mSavedStateAlt.mSavedEffect = mSavedStateAlt.mSavedUnderlineStyle = mSavedStateAlt.mSavedDecFlags = 0;
         mCurrentDecSetFlags = 0;
         // Initial wrap-around is not accurate but makes terminal more useful, especially on a small screen:
         setDecsetinternalBit(DECSET_BIT_AUTOWRAP, true);
@@ -3555,7 +3578,7 @@ public final class TerminalEmulator {
     static final class SavedScreenState {
         /** Saved state of the cursor position, Used to implement the save/restore cursor position escape sequences. */
         int mSavedCursorRow, mSavedCursorCol;
-        int mSavedEffect, mSavedForeColor, mSavedBackColor;
+        int mSavedEffect, mSavedUnderlineStyle, mSavedForeColor, mSavedBackColor;
         int mSavedDecFlags;
         boolean mUseLineDrawingG0, mUseLineDrawingG1, mUseLineDrawingUsesG0 = true;
     }
