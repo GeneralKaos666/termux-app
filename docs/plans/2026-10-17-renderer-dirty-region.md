@@ -81,49 +81,181 @@ git add terminal-view/src/main/java/com/termux/view/RowInvalidation.java termina
 git commit -S -m "Added(view): Add RowInvalidation helper for dirty-region decisions"
 ```
 
-### Task 2: TerminalView consumes dirty state; row-range render
+### Task 2: TerminalRenderer row-range entry point
 
 **Files:**
-- Modify: `terminal-view/src/main/java/com/termux/view/TerminalView.java` (add `mLastSeenChangeCounter`, change `onScreenUpdated`, `onDraw`, `attachSession/updateSize` rebind)
-- Modify: `terminal-view/src/main/java/com/termux/view/TerminalRenderer.java` (add row-range overload; keep existing signature delegating)
-- Modify: `terminal-view/build.gradle` (add test-scope JUnit if not already present — it already is in the file shown, but confirm; Task 1 added test source; no change needed unless missing)
+- Modify: `terminal-view/src/main/java/com/termux/view/TerminalRenderer.java` (the `render(...)` method at ~61 and its row loop at ~77)
 
 **Interfaces:**
-- Consumes: WS1 API on `TerminalBuffer` — `getChangeCounter()`, `isRowDirty(int)`, `clearDirtyState()`; existing view state (`mTopRow`, `mEmulator`, `getWidth()`, `getHeight()`).
-- Produces: clip-derived row range passed to renderer; targeted invalidates.
+- Produces: `public final void render(TerminalEmulator mEmulator, Canvas canvas, int topRow, int selectionY1, int selectionY2, int selectionX1, int selectionX2, int firstScreenRow, int lastScreenRowExclusive)` — the two new parameters are **external row numbers**, already clamped inside the visible band `[topRow, topRow + mEmulator.mRows)` by the caller.
+- Consumes: nothing new.
 
-- [ ] **Step 1: Extend Renderer with row-range overload**
+- [ ] **Step 1: Add the overload; keep the old signature delegating**
 
-In `TerminalRenderer.java`: add `public final void render(TerminalEmulator mEmulator, Canvas canvas, int topRow, int selectionY1,int selectionY2,int selectionX1,int selectionX2, int firstRow, int lastRow)`. The existing `render` method (line ~61) becomes `public final void render(...same 7 args...) { render(..., 0, mEmulator.mRows); }` delegating. In the loop, replace the row range `for (int row = topRow; row < endRow; row++)` logic? Wait — existing code loops `int row = topRow; row < endRow; row++` over screen rows (topRow is the top visible screen row). For row-range rendering, we must render only that subrange of those visible rows: intersect with `[firstRow, lastRow)` (exclusive) relative to the visible band? Or pass screen-row bounds: easier to pass `firstScreenRow` and `lastScreenRowExclusive` (clamped to `[topRow, endRow)`). So overload takes `int firstScreenRow, int lastScreenRowExclusive` and loops `for (int row = Math.max(topRow,firstScreenRow); row < Math.min(endRow,lastScreenRowExclusive); row++)` — or simpler, have the caller pass the full visible range and also the clip-derived screen-row bounds intersected appropriately. But cleaner: in `onDraw`, compute `first = Math.max(topRow, clipFirstScreenRow)`, `last = Math.min(endRow, clipLastScreenRowExclusive)`. So the overload signature is `render(..., int firstScreenRow, int lastScreenRowExclusive)` and the loop becomes `for (int row = firstScreenRow; row < lastScreenRowExclusive; row++)` with the caller ensuring it's within bounds. Keep the existing method delegating to `(topRow, endRow)`.
+The existing 7-arg `render(...)` body becomes an overload of the new 8-arg method:
 
-- [ ] **Step 2: Add state to TerminalView**
-
-Fields: `private long mLastSeenChangeCounter = -1L;` (package-private not needed; private). In `attachSession` (after `mEmulator = null;`) and after emulator changes in `updateSize` (when `mEmulator` becomes non-null or session changes), set `mLastSeenChangeCounter = -1L` (session rebind forces full). Also in `setTerminalSession` path? `attachSession` is the entry point; `updateSize` also rebinds emulator — reset there too.
-
-- [ ] **Step 3: Rewrite `onScreenUpdated()` protocol**
-
-Don't blindly `invalidate()`. Capture pre-state: `int oldTopRow = mTopRow;` (or remember whether it changed). Do existing scroll/autoscroll bookkeeping first (which may call `setTopRow`), then evaluate: get `screen = mEmulator.getScreen()`, `currentCounter = screen.getChangeCounter()`. Let `topRowChanged = (mTopRow != oldTopRow)` (or track). If `currentCounter != mLastSeenChangeCounter` OR `topRowChanged` → full `invalidate()`. Else find first/last dirty among visible `0..mEmulator.mRows-1`: for each, `row = topRow + i` mapped? visible are screen rows `topRow <= r < topRow + mRows` in the view's coordinate space relative to buffer; `isRowDirty` takes **external row**. So for `i = 0; i < mRows; i++`, `ext = topRow + i` (but note: `topRow` can be negative = history). But `isRowDirty` is called on external rows present in the buffer's view? WS1 states `isRowDirty(int externalRow)` returns false when row is null — so it's fine for history rows too. Find span over `ext in [topRow, topRow+mRows)` that are dirty. If any dirty → compute band: `firstExt = first dirty`, `lastExt = last dirty`, `topPx = (firstExt - mTopRow)*mRenderer.mFontLineSpacing`, `bottomPx = (lastExt - mTopRow + 1)*mRenderer.mFontLineSpacing`, clamp to `[0, getHeight()]`; `invalidate(0, topPx, getWidth(), bottomPx)`. Else → do **not** invalidate. Keep `setContentDescription(getText())` unconditionally. Preserve all existing early returns.
-
-- [ ] **Step 4: Rewrite `onDraw()` to use clip + row-range + draw-time clearing**
-
-Read clip: `Rect clip = canvas.getClipBounds();` (if null, treat as full). Compute visible range: `int topRowVis = mTopRow`, `int endRowVis = topRowVis + mEmulator.mRows`. Derive `first = topRowVis`, `last = endRowVis`; intersect with clip rows: `clipTopRow = (int)Math.floor(clip.top / (double)mRenderer.mFontLineSpacing + mTopRow)` etc., but easier to convert clip Y to screen rows: `first = Math.max(topRowVis, (int)Math.floor(clip.top / (float)mRenderer.mFontLineSpacing) + mTopRow)` and `last = Math.min(endRowVis, (int)Math.ceil(clip.bottom / (float)mRenderer.mFontLineSpacing) + mTopRow)` (or just use the floor+ceiling to be safe). If clip is empty, fall back to full. Call the row-range renderer with `(first, last)`. After render, set `mLastSeenChangeCounter = mEmulator.getScreen().getChangeCounter(); mEmulator.getScreen().clearDirtyState();`. Keep the selection-handle drawing after that (it doesn't depend on buffer dirty state).
-
-- [ ] **Step 5: Handle rebinds**
-
-In `attachSession(session)`: when attaching, after setting `mEmulator=null`, `setTopRow(0,false)`, then `updateSize()` will set emulator; also set `mLastSeenChangeCounter = -1L` before/after. In `updateSize()`, when emulator becomes non-null (or size changed causing emulator rebind), set `mLastSeenChangeCounter = -1L`. Also in the early return paths where `mEmulator==null`, nothing to clear.
-
-- [ ] **Step 6: Verify protocol behavior via targeted checks (no new test class for View yet; rely on helper + compile)**
-
-Run full view tests (new helper + existing nothing): `./gradlew :terminal-view:testDebugUnitTest` — should compile and pass (only RowInvalidationTest exists so far).
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add terminal-view/src/main/java/com/termux/view/TerminalView.java terminal-view/src/main/java/com/termux/view/TerminalRenderer.java
-git commit -S -m "Changed(view): Use dirty-region invalidation and row-range rendering"
+```java
+public final void render(TerminalEmulator mEmulator, Canvas canvas, int topRow,
+                         int selectionY1, int selectionY2, int selectionX1, int selectionX2) {
+    render(mEmulator, canvas, topRow, selectionY1, selectionY2, selectionX1, selectionX2,
+        topRow, topRow + mEmulator.mRows);
+}
 ```
 
-### Task 3: Distinct underline styles
+- [ ] **Step 2: Walk only the band and re-seed the accumulator**
+
+`endRow` disappears; the loop is `for (int row = firstScreenRow; row < lastScreenRowExclusive; row++)`. **Trap (found during execution, 2026-10-17):** `heightOffset` accumulates one row per iteration and is seeded before the loop, so skipped rows must be accounted for:
+
+```java
+float heightOffset = mFontLineSpacingAndAscent + (firstScreenRow - topRow) * mFontLineSpacing;
+```
+
+Everything else inside the loop is unchanged (selection/cursor per-row computation, the run machinery, the bitmap branch).
+
+- [ ] **Step 3: Verify**
+
+```bash
+./gradlew :terminal-view:compileDebugJavaWithJavac
+./gradlew :terminal-emulator:test
+```
+Expected: compile OK; `:terminal-emulator` 208/208 (zero diff there — this step proves the module still builds against the unchanged renderer API).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add terminal-view/src/main/java/com/termux/view/TerminalRenderer.java
+git commit -S -m "Added(view): Add a row-range entry point to the terminal renderer"
+```
+
+---
+
+### Task 3: Tested viewport mapping (`dirtyByIndex`)
+
+**Files:**
+- Modify: `terminal-view/src/main/java/com/termux/view/RowInvalidation.java`
+- Modify: `terminal-view/build.gradle` (add `testOptions { unitTests.returnDefaultValues = true }` inside `android { }` — test-scope only, needed because `TerminalBuffer` touches `android.os.SystemClock`/`Bitmap`)
+- Create: `terminal-view/src/test/java/com/termux/view/RowInvalidationBufferTest.java`
+
+**Interfaces:**
+- Produces: `static boolean[] dirtyByIndex(TerminalBuffer screen, int topRow, int rows)` — returns a viewport-relative flag array where index `i` is `screen.isRowDirty(topRow + i)`. **This is the only place the external-row mapping lives**, so the sign can be tested.
+- Consumes: WS1's `TerminalBuffer.isRowDirty(int)`.
+
+- [ ] **Step 1: Write the failing buffer-backed tests**
+
+```java
+// RowInvalidationBufferTest.java — transcript helper: two scrolls make two transcript rows
+public void testFreshBufferIsAllClean() { /* new TerminalBuffer(5, 10, 3) → all false */ }
+public void testOnlyTheWrittenRowIsDirty() { /* setChar(0, 1, 'a', 0) → index 1 true, 0 and 2 false */ }
+public void testTopRowNegativeReadsTheTranscriptBand() {
+    // TerminalBuffer(5, 10, 3); scrollDownOneLine(0, 3, <style>) twice; clearDirtyState();
+    // dirtyByIndex(screen, -2, 3) → all false (transcript rows -2,-1 and screen row 0 are clean)
+    // then setChar on screen rows 1 and 2 → dirtyByIndex(screen, 0, 3) has 1 and 2 true, and
+    //      dirtyByIndex(screen, -2, 3) is still all false (it queries rows -2,-1,0, not 1,2)
+}
+```
+
+Note: `TerminalBuffer.externalToInternalRow` throws for rows below `-mActiveTranscriptRows`, so the negative-topRow case must build real transcript rows first (the two `scrollDownOneLine` calls). Use whatever style constant the WS1 tests use (e.g. `TextStyle.NORMAL` or `TextStyle.encode(0, 0, 0)` — copy from `terminal-emulator/src/test/.../ScreenBufferTest.java`).
+
+- [ ] **Step 2: Run to verify it fails**
+
+```bash
+./gradlew :terminal-view:testDebugUnitTest
+```
+Expected: compile failure (`dirtyByIndex` missing) or `returnDefaultValues` stub errors until `testOptions` is added.
+
+- [ ] **Step 3: Implement**
+
+Add the static method with the mapping in the body and a javadoc sentence stating it is the caller-facing external-row mapping. Keep the class free of Android imports (`TerminalBuffer` is a core class from `:terminal-emulator`, which is on the `api` classpath).
+
+- [ ] **Step 4: Verify the module's tests pass**
+
+```bash
+./gradlew :terminal-view:testDebugUnitTest
+```
+Expected: 14 existing + the new buffer tests, all green.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add terminal-view/src/main/java/com/termux/view/RowInvalidation.java terminal-view/src/test/java/com/termux/view/RowInvalidationBufferTest.java terminal-view/build.gradle
+git commit -S -m "Added(view): Map buffer dirty rows to viewport indexes"
+```
+
+---
+
+### Task 4: TerminalView protocol wiring
+
+**Files:**
+- Modify: `terminal-view/src/main/java/com/termux/view/TerminalView.java` (`attachSession` ~290, `updateSize` ~985, `onScreenUpdated` ~459, `onDraw` ~1021)
+
+**Interfaces:**
+- Consumes: `RowInvalidation.decide(...)`, `RowInvalidation.dirtyByIndex(...)` (Task 3), `TerminalRenderer.render(..., firstScreenRow, lastScreenRowExclusive)` (Task 2), WS1's `getChangeCounter()`/`clearDirtyState()`/`isRowDirty(int)`.
+- Produces: the protocol behaviour of spec §2 — nothing other tasks consume.
+
+- [ ] **Step 1: Add the state fields**
+
+```java
+private long mLastSeenChangeCounter = -1L;   // forces FULL on the first draw
+private int mLastCursorRow = -1, mLastCursorCol = -1;
+private boolean mLastReverseVideo;
+private final Rect mClipBounds = new Rect(); // reusable, avoids per-frame allocation
+```
+
+- [ ] **Step 2: Reset on rebind**
+
+In `attachSession(...)` and in `updateSize()` wherever the emulator is (re)bound: `mLastSeenChangeCounter = -1L;` (and the cursor fields to their sentinels), so a rebind always repaints fully.
+
+- [ ] **Step 3: Replace the bare `invalidate()` in `onScreenUpdated()`**
+
+Keep every existing early return, the scroll/autoscroll/`setTopRow` bookkeeping, and `setContentDescription`; capture `final int topRowBefore = mTopRow;` at the top of the method and replace only the `invalidate()` at ~498 with:
+
+```java
+TerminalBuffer screen = mEmulator.getScreen();
+boolean topRowChanged = (mTopRow != topRowBefore);
+boolean cursorOrVideoChanged = mEmulator.getCursorRow() != mLastCursorRow
+    || mEmulator.getCursorCol() != mLastCursorCol
+    || mEmulator.isReverseVideo() != mLastReverseVideo;
+RowInvalidation.Decision d = RowInvalidation.decide(mLastSeenChangeCounter, screen.getChangeCounter(),
+    topRowChanged || cursorMoved..., ...);
+```
+
+Concretely: treat the cursor/reverse-video change as a third force-FULL input — either extend `decide`'s `topRowChanged` parameter usage by passing `topRowChanged || cursorOrReverseVideoChanged` (preferred: no signature change), or add an explicit parameter to `decide` **with its own test** if you choose that route. Then `d.kind == RANGE` → `invalidate(0, d.topPx, getWidth(), d.bottomPx)`, `FULL` → `invalidate()`, `NONE` → no call. Flags come from `RowInvalidation.dirtyByIndex(screen, mTopRow, mEmulator.mRows)` — never a hand-rolled loop.
+
+- [ ] **Step 4: `onDraw()` uses the clip-derived band and consumes the dirty state once**
+
+```java
+canvas.getClipBounds(mClipBounds);   // empty/unbounded → full band
+int first = Math.max(mTopRow, mTopRow + Math.floorDiv(mClipBounds.top, mRenderer.mFontLineSpacing) - 1);
+int last  = Math.min(mTopRow + mEmulator.mRows,
+                     mTopRow + (int) Math.ceil(mClipBounds.bottom / (float) mRenderer.mFontLineSpacing) + 1);
+mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3], first, last);
+mLastSeenChangeCounter = mEmulator.getScreen().getChangeCounter();
+mEmulator.getScreen().clearDirtyState();
+mLastCursorRow = mEmulator.getCursorRow();
+mLastCursorCol = mEmulator.getCursorCol();
+mLastReverseVideo = mEmulator.isReverseVideo();
+```
+
+The ±1 row slack is deliberate (cheap insurance against the off-by-one in the pixel↔row mapping; redrawing a clean row is harmless). Selection-handle drawing and the `mEmulator == null` branch stay where they are.
+
+- [ ] **Step 5: Verify**
+
+```bash
+./gradlew :terminal-view:testDebugUnitTest
+./gradlew :terminal-emulator:test
+```
+Expected: green (the protocol itself has no unit test — `TerminalView` is an Android `View`; spec §8 assigns it to the device checklist).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add terminal-view/src/main/java/com/termux/view/TerminalView.java
+git commit -S -m "Changed(view): Use dirty-region invalidation in the terminal view"
+```
+
+---
+
+### Task 5: Distinct underline styles
 
 **Files:**
 - Modify: `terminal-view/src/main/java/com/termux/view/TerminalRenderer.java` (`drawTextRun`)
@@ -146,7 +278,7 @@ git add terminal-view/src/main/java/com/termux/view/TerminalRenderer.java
 git commit -S -m "Changed(view): Render distinct underline styles (double/curly/dotted/dashed)"
 ```
 
-### Task 4: Branch gate
+### Task 6: Branch gate
 
 **Files:** none new.
 
@@ -155,18 +287,18 @@ git commit -S -m "Changed(view): Render distinct underline styles (double/curly/
 ```bash
 ./gradlew test
 ```
-Expected: `:terminal-emulator` (208), `:app` unit tests, `:terminal-view` (RowInvalidationTest) all green. No diff outside `terminal-view/`.
+Expected: `:terminal-emulator` (208), `:app` unit tests, `:terminal-view` (`RowInvalidationTest` + `RowInvalidationBufferTest`) all green. No diff outside `terminal-view/` (+ this plan's docs).
 
 - [ ] **Step 2: Verify scope**
 
 ```bash
 git diff --stat $(git merge-base master HEAD)..HEAD
 ```
-Expected: only `terminal-view/` paths changed (new `RowInvalidation.java` + test, modified `TerminalView.java`, `TerminalRenderer.java`; possibly `build.gradle` unchanged). `:terminal-emulator` and `:termux-shared` show 0 lines.
+Expected: only `terminal-view/` paths changed (new `RowInvalidation.java` + 2 test classes, modified `TerminalView.java`, `TerminalRenderer.java`, `build.gradle` testOptions), plus `docs/`. `:terminal-emulator` and `:termux-shared` show 0 lines.
 
 - [ ] **Step 3: Device sanity (document results)**
 
-Run the 6-item checklist from spec §8: heavy output, htop-style full redraw, scrollback drag, selection while output runs, underlines 4:1–4:5 distinct, font-size change/resize/rotation — note any issues. (This is the acceptance evidence; no code changes expected.)
+Run the **7-item** checklist from spec §8: heavy output, htop-style full redraw, scrollback drag, selection while output runs, underlines 4:1–4:5 distinct, font-size change/resize/rotation, cursor move + reverse-video toggle — note any issues. (This is the acceptance evidence; no code changes expected.)
 
 - [ ] **Step 4: Commit gate note (optional)**
 

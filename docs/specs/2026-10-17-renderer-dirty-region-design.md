@@ -67,8 +67,14 @@ The buffer owns truth; the view is the single consumer. Three moving parts:
    - otherwise, any visible screen row `0..mRows-1` with `isRowDirty(row) == true` → **targeted**
      `invalidate(0, top, getWidth(), bottom)` where the Y band is the dirty span mapped through the viewport
      (§4) and clamped to the view.
-   - no dirty visible row → **no invalidation** (output that changed nothing on screen, e.g. a lone cursor move
-     or an OSC that only set state).
+   - the cursor cell (`getCursorRow()`/`getCursorCol()`) or the reverse-video flag differs from what the last
+     draw painted → **full** `invalidate()`. **Added 2026-10-17 during execution** (the original text said a lone
+     cursor move was a no-repaint case — that was wrong): the renderer draws the cursor *into* the row band, so a
+     cursor move that dirties no row would leave the old block cursor painted; and `CSI ? 5 h/l` (DECSCNM) flips
+     reverse video without marking rows dirty or ticking the counter. The view tracks
+     `mLastCursorRow`/`mLastCursorCol`/`mLastReverseVideo`, captured in `onDraw()`.
+   - no dirty visible row and no cursor/reverse-video change → **no invalidation** (output that changed nothing
+     drawn, e.g. an OSC 8 link registration or a mode bit no one renders).
 3. **Post-draw consumption in `onDraw()`:** after `render(...)` returns:
    `mLastSeenChangeCounter = screen.getChangeCounter(); screen.clearDirtyState();`
 
@@ -92,7 +98,7 @@ between scrolls, forgetting a mark can under-repaint, which is exactly what the 
 |---|---|---|
 | `RowInvalidation` (new, package-private, pure Java) | The decision function of §2 as testable logic: inputs = last/current counter, the visible rows' dirty flags, `mTopRow`, font line spacing, view height; output = `FULL` / `RANGE(top, bottom)` / `NONE`. All int/long/boolean math — no Android types — so it runs under plain JUnit. | `terminal-view/src/main/java/com/termux/view/RowInvalidation.java` |
 | `TerminalView` | Owns `mLastSeenChangeCounter`; calls `RowInvalidation.decide(...)` from `onScreenUpdated()`; converts `RANGE` to `invalidate(...)`; passes clip-derived row bounds + resets counter + clears flags in `onDraw()`. | `TerminalView.java` |
-| `TerminalRenderer` | `render(...)` gains `firstRow`/`lastRow` (exclusive): the existing row loop walks only that band, body unchanged. **Public API stays:** the current `render(...)` signature is kept as an overload delegating with the full range. Draws distinct underline styles (§6). | `TerminalRenderer.java` |
+| `TerminalRenderer` | `render(...)` gains `firstScreenRow`/`lastScreenRowExclusive`: the existing row loop walks only that band. **Trap:** `heightOffset` is a running accumulator seeded *before* the loop, so the overload must seed it with `mFontLineSpacingAndAscent + (firstScreenRow - topRow) * mFontLineSpacing` — otherwise a band that starts below the top draws its glyphs in the wrong pixel rows. **Public API stays:** the current `render(...)` signature is kept as an overload delegating with the full range. Draws distinct underline styles (§6). | `TerminalRenderer.java` |
 | Test source set (new for this module) | `junit` **test-scope** dependency added to `terminal-view/build.gradle` — the module has no test sources today. No main-source dependency changes in any module. | `terminal-view/build.gradle`, `terminal-view/src/test/...` |
 
 No new public API. No change to `:terminal-emulator`, `:termux-shared`, the client interfaces, or any XML.
@@ -173,9 +179,18 @@ that pairs with click handling in WS5).
   spec consumes.
 - **`RowInvalidation` unit tests (new `:terminal-view` test source, plain JUnit):**
   counter-equal + no dirty → `NONE`; counter-jump → `FULL` regardless of flags; contiguous dirty span →
-  `RANGE` with correct top/bottom; scattered dirty rows → span (first..last); `mTopRow < 0` viewport math;
-  `mTopRow` changed → `FULL`; counter decrease → `FULL`; dirty span clamped to view bounds; `mLastSeenChangeCounter`
-  reset semantics make a rebind yield `FULL`.
+  `RANGE` with correct top/bottom; scattered dirty rows → span (first..last); the viewport-relative index → pixel
+  band mapping (index 2, spacing 10 → 20..30; index 0 → 0..10) pinned by a test that the band cannot shift with
+  the scroll offset; `mTopRow` changed → `FULL`; counter decrease → `FULL`; dirty span clamped to view bounds;
+  non-positive line spacing or view height → `FULL`/unbounded as specified; `mLastSeenChangeCounter` reset
+  semantics make a rebind yield `FULL`.
+- **Buffer-backed mapping test (added 2026-10-17):** `RowInvalidation.dirtyByIndex(TerminalBuffer, topRow, rows)`
+  is tested against a real `TerminalBuffer` (needs `testOptions { unitTests.returnDefaultValues = true }` in
+  `terminal-view/build.gradle`, test-scope only) — a fresh buffer reads all-clean; dirtying rows 1 and 2 makes
+  indexes 1 and 2 true; with two transcript rows present, `topRow = -2` reads the transcript band and not the
+  screen band. This is the test that pins spec §10's sign-error risk at its new home (the caller's mapping).
+- **Cursor / reverse-video repaint (added 2026-10-17):** no unit test is possible (`TerminalView` is an Android
+  `View` with no Robolectric harness); it is exercised by device checklist item 7.
 - **Protocol integration reasoning** (documented in the plan, not Robolectric-pixel-tested): draw-time clearing
   means a coalesced update pair renders once with the union clip; Robolectric does not rasterize and the repo has
   no instrumented-test infrastructure, so pixel assertions are deliberately not attempted.
@@ -187,6 +202,8 @@ that pairs with click handling in WS5).
   4. Text selection start/extend **while** output runs — highlight and output both correct.
   5. One line each of `4:1`…`4:5` underlines — visibly distinct: solid, double, wave, dots, dashes.
   6. Font-size change and rotation/resize — full repaint, nothing stale.
+  7. Cursor moves with no output (`\033[10;20H` in `bash`), and reverse video toggled (`printf '\033[?5h'` /
+     `'\033[?5l'`) — no ghost cursor and the screen actually inverts.
 
 ---
 
@@ -206,8 +223,12 @@ that pairs with click handling in WS5).
 
 ## 10. Risks
 
-- **`mTopRow` sign/offset error** → repaints the wrong band. Mitigation: the arithmetic lives in the tested
-  helper, not inline in `onDraw`.
+- **`mTopRow` sign/offset error** → repaints the wrong band. Mitigation: the *pixel* arithmetic lives in the
+  tested helper; the `index → external row = topRow + index` mapping lives in `RowInvalidation.dirtyByIndex`,
+  which has its own buffer-backed test (spec §8).
+- **Cursor ghost / reverse-video not repainting** (found during execution) → mitigated by the cursor-cell and
+  reverse-video comparison added to the protocol (spec §2); these are viewed as device-checklist item 7 because
+  `TerminalView` is not unit-testable in this repo.
 - **A future write path that forgets to mark a row** → under-repaint between scrolls. Mitigation: WS1 already
   marks every write site (its task 1 test net); the counter provides eventual full-repaint recovery on any
   scroll/resize.
