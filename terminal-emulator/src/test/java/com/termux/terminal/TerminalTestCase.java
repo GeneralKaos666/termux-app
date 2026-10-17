@@ -152,11 +152,13 @@ public abstract class TerminalTestCase extends TestCase {
 			char[] text = lines[i].mText;
 			int usedChars = lines[i].getSpaceUsed();
 			int currentColumn = 0;
-			for (int j = 0; j < usedChars; j++) {
+			int previousLastCodePoint = -1;
+			int j = 0;
+			while (j < usedChars) {
 				char c = text[j];
 				int codePoint;
 				if (Character.isHighSurrogate(c)) {
-					char lowSurrogate = text[++j];
+					char lowSurrogate = text[j + 1];
 					assertTrue("High surrogate without following low surrogate", Character.isLowSurrogate(lowSurrogate));
 					codePoint = Character.toCodePoint(c, lowSurrogate);
 				} else {
@@ -164,9 +166,34 @@ public abstract class TerminalTestCase extends TestCase {
 					codePoint = c;
 				}
 				assertFalse("Screen should never contain unassigned characters", Character.getType(codePoint) == Character.UNASSIGNED);
-				int width = WcWidth.width(codePoint);
-				assertFalse("The first column should not start with combining character", currentColumn == 0 && width < 0);
+				int width = GraphemeClusters.clusterWidth(text, j, usedChars);
+				assertFalse("The first column should not start with combining character", currentColumn == 0 && width <= 0);
+				// A new column may not start with a code point that continues the previous cluster's
+				// last code point; such a code point belongs to that cluster instead of starting one.
+				assertFalse("A column must not start with a continuation code point",
+						previousLastCodePoint >= 0 && GraphemeClusters.isContinuation(previousLastCodePoint, codePoint));
+				int clusterEnd = GraphemeClusters.clusterEnd(text, j, usedChars);
+				int lastCodePoint = codePoint;
+				for (int k = j + Character.charCount(codePoint); k < clusterEnd; ) {
+					char c2 = text[k];
+					int innerCodePoint;
+					if (Character.isHighSurrogate(c2)) {
+						char lowSurrogate = text[k + 1];
+						assertTrue("High surrogate without following low surrogate", Character.isLowSurrogate(lowSurrogate));
+						innerCodePoint = Character.toCodePoint(c2, lowSurrogate);
+					} else {
+						assertFalse("Low surrogate without preceding high surrogate", Character.isLowSurrogate(c2));
+						innerCodePoint = c2;
+					}
+					assertFalse("Screen should never contain unassigned characters", Character.getType(innerCodePoint) == Character.UNASSIGNED);
+					assertTrue("Every code point of a cluster after the base must continue it",
+							GraphemeClusters.isContinuation(lastCodePoint, innerCodePoint));
+					lastCodePoint = innerCodePoint;
+					k += Character.charCount(innerCodePoint);
+				}
+				previousLastCodePoint = lastCodePoint;
 				if (width > 0) currentColumn += width;
+				j = clusterEnd;
 			}
 			assertEquals("Line whose width does not match screens. line=" + new String(lines[i].mText, 0, lines[i].getSpaceUsed()),
 					screen.mColumns, currentColumn);

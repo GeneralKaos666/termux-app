@@ -209,4 +209,22 @@ public class ResizeTest extends TerminalTestCase {
 		resize(5, rows).assertLinesAre("ＱＲ ", "     ", "     ", "     ");
 	}
 
+	public void testZwjClusterSurvivesResize() {
+		final int ZWJ = 0x200D;
+		final int EMOJI_MAN = 0x1F468;
+		final int EMOJI_WOMAN = 0x1F469;
+		final int EMOJI_BOY = 0x1F466;
+		StringBuilder familyBuilder = new StringBuilder();
+		familyBuilder.appendCodePoint(EMOJI_MAN).appendCodePoint(ZWJ).appendCodePoint(EMOJI_WOMAN)
+				.appendCodePoint(ZWJ).appendCodePoint(EMOJI_BOY);
+		String family = familyBuilder.toString();
+
+		withTerminalSized(5, 2).enterString(family + "X").assertCursorAt(0, 3);
+		resize(20, 4);
+		// The re-wrap walk must advance by cluster, so the family is still one cell in columns 0-1
+		// and the cursor did not move past it:
+		assertLineStartsWith(0, EMOJI_MAN, ZWJ, EMOJI_WOMAN, ZWJ, EMOJI_BOY, 'X', ' ');
+		assertCursorAt(0, 3);
+	}
+
 }

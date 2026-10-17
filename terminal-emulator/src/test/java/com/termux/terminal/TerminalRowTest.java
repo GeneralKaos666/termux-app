@@ -23,6 +23,17 @@ public class TerminalRowTest extends TestCase {
 	/** A combining character. */
 	private static final int DIARESIS_CODEPOINT = 0x0308;
 
+	/** Regional indicator symbols ("A" and "B"): a pair of them forms a flag. */
+	private static final int REGIONAL_INDICATOR_A = 0x1F1E6;
+	private static final int REGIONAL_INDICATOR_B = 0x1F1E7;
+	/** Zero width joiner. */
+	private static final int ZWJ_CODEPOINT = 0x200D;
+	/** 'MAN' (U+1F468) and 'WOMAN' (U+1F469), both two columns wide. */
+	private static final int EMOJI_MAN_CODEPOINT = 0x1F468;
+	private static final int EMOJI_WOMAN_CODEPOINT = 0x1F469;
+	/** 'EMOJI MODIFIER FITZPATRICK TYPE-1-2' (U+1F3FB), a skin tone modifier. */
+	private static final int SKIN_TONE_MODIFIER_CODEPOINT = 0x1F3FB;
+
 	private TerminalRow row;
 
 	@Override
@@ -499,6 +510,87 @@ public class TerminalRowTest extends TestCase {
 		assertEquals(5, row.getLinkId(0));
 		row.clear(TextStyle.NORMAL);
 		assertEquals(0, row.getLinkId(0));
+	}
+
+	public void testZwjClusterOccupiesOneColumn() {
+		// "MAN ZWJ WOMAN": the three code points are one cell, occupying the two columns of the wide
+		// base emoji, not four columns (2 + 0 + 2).
+		row.setChar(0, EMOJI_MAN_CODEPOINT, 0);
+		row.setChar(0, ZWJ_CODEPOINT, 0);
+		row.setChar(0, EMOJI_WOMAN_CODEPOINT, 0);
+		assertLineStartsWith(EMOJI_MAN_CODEPOINT, ZWJ_CODEPOINT, EMOJI_WOMAN_CODEPOINT, ' ', ' ');
+		assertEquals(0, row.findStartOfColumn(0));
+		assertEquals(0, row.findStartOfColumn(1));
+		// The next cell starts right after the cluster's two columns:
+		assertEquals(5, row.findStartOfColumn(2));
+
+		// A following character takes the column after the cluster, not a column inside it:
+		row.setChar(2, 'a', 0);
+		assertLineStartsWith(EMOJI_MAN_CODEPOINT, ZWJ_CODEPOINT, EMOJI_WOMAN_CODEPOINT, 'a', ' ');
+		assertEquals(6, row.findStartOfColumn(3));
+	}
+
+	public void testFlagPairOccupiesOneColumn() {
+		// A flag is one cell made of two regional indicators, occupying the two columns of its base
+		// code point - the name records the plan's wording, the assertion is the mandated interface:
+		// one cell, two columns.
+		row.setChar(0, REGIONAL_INDICATOR_A, 0);
+		row.setChar(1, REGIONAL_INDICATOR_B, 0);
+		assertLineStartsWith(REGIONAL_INDICATOR_A, REGIONAL_INDICATOR_B, ' ', ' ');
+		assertEquals(0, row.findStartOfColumn(0));
+		assertEquals(0, row.findStartOfColumn(1));
+		assertEquals(4, row.findStartOfColumn(2));
+
+		// The next character lands in the next free column, 2:
+		row.setChar(2, 'a', 0);
+		assertLineStartsWith(REGIONAL_INDICATOR_A, REGIONAL_INDICATOR_B, 'a', ' ');
+		assertEquals(5, row.findStartOfColumn(3));
+	}
+
+	public void testLoneRegionalIndicatorIsWidthTwo() {
+		// A regional indicator on its own takes the two columns it would need as half of a flag.
+		row.setChar(0, REGIONAL_INDICATOR_A, 0);
+		assertEquals(REGIONAL_INDICATOR_A, Character.toCodePoint(row.mText[0], row.mText[1]));
+		assertEquals(0, row.findStartOfColumn(0));
+		assertEquals(0, row.findStartOfColumn(1));
+		assertEquals(2, row.findStartOfColumn(2));
+
+		row.setChar(1, 'a', 0);
+		// Writing into the second half of the two-column regional indicator cell clears the
+		// cluster's first half, exactly like overwriting the second half of a wide character:
+		assertLineStartsWith(' ', 'a', ' ');
+	}
+
+	public void testSkinToneModifierAddsNoColumn() {
+		int spaceUsedBefore = row.getSpaceUsed();
+		row.setChar(0, EMOJI_MAN_CODEPOINT, 0);
+		// The modifier is two java chars but no extra columns:
+		row.setChar(1, SKIN_TONE_MODIFIER_CODEPOINT, 0);
+		assertEquals(spaceUsedBefore + 2, row.getSpaceUsed());
+		assertLineStartsWith(EMOJI_MAN_CODEPOINT, SKIN_TONE_MODIFIER_CODEPOINT, ' ');
+		assertEquals(0, row.findStartOfColumn(0));
+		assertEquals(0, row.findStartOfColumn(1));
+		assertEquals(4, row.findStartOfColumn(2));
+	}
+
+	public void testGetLastCodePointOfColumn() {
+		// A blank column has no last code point:
+		assertEquals(-1, row.getLastCodePointOfColumn(0));
+		assertEquals(-1, row.getLastCodePointOfColumn(-1));
+		assertEquals(-1, row.getLastCodePointOfColumn(COLUMNS));
+
+		row.setChar(0, EMOJI_MAN_CODEPOINT, 0);
+		assertEquals(EMOJI_MAN_CODEPOINT, row.getLastCodePointOfColumn(0));
+		// The second half of a wide cell reports the cluster's last code point too:
+		assertEquals(EMOJI_MAN_CODEPOINT, row.getLastCodePointOfColumn(1));
+
+		row.setChar(1, SKIN_TONE_MODIFIER_CODEPOINT, 0);
+		assertEquals(SKIN_TONE_MODIFIER_CODEPOINT, row.getLastCodePointOfColumn(0));
+		assertEquals(SKIN_TONE_MODIFIER_CODEPOINT, row.getLastCodePointOfColumn(1));
+
+		row.setChar(2, 'a', 0);
+		assertEquals('a', row.getLastCodePointOfColumn(2));
+		assertEquals(-1, row.getLastCodePointOfColumn(3));
 	}
 
 }

@@ -3432,7 +3432,7 @@ public final class TerminalEmulator {
         }
 
         final boolean autoWrap = isDecsetInternalBitSet(DECSET_BIT_AUTOWRAP);
-        final int displayWidth = WcWidth.width(codePoint);
+        final int displayWidth = mScreen.getWidthForWrite(mCursorRow, mCursorCol, codePoint);
         final boolean cursorInLastColumn = mCursorCol == mRightMargin - 1;
 
         if (autoWrap) {
