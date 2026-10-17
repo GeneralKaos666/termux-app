@@ -114,4 +114,20 @@ public class RectangularAreasTest extends TerminalTestCase {
 		assertEffectAttributesSet(effectLine(b, u, 0), effectLine(bu, bu, 0), effectLine(0, 0, 0));
 	}
 
+	/**
+	 * DECCARA re-encodes the whole style word for every cell in the rectangle, so the underline style
+	 * stored in bits 11-13 (set by SGR 4:n) must be carried across, not dropped.
+	 */
+	public void testRectangularChangeAttributesPreservesUnderlineStyle() {
+		withTerminalSized(3, 3).enterString("\033[4:3mABCDEFGHI\033[1;1;3;3;4$r");
+		assertLinesAre("ABC", "DEF", "GHI");
+		for (int row = 0; row < 3; row++) {
+			for (int col = 0; col < 3; col++) {
+				long style = getStyleAt(row, col);
+				assertEquals(TextStyle.UNDERLINE_STYLE_CURLY, TextStyle.decodeUnderlineStyle(style));
+				assertTrue((TextStyle.decodeEffect(style) & TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE) != 0);
+			}
+		}
+	}
+
 }
