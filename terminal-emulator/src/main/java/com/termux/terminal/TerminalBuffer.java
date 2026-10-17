@@ -34,6 +34,13 @@ public final class TerminalBuffer {
     /** The index in the circular buffer where the visible screen starts. */
     private int mScreenFirstRow = 0;
 
+    /**
+     * A monotonically increasing counter of changes that force a full repaint (scroll, resize and
+     * transcript clear). It starts at 0 and is never reset. A renderer stores the last value it saw,
+     * so a jump in this value means "repaint everything".
+     */
+    private long mChangeCounter;
+
 
     /**
      * The {@link TerminalSixel} if a sixel command is being processed, from which the final
@@ -93,6 +100,8 @@ public final class TerminalBuffer {
         blockSet(0, 0, columns, screenRows, ' ', TextStyle.NORMAL);
         mTerminalBitmaps = new HashMap<>();
         mTerminalBitmapsLastGC = SystemClock.uptimeMillis();
+        // The initial blank screen is not considered a change:
+        clearDirtyState();
     }
 
 
@@ -218,6 +227,51 @@ public final class TerminalBuffer {
     }
 
     /**
+     * @param externalRow a row in the external coordinate system.
+     * @return whether the given row is marked dirty. Returns {@code false} for a null row, and never
+     * allocates a row.
+     */
+    public boolean isRowDirty(int externalRow) {
+        TerminalRow line = mLines[externalToInternalRow(externalRow)];
+        return line != null && line.isDirty();
+    }
+
+    /**
+     * @return the monotonic change counter. It starts at 0 and is never reset; a change in the value
+     * means a renderer must repaint everything.
+     */
+    public long getChangeCounter() {
+        return mChangeCounter;
+    }
+
+    /** Marks every non-null row dirty. Does not change the change counter. */
+    public void markAllDirty() {
+        for (TerminalRow line : mLines) {
+            if (line != null) line.markDirty();
+        }
+    }
+
+    /** Clears the dirty flag of every non-null row. Does not change the change counter. */
+    public void clearDirtyState() {
+        for (TerminalRow line : mLines) {
+            if (line != null) line.clearDirty();
+        }
+    }
+
+    /** Marks the given internal row dirty, if it exists. */
+    private void markDirty(int internalRow) {
+        TerminalRow line = mLines[internalRow];
+        if (line != null) line.markDirty();
+    }
+
+    /** Marks the external rows in the range [firstExternalRow, lastExclusive) dirty. */
+    private void markRowsDirty(int firstExternalRow, int lastExclusive) {
+        for (int row = firstExternalRow; row < lastExclusive; row++) {
+            markDirty(externalToInternalRow(row));
+        }
+    }
+
+    /**
      * Convert a row value from the public external coordinate system to our internal private coordinate system.
      *
      * <pre>
@@ -246,7 +300,9 @@ public final class TerminalBuffer {
     }
 
     public void setLineWrap(int row) {
-        mLines[externalToInternalRow(row)].mLineWrap = true;
+        TerminalRow line = mLines[externalToInternalRow(row)];
+        line.mLineWrap = true;
+        line.markDirty();
     }
 
     public boolean getLineWrap(int row) {
@@ -254,7 +310,9 @@ public final class TerminalBuffer {
     }
 
     public void clearLineWrap(int row) {
-        mLines[externalToInternalRow(row)].mLineWrap = false;
+        TerminalRow line = mLines[externalToInternalRow(row)];
+        line.mLineWrap = false;
+        line.markDirty();
     }
 
     /**
@@ -416,6 +474,10 @@ public final class TerminalBuffer {
 
         // Handle cursor scrolling off screen:
         if (cursor[0] < 0 || cursor[1] < 0) cursor[0] = cursor[1] = 0;
+
+        // Resizing may change the visible mapping of every row, so repaint everything:
+        markAllDirty();
+        mChangeCounter++;
     }
 
     /**
@@ -472,6 +534,10 @@ public final class TerminalBuffer {
             }
             mLines[blankRow].clear(style);
         }
+
+        // Every row in the scrolled region has moved or been blanked:
+        markRowsDirty(topMargin, bottomMargin);
+        mChangeCounter++;
     }
 
     /**
@@ -491,6 +557,8 @@ public final class TerminalBuffer {
         if (sx < 0 || sx + w > mColumns || sy < 0 || sy + h > mScreenRows || dx < 0 || dx + w > mColumns || dy < 0 || dy + h > mScreenRows)
             throw new IllegalArgumentException();
         boolean copyingUp = sy > dy;
+        // The destination rows are overwritten by the copy:
+        markRowsDirty(dy, dy + h);
         for (int y = 0; y < h; y++) {
             int y2 = copyingUp ? y : (h - (y + 1));
             TerminalRow sourceRow = allocateFullLineIfNecessary(externalToInternalRow(sy + y2));
@@ -537,6 +605,7 @@ public final class TerminalBuffer {
                                  int bottom, int right) {
         for (int y = top; y < bottom; y++) {
             TerminalRow line = mLines[externalToInternalRow(y)];
+            line.markDirty();
             int startOfLine = (rectangular || y == top) ? left : leftMargin;
             int endOfLine = (rectangular || y + 1 == bottom) ? right : rightMargin;
             for (int x = startOfLine; x < endOfLine; x++) {
@@ -566,6 +635,9 @@ public final class TerminalBuffer {
         }
         mActiveTranscriptRows = 0;
         clearTerminalBitmaps();
+        // The transcript has been dropped, so repaint everything:
+        markAllDirty();
+        mChangeCounter++;
     }
 
 
