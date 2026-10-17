@@ -1,8 +1,10 @@
 # Terminal engine upgrade — idea capture (NOT an approved spec)
 
 **Date:** 2026-10-14
-**Status:** idea for later — brainstorming stopped before approach selection. No design
-approved, no spec written, no plan. Resume at the "Open decision" section.
+**Status:** **updated 2026-10-17** — approach **B (substrate first)** chosen; workstream 1 (the cell model) is
+designed, with the spec at [`../specs/2026-10-17-terminal-engine-cell-model-design.md`](../specs/2026-10-17-terminal-engine-cell-model-design.md)
+(awaiting user review, pre-planning). Workstreams 2–6 remain unspecced. §§1–5 and 7 are the record that led there;
+§6's resume steps are now complete for workstream 1.
 **Origin:** user question — "what would an upgraded `terminal-emulator`, `terminal-view`
 and `termux-shared` look like?"
 **Path classification:** architectural (restructures module internals and touches a
