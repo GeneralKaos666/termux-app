@@ -1,7 +1,8 @@
 # Terminal engine upgrade — workstream 1: the cell model (design spec)
 
 **Date:** 2026-10-17
-**Status:** awaiting user review (pre-planning)
+**Status:** approved 2026-10-17. Implementation plan:
+[`../plans/2026-10-17-terminal-engine-cell-model.md`](../plans/2026-10-17-terminal-engine-cell-model.md).
 **Premise note (2026-10-17):** `AGENTS.md` now states this app is **standalone** — never merging back to upstream
 `termux/termux-app` — so the idea file's "*upstream-compatible*" constraint is superseded. The binding constraints
 are now companion-app interoperability (package identity, `TermuxConstants`, the client extension points) plus
@@ -18,7 +19,7 @@ workstream 1 and defines the interfaces the later workstreams consume. Everythin
 **Decisions taken by the user:**
 - **Approach B — substrate first.** The cell model is built before any feature work, so console graphics, shaping and
   conformance land later as small consumers.
-- **Underline style** lives in the style word's four unused bits (11–14) — no extra memory.
+- **Underline style** lives in 3 of the style word's four unused bits (11–13) — no extra memory.
 - **Link ids** live in a lazily-allocated per-row side array plus a buffer-level registry with GC.
 - **Grapheme clusters get no new storage.** The invariant "one column = one grapheme cluster" is enforced in the
   write path instead. This is an accepted, deliberate, user-visible layout change for emoji.
@@ -108,6 +109,12 @@ in §4 and tested even though nothing reads it yet.
   whenever no OSC 8 hyperlink is open — so a rewritten cell can never carry a stale link, and the
   clear-on-overwrite case falls out of the same mechanism rather than needing a special rule. `TerminalRow` itself
   only stores and returns ids.
+- **Refinement (user decision 2026-10-17):** the *row* decides the exact column the id lands on, because only it
+  knows about the combining-character redirect to the wide char's base column and about the neighbour cells it
+  blanks while overwriting half a wide char. So `setChar` gains a link-id parameter: a genuine overwrite stamps
+  the id, a zero-width continuation appended to an existing cell leaves that cell's link untouched, and blanked
+  neighbours take `0`. Erase/fill paths (`blockSet`, EL/ED, DECALN) pass `0` explicitly. The buffer still always
+  supplies its current id, so the overwrite rule above is unchanged.
 - `copyInterval`, `clear` and the resize copy path carry underline style and link id along with text and style.
 - Accessors: `getUnderlineStyle(column)`, `getLinkId(column)`.
 
@@ -223,6 +230,12 @@ about review and blame, not about what upstream would accept.)
 6. **Grapheme absorption** — the only change to *text layout*; ships with its own escape-sequence tests.
 
 Every step leaves `./gradlew test` green and `:app` `/` `:terminal-view` `/` `:termux-shared` untouched.
+
+**Delivery shape changed 2026-10-17 (user):** the six-step order above stands, but the six steps are **not** six
+PRs. All six land on one integration branch (`feature/terminal-engine-cell-model`), one commit per step; when the
+branch gate is green it is pushed and a **single** PR is opened from that branch to `master`. Per-task branches
+(if used) merge into the integration branch first. The ordering's purpose — bisectable, always-green steps — is
+unchanged.
 
 ---
 
