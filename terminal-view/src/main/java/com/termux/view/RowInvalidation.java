@@ -1,5 +1,7 @@
 package com.termux.view;
 
+import com.termux.terminal.TerminalBuffer;
+
 /**
  * Pure decision logic for renderer dirty-region invalidation.
  *
@@ -102,5 +104,30 @@ final class RowInvalidation {
         // The band is empty or entirely outside the view: repaint everything rather than nothing.
         if (bottomPx <= topPx) return Decision.FULL;
         return Decision.range(topPx, bottomPx);
+    }
+
+    /**
+     * Reads the buffer's dirty flags for the visible rows and returns them as viewport-relative flags.
+     *
+     * <p><b>This is the one place the {@code externalRow = topRow + index} mapping lives.</b> Index
+     * {@code 0} is the external row {@code topRow} (the top visible row) and index {@code rows - 1} the
+     * bottom one, so the result is exactly the input {@link #decide} expects and no other caller has to
+     * know about the scroll offset. {@code topRow} may be negative: the transcript band above the screen
+     * is addressable as {@code -1}, {@code -2}, ... down to {@code -terminalBuffer.getActiveTranscriptRows()}.
+     *
+     * <p>The returned flags are a fresh array, so the caller may keep them while the buffer keeps
+     * changing.
+     *
+     * @param screen The buffer to read, or {@code null} (meaning "nothing dirty").
+     * @param topRow The external row shown at the top of the viewport; negative reads the transcript.
+     * @param rows   The number of visible rows. Anything {@code <= 0} means an empty viewport.
+     * @return An array of {@code rows} viewport-relative flags, or an empty array when {@code screen} is
+     *         {@code null} or {@code rows <= 0} ({@link #decide} tolerates a short, even empty, array).
+     */
+    static boolean[] dirtyByIndex(TerminalBuffer screen, int topRow, int rows) {
+        if (screen == null || rows <= 0) return new boolean[0];
+        boolean[] dirty = new boolean[rows];
+        for (int i = 0; i < rows; i++) dirty[i] = screen.isRowDirty(topRow + i);
+        return dirty;
     }
 }

@@ -28,6 +28,12 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    testOptions {
+        // TerminalBuffer (from :terminal-emulator) calls android.os.SystemClock and references
+        // android.graphics.Bitmap/Rect, which are inert stubs in the unit-test runtime.
+        unitTests.returnDefaultValues = true
+    }
+
     publishing {
         multipleVariants {
             withSourcesJar()
