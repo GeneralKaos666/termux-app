@@ -429,4 +429,17 @@ public class TerminalRowTest extends TestCase {
 		// assertEquals(' ', line.mText[line.findStartOfColumn(COLUMNS - 1)]);
 	}
 
+	public void testUnderlineStyleIsPerColumn() {
+		row.setChar(0, 'a', TextStyle.encodeUnderline(0, TextStyle.UNDERLINE_STYLE_DOTTED));
+		assertEquals(TextStyle.UNDERLINE_STYLE_DOTTED, row.getUnderlineStyle(0));
+		assertEquals(TextStyle.UNDERLINE_STYLE_NONE, row.getUnderlineStyle(1));
+	}
+
+	public void testCopyIntervalCarriesUnderlineStyle() {
+		TerminalRow source = new TerminalRow(COLUMNS, TextStyle.NORMAL);
+		source.setChar(0, 'a', TextStyle.encodeUnderline(TextStyle.NORMAL, TextStyle.UNDERLINE_STYLE_DASHED));
+		row.copyInterval(source, 0, 1, 0);
+		assertEquals(TextStyle.UNDERLINE_STYLE_DASHED, row.getUnderlineStyle(0));
+	}
+
 }

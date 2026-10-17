@@ -62,4 +62,37 @@ public class TextStyleTest extends TestCase {
 		assertTrue((TextStyle.decodeEffect(encoded) & TextStyle.CHARACTER_ATTRIBUTE_PROTECTED) != 0);
 	}
 
+	/** Applying an underline style must not disturb the other fields of an encoded style word. */
+	public void testUnderlineStyleRoundTrip() {
+		for (int underlineStyle = TextStyle.UNDERLINE_STYLE_SINGLE; underlineStyle <= TextStyle.UNDERLINE_STYLE_DASHED; underlineStyle++) {
+			long encoded = TextStyle.encode(TextStyle.COLOR_INDEX_FOREGROUND, TextStyle.COLOR_INDEX_BACKGROUND,
+					TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE);
+			long styled = TextStyle.encodeUnderline(encoded, underlineStyle);
+			assertEquals(underlineStyle, TextStyle.decodeUnderlineStyle(styled));
+			assertEquals(TextStyle.decodeEffect(encoded), TextStyle.decodeEffect(styled));
+			assertEquals(TextStyle.decodeForeColor(encoded), TextStyle.decodeForeColor(styled));
+			assertEquals(TextStyle.decodeBackColor(encoded), TextStyle.decodeBackColor(styled));
+		}
+	}
+
+	/** A plain style word, and one carried through a plain {@link TextStyle#encode}, has no underline style. */
+	public void testUnderlineStyleNone() {
+		assertEquals(TextStyle.UNDERLINE_STYLE_NONE, TextStyle.decodeUnderlineStyle(TextStyle.NORMAL));
+		long styled = TextStyle.encodeUnderline(TextStyle.NORMAL | TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE,
+				TextStyle.UNDERLINE_STYLE_NONE);
+		assertEquals(TextStyle.UNDERLINE_STYLE_NONE, TextStyle.decodeUnderlineStyle(styled));
+	}
+
+	/** The underline style must survive a style word that uses 24-bit (true) colors. */
+	public void testUnderlineStyleDoesNotDisturbTrueColor() {
+		int foreColor = 0xFF123456;
+		int backColor = 0xFFABCDEF;
+		long encoded = TextStyle.encode(foreColor, backColor, TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE);
+		long styled = TextStyle.encodeUnderline(encoded, TextStyle.UNDERLINE_STYLE_CURLY);
+		assertEquals(foreColor, TextStyle.decodeForeColor(styled));
+		assertEquals(backColor, TextStyle.decodeBackColor(styled));
+		assertEquals(TextStyle.decodeEffect(encoded), TextStyle.decodeEffect(styled));
+		assertEquals(TextStyle.UNDERLINE_STYLE_CURLY, TextStyle.decodeUnderlineStyle(styled));
+	}
+
 }

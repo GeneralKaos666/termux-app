@@ -293,6 +293,11 @@ public final class TerminalRow {
         return mStyle[column];
     }
 
+    /** @return the {@link TextStyle#UNDERLINE_STYLE_NONE} or other underline style of the cell. */
+    public int getUnderlineStyle(int column) {
+        return TextStyle.decodeUnderlineStyle(mStyle[column]);
+    }
+
     /** @return whether the contents of this row have changed since the last {@link #clearDirty()}. */
     public boolean isDirty() {
         return mDirty;

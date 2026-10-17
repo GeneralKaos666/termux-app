@@ -31,6 +31,22 @@ public final class TextStyle {
     public final static int CHARACTER_ATTRIBUTE_PROTECTED = 1 << 7;
     /** Dim colors. Also known as faint or half intensity. */
     public final static int CHARACTER_ATTRIBUTE_DIM = 1 << 8;
+
+    /**
+     * Underline styles stored in bits 11-13 of the style word. They refine, but do not replace,
+     * {@link #CHARACTER_ATTRIBUTE_UNDERLINE}: that bit says "an underline is drawn", while the
+     * style value says how. {@link #UNDERLINE_STYLE_NONE} with the underline bit set is a plain
+     * underline (which is what a renderer that does not understand the styles draws).
+     */
+    public final static int UNDERLINE_STYLE_NONE = 0;
+    public final static int UNDERLINE_STYLE_SINGLE = 1;
+    public final static int UNDERLINE_STYLE_DOUBLE = 2;
+    public final static int UNDERLINE_STYLE_CURLY = 3;
+    public final static int UNDERLINE_STYLE_DOTTED = 4;
+    public final static int UNDERLINE_STYLE_DASHED = 5;
+    /** The mask of the underline style bits (11-13). */
+    static final int UNDERLINE_STYLE_MASK = 0b111 << 11;
+
     /** If true (24-bit) color is used for the cell for foreground. */
     private final static int CHARACTER_ATTRIBUTE_TRUECOLOR_FOREGROUND = 1 << 9;
     /** If true (24-bit) color is used for the cell for foreground. */
@@ -87,6 +103,24 @@ public final class TextStyle {
 
     public static int decodeEffect(long style) {
         return (int) (style & 0b11111111111);
+    }
+
+    /**
+     * Applies an underline style to an already encoded style word, preserving every other field.
+     * This must be used instead of widening {@link #encode}, whose 9-bit effect mask intentionally
+     * does not include the underline style bits.
+     *
+     * @param style          a word returned by {@link #encode(int, int, int)}.
+     * @param underlineStyle one of the {@code UNDERLINE_STYLE_*} constants.
+     * @return {@code style} with bits 11-13 set to {@code underlineStyle}.
+     */
+    static long encodeUnderline(long style, int underlineStyle) {
+        return (style & ~UNDERLINE_STYLE_MASK) | ((underlineStyle & 0b111) << 11);
+    }
+
+    /** @return the {@code UNDERLINE_STYLE_*} value stored in bits 11-13 of {@code style}. */
+    public static int decodeUnderlineStyle(long style) {
+        return (int) ((style >>> 11) & 0b111);
     }
 
 
