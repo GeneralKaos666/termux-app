@@ -370,7 +370,7 @@ public class TerminalBitmap {
                 s++;
             }
             for (int j = 0; j < width ; j++) {
-                terminalBuffer.setChar(x + j, y + i - s, '+', TextStyle.encodeTerminalBitmap(bitmapNum, j, i));
+                terminalBuffer.setChar(x + j, y + i - s, '+', TextStyle.encodeTerminalBitmap(bitmapNum, j, i), 0);
             }
         }
 

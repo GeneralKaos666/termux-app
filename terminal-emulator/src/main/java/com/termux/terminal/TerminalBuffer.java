@@ -42,6 +42,25 @@ public final class TerminalBuffer {
     private long mChangeCounter;
 
 
+    /** The maximum number of registered hyperlinks kept before a GC is forced. */
+    private static final int LINK_IDS_MAX = 4096;
+
+    /** The current cap on registered hyperlinks. Package-private so tests can lower it. */
+    int mMaxLinkIds = LINK_IDS_MAX;
+
+    /** The registered hyperlink ids by uri, for deduplication. */
+    private final HashMap<String, Integer> mLinkIdsByUri = new HashMap<>();
+
+    /** The registered hyperlink uris by id. */
+    private final HashMap<Integer, String> mLinkUrisById = new HashMap<>();
+
+    /** The next hyperlink id to allocate. Monotonic: ids are never reused. {@code 0} means "no link". */
+    private int mNextLinkId = 1;
+
+    /** The hyperlink id stamped on newly written cells. {@code 0} = no hyperlink open. */
+    private int mCurrentLinkId;
+
+
     /**
      * The {@link TerminalSixel} if a sixel command is being processed, from which the final
      * {@link TerminalBitmap} is created.
@@ -421,13 +440,17 @@ public final class TerminalBuffer {
 
                 int currentOldCol = 0;
                 long styleAtCol = 0;
+                int linkIdAtCol = 0;
                 for (int i = 0; i < lastNonSpaceIndex; i++) {
                     // Note that looping over java character, not cells.
                     char c = oldLine.mText[i];
                     int codePoint = (Character.isHighSurrogate(c)) ? Character.toCodePoint(c, oldLine.mText[++i]) : c;
                     int displayWidth = WcWidth.width(codePoint);
                     // Use the last style if this is a zero-width character:
-                    if (displayWidth > 0) styleAtCol = oldLine.getStyle(currentOldCol);
+                    if (displayWidth > 0) {
+                        styleAtCol = oldLine.getStyle(currentOldCol);
+                        linkIdAtCol = oldLine.getLinkId(currentOldCol);
+                    }
 
                     // Line wrap as necessary:
                     if (currentOutputExternalColumn + displayWidth > mColumns) {
@@ -443,7 +466,7 @@ public final class TerminalBuffer {
 
                     int offsetDueToCombiningChar = ((displayWidth <= 0 && currentOutputExternalColumn > 0) ? 1 : 0);
                     int outputColumn = currentOutputExternalColumn - offsetDueToCombiningChar;
-                    setChar(outputColumn, currentOutputExternalRow, codePoint, styleAtCol);
+                    setChar(outputColumn, currentOutputExternalRow, codePoint, styleAtCol, linkIdAtCol);
 
                     if (displayWidth > 0) {
                         if (oldCursorRow == externalOldRow && oldCursorColumn == currentOldCol) {
@@ -578,7 +601,7 @@ public final class TerminalBuffer {
         }
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++)
-                setChar(sx + x, sy + y, val, style);
+                setChar(sx + x, sy + y, val, style, 0);
             if (sx + w == mColumns && val == ' ') {
                 clearLineWrap(sy + y);
             }
@@ -590,10 +613,14 @@ public final class TerminalBuffer {
     }
 
     public void setChar(int column, int row, int codePoint, long style) {
+        setChar(column, row, codePoint, style, mCurrentLinkId);
+    }
+
+    public void setChar(int column, int row, int codePoint, long style, int linkId) {
         if (row  < 0 || row >= mScreenRows || column < 0 || column >= mColumns)
             throw new IllegalArgumentException("TerminalBuffer.setChar(): row=" + row + ", column=" + column + ", mScreenRows=" + mScreenRows + ", mColumns=" + mColumns);
         row = externalToInternalRow(row);
-        allocateFullLineIfNecessary(row).setChar(column, codePoint, style);
+        allocateFullLineIfNecessary(row).setChar(column, codePoint, style, linkId);
     }
 
     public long getStyleAt(int externalRow, int column) {
@@ -602,6 +629,88 @@ public final class TerminalBuffer {
 
     public int getUnderlineStyleAt(int externalRow, int column) {
         return allocateFullLineIfNecessary(externalToInternalRow(externalRow)).getUnderlineStyle(column);
+    }
+
+    /**
+     * @return the hyperlink id at the given cell, or {@code 0} if the row has no links. Never
+     * allocates a row, unlike {@link #getStyleAt}.
+     */
+    public int getLinkIdAt(int externalRow, int column) {
+        TerminalRow line = mLines[externalToInternalRow(externalRow)];
+        return (line == null) ? 0 : line.getLinkId(column);
+    }
+
+    /** Sets the hyperlink id of a cell. This is a write, so it allocates the row if necessary. */
+    public void setLinkAt(int column, int externalRow, int linkId) {
+        if (externalRow < 0 || externalRow >= mScreenRows || column < 0 || column >= mColumns)
+            throw new IllegalArgumentException("TerminalBuffer.setLinkAt(): externalRow=" + externalRow + ", column=" + column + ", mScreenRows=" + mScreenRows + ", mColumns=" + mColumns);
+        int row = externalToInternalRow(externalRow);
+        allocateFullLineIfNecessary(row).setLinkId(column, linkId);
+    }
+
+    /**
+     * Registers a hyperlink uri and returns its id. Registering a uri that is already known returns
+     * the existing id. When the registry is full it is garbage collected first; if it is still full
+     * no id is allocated and {@code 0} is returned.
+     */
+    public synchronized int registerLink(String uri) {
+        Integer existing = mLinkIdsByUri.get(uri);
+        if (existing != null) return existing;
+
+        if (mLinkUrisById.size() >= mMaxLinkIds) {
+            doLinksGC();
+            if (mLinkUrisById.size() >= mMaxLinkIds) {
+                Logger.logError(mClient, LOG_TAG, "Cannot register more than " + mMaxLinkIds + " hyperlinks");
+                return 0;
+            }
+        }
+
+        int linkId = mNextLinkId++;
+        // 0 is reserved for "no link", so skip it if the counter ever wraps.
+        if (linkId == 0) linkId = mNextLinkId++;
+        mLinkIdsByUri.put(uri, linkId);
+        mLinkUrisById.put(linkId, uri);
+        return linkId;
+    }
+
+    /** @return the uri registered for the id, or {@code null} for {@code 0} or an unknown id. */
+    public synchronized String getLink(int id) {
+        if (id == 0) return null;
+        return mLinkUrisById.get(id);
+    }
+
+    public synchronized void setCurrentLinkId(int linkId) {
+        mCurrentLinkId = linkId;
+    }
+
+    public synchronized int getCurrentLinkId() {
+        return mCurrentLinkId;
+    }
+
+    /**
+     * Removes every registered hyperlink that is not referenced by a cell. Ids are monotonic and never
+     * reused, so a stale cell id resolves to {@code null} rather than to a different uri.
+     */
+    private synchronized void doLinksGC() {
+        Set<Integer> linksToKeep = new HashSet<>();
+
+        for (int line = 0; line < mLines.length; line++) {
+            TerminalRow row = mLines[line];
+            if (row != null && row.mLinkIds != null) {
+                for (int column = 0; column < row.mLinkIds.length; column++) {
+                    int linkId = row.mLinkIds[column];
+                    if (linkId != 0) linksToKeep.add(linkId);
+                }
+            }
+        }
+
+        Set<Integer> linkIds = new HashSet<>(mLinkUrisById.keySet());
+        for (Integer linkId : linkIds) {
+            if (!linksToKeep.contains(linkId)) {
+                String uri = mLinkUrisById.remove(linkId);
+                if (uri != null) mLinkIdsByUri.remove(uri);
+            }
+        }
     }
 
     /** Support for http://vt100.net/docs/vt510-rm/DECCARA and http://vt100.net/docs/vt510-rm/DECCARA */
