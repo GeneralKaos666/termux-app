@@ -69,6 +69,11 @@ The fork keeps moving. These are the pieces in progress or next up.
 - **Terminal engine upgrade** (exploratory): kitty graphics, OSC 8 hyperlinks, richer underline
   styles, ligatures and grapheme shaping, and a renderer that redraws only what changed. The
   approach is still open; the first step is a new cell model.
+- **Termux:Float** (recorded only, nothing started): the floating window is absent from the fork
+  even though its constants, properties file and a hidden settings entry still ship here. Two ways
+  to close that gap — build the plugin again as a `:float` module beside the app, or make the
+  floating terminal part of the app itself. The trade-offs and the reason a plain clone does not
+  work are written up in `docs/ideas/ideas.md`.
 
 ## License and security
 
