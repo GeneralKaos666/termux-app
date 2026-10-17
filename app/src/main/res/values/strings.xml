@@ -61,11 +61,8 @@
 
     <string name="title_rename_session">Set session name</string>
     <string name="action_rename_session_confirm">Set</string>
-    <string name="title_create_named_session">New named session</string>
-    <string name="action_create_named_session_confirm">Create</string>
 
     <string name="action_toggle_soft_keyboard">Keyboard</string>
-    <string name="action_paste">Paste</string>
     <string name="action_text_input">Text</string>
     <string name="extra_keys_text_input_hint">Type a line to send</string>
     <string name="action_hide_keys">Hide keys</string>
@@ -111,9 +108,6 @@
     <string name="action_report_issue">Report Issue</string>
     <string name="msg_generating_report">Generating Report</string>
     <string name="msg_add_termux_debug_info">Add termux debug info to report?</string>
-
-    <string name="error_styling_not_installed">The &TERMUX_STYLING_APP_NAME; Plugin App is not installed.</string>
-    <string name="action_styling_install">Install</string>
 
 
 
