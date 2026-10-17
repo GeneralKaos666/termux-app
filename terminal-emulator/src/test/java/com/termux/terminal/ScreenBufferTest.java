@@ -62,4 +62,27 @@ public class ScreenBufferTest extends TerminalTestCase {
 		assertEquals("", mTerminal.getScreen().getWordAtLocation(1, 2));
 		assertEquals("", mTerminal.getScreen().getWordAtLocation(2, 2));
 	}
+
+	/**
+	 * DECCARA re-encodes the whole style word for every cell in the rectangle, so the underline style
+	 * stored in bits 11-13 must be carried across, not dropped.
+	 */
+	public void testSetOrClearEffectPreservesUnderlineStyle() {
+		TerminalBuffer screen = new TerminalBuffer(3, 3, 3);
+		long styled = TextStyle.encodeUnderline(TextStyle.NORMAL | TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE,
+				TextStyle.UNDERLINE_STYLE_CURLY);
+		screen.setChar(0, 0, 'A', styled);
+
+		// The argument convention is (bits, setOrClear, reverse, rectangular, leftMargin, rightMargin,
+		// top, left, bottom, right): top/left inclusive, bottom/right exclusive, selecting the whole 3x3.
+		screen.setOrClearEffect(TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, true, false, true, 0, 3, 0, 0, 3, 3);
+		assertEquals(TextStyle.UNDERLINE_STYLE_CURLY, TextStyle.decodeUnderlineStyle(screen.getStyleAt(0, 0)));
+		assertTrue((TextStyle.decodeEffect(screen.getStyleAt(0, 0)) & TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE) != 0);
+
+		// Clearing the underline attribute must also carry the underline style across.
+		screen.setOrClearEffect(TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, false, false, true, 0, 3, 0, 0, 3, 3);
+		assertEquals(TextStyle.UNDERLINE_STYLE_CURLY, TextStyle.decodeUnderlineStyle(screen.getStyleAt(0, 0)));
+		assertEquals(0, TextStyle.decodeEffect(screen.getStyleAt(0, 0)) & TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE);
+	}
+
 }

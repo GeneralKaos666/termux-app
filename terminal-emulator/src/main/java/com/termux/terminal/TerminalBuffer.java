@@ -600,6 +600,10 @@ public final class TerminalBuffer {
         return allocateFullLineIfNecessary(externalToInternalRow(externalRow)).getStyle(column);
     }
 
+    public int getUnderlineStyleAt(int externalRow, int column) {
+        return allocateFullLineIfNecessary(externalToInternalRow(externalRow)).getUnderlineStyle(column);
+    }
+
     /** Support for http://vt100.net/docs/vt510-rm/DECCARA and http://vt100.net/docs/vt510-rm/DECCARA */
     public void setOrClearEffect(int bits, boolean setOrClear, boolean reverse, boolean rectangular, int leftMargin, int rightMargin, int top, int left,
                                  int bottom, int right) {
@@ -621,7 +625,8 @@ public final class TerminalBuffer {
                 } else {
                     effect &= ~bits;
                 }
-                line.mStyle[x] = TextStyle.encode(foreColor, backColor, effect);
+                line.mStyle[x] = TextStyle.encodeUnderline(TextStyle.encode(foreColor, backColor, effect),
+                        TextStyle.decodeUnderlineStyle(currentStyle));
             }
         }
     }
