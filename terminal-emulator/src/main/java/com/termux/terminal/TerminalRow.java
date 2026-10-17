@@ -51,6 +51,11 @@ public final class TerminalRow {
     boolean mHasNonOneWidthOrSurrogateChars;
     /** If this row has a {@link TerminalBitmap}. Used for performance only. */
     public boolean mHasTerminalBitmap;
+    /**
+     * If the contents of this row have changed since the last time {@link #clearDirty()} was
+     * called. Used by renderers to repaint only the rows that changed. A fresh row is not dirty.
+     */
+    boolean mDirty;
 
     /** Construct a blank row (containing only whitespace, ' ') with a specified style. */
     public TerminalRow(int columns, long style) {
@@ -156,6 +161,7 @@ public final class TerminalRow {
         if (columnToSet  < 0 || columnToSet >= mStyle.length)
             throw new IllegalArgumentException("TerminalRow.setChar(): columnToSet=" + columnToSet + ", codePoint=" + codePoint + ", style=" + style);
 
+        mDirty = true;
         mStyle[columnToSet] = style;
 
         if (!mHasTerminalBitmap && TextStyle.isTerminalBitmap(style)) {
@@ -285,6 +291,21 @@ public final class TerminalRow {
 
     public final long getStyle(int column) {
         return mStyle[column];
+    }
+
+    /** @return whether the contents of this row have changed since the last {@link #clearDirty()}. */
+    public boolean isDirty() {
+        return mDirty;
+    }
+
+    /** Marks this row as changed so that a renderer will repaint it. */
+    public void markDirty() {
+        mDirty = true;
+    }
+
+    /** Clears the dirty flag of this row, without modifying its contents. */
+    public void clearDirty() {
+        mDirty = false;
     }
 
 }
