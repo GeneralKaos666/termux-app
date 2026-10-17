@@ -35,6 +35,20 @@ public class LinkRegistryTest extends TestCase {
 		assertNull(screen.getLink(999));
 	}
 
+	public void testSetLinkAtMarksTheRowDirty() {
+		TerminalBuffer screen = newScreen();
+		int id = screen.registerLink("https://example.com");
+		screen.setChar(0, 1, 'a', 0);
+		screen.clearDirtyState();
+		assertFalse(screen.isRowDirty(0));
+		assertFalse(screen.isRowDirty(1));
+		assertFalse(screen.isRowDirty(2));
+		screen.setLinkAt(0, 1, id);
+		assertTrue(screen.isRowDirty(1));
+		assertFalse(screen.isRowDirty(0));
+		assertFalse(screen.isRowDirty(2));
+	}
+
 	public void testEraseClearsLinks() {
 		TerminalBuffer screen = newScreen();
 		int id = screen.registerLink("https://example.com");

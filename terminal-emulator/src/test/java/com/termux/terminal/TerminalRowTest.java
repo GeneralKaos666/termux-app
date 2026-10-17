@@ -467,21 +467,22 @@ public class TerminalRowTest extends TestCase {
 	}
 
 	public void testBlankedNeighbourLosesItsLink() {
-		// A wide char spans columns 0-1 but its link is stamped on its base column only.
+		// Writing into the second half of a wide char blanks the wide char's base column. The write
+		// itself carries link 9, so the blanked column must be 0, not 9 and not the wide char's 5 -
+		// the recursive blank passes 0 (TerminalRow.setChar(columnToSet - 1, ' ', style, 0)).
 		row.setChar(0, ONE_JAVA_CHAR_DISPLAY_WIDTH_TWO_1, TextStyle.NORMAL, 5);
 		assertEquals(5, row.getLinkId(0));
-		assertEquals(0, row.getLinkId(1));
-		// Overwriting column 0 with a narrow char blanks the second half:
-		row.setChar(0, 'a', TextStyle.NORMAL, 0);
+		row.setChar(1, 'b', TextStyle.NORMAL, 9);
 		assertEquals(0, row.getLinkId(0));
-		assertEquals(0, row.getLinkId(1));
 
-		// Writing into the second half of a wide char blanks the wide char's base column, which
-		// must lose its link (the recursive blank passes id 0, it must not inherit the write's id).
-		row.setChar(0, ONE_JAVA_CHAR_DISPLAY_WIDTH_TWO_1, TextStyle.NORMAL, 5);
-		assertEquals(5, row.getLinkId(0));
-		row.setChar(1, 'b', TextStyle.NORMAL, 0);
-		assertEquals(0, row.getLinkId(0));
+		// Writing a wide char over a wide char that starts in the next column blanks that next
+		// column's base cell, which must be 0 rather than the write's link 9 - the recursive blank
+		// passes 0 (TerminalRow.setChar(columnToSet + 1, ' ', style, 0)).
+		row.clear(TextStyle.NORMAL);
+		row.setChar(1, ONE_JAVA_CHAR_DISPLAY_WIDTH_TWO_1, TextStyle.NORMAL, 5);
+		assertEquals(5, row.getLinkId(1));
+		row.setChar(0, ONE_JAVA_CHAR_DISPLAY_WIDTH_TWO_2, TextStyle.NORMAL, 9);
+		assertEquals(0, row.getLinkId(1));
 	}
 
 	public void testCopyIntervalCarriesLinkIds() {

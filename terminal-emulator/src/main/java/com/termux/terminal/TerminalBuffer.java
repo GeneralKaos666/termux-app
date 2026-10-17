@@ -640,12 +640,15 @@ public final class TerminalBuffer {
         return (line == null) ? 0 : line.getLinkId(column);
     }
 
-    /** Sets the hyperlink id of a cell. This is a write, so it allocates the row if necessary. */
+    /** Sets the hyperlink id of a cell. This is a write, so it allocates the row if necessary and marks it dirty. */
     public void setLinkAt(int column, int externalRow, int linkId) {
         if (externalRow < 0 || externalRow >= mScreenRows || column < 0 || column >= mColumns)
             throw new IllegalArgumentException("TerminalBuffer.setLinkAt(): externalRow=" + externalRow + ", column=" + column + ", mScreenRows=" + mScreenRows + ", mColumns=" + mColumns);
         int row = externalToInternalRow(externalRow);
-        allocateFullLineIfNecessary(row).setLinkId(column, linkId);
+        TerminalRow line = allocateFullLineIfNecessary(row);
+        line.setLinkId(column, linkId);
+        // A link id is part of what the row paints, so writing one is a content mutation:
+        line.markDirty();
     }
 
     /**
