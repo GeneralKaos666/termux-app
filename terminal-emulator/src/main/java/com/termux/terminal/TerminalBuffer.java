@@ -441,11 +441,12 @@ public final class TerminalBuffer {
                 int currentOldCol = 0;
                 long styleAtCol = 0;
                 int linkIdAtCol = 0;
-                for (int i = 0; i < lastNonSpaceIndex; i++) {
-                    // Note that looping over java character, not cells.
-                    char c = oldLine.mText[i];
-                    int codePoint = (Character.isHighSurrogate(c)) ? Character.toCodePoint(c, oldLine.mText[++i]) : c;
-                    int displayWidth = WcWidth.width(codePoint);
+                for (int i = 0; i < lastNonSpaceIndex; ) {
+                    // Walk whole grapheme clusters: the cluster occupies the columns of its base
+                    // code point, not the sum of the widths of all of its code points.
+                    int clusterEnd = GraphemeClusters.clusterEnd(oldLine.mText, i, oldLine.getSpaceUsed());
+                    if (clusterEnd > lastNonSpaceIndex) clusterEnd = lastNonSpaceIndex;
+                    int displayWidth = GraphemeClusters.clusterWidth(oldLine.mText, i, oldLine.getSpaceUsed());
                     // Use the last style if this is a zero-width character:
                     if (displayWidth > 0) {
                         styleAtCol = oldLine.getStyle(currentOldCol);
@@ -466,7 +467,13 @@ public final class TerminalBuffer {
 
                     int offsetDueToCombiningChar = ((displayWidth <= 0 && currentOutputExternalColumn > 0) ? 1 : 0);
                     int outputColumn = currentOutputExternalColumn - offsetDueToCombiningChar;
-                    setChar(outputColumn, currentOutputExternalRow, codePoint, styleAtCol, linkIdAtCol);
+                    for (int j = i; j < clusterEnd; ) {
+                        int codePoint = (Character.isHighSurrogate(oldLine.mText[j]))
+                                ? Character.toCodePoint(oldLine.mText[j], oldLine.mText[j + 1])
+                                : oldLine.mText[j];
+                        setChar(outputColumn, currentOutputExternalRow, codePoint, styleAtCol, linkIdAtCol);
+                        j += Character.charCount(codePoint);
+                    }
 
                     if (displayWidth > 0) {
                         if (oldCursorRow == externalOldRow && oldCursorColumn == currentOldCol) {
@@ -478,6 +485,7 @@ public final class TerminalBuffer {
                         currentOutputExternalColumn += displayWidth;
                         if (justToCursor && newCursorPlaced) break;
                     }
+                    i = clusterEnd;
                 }
                 // Old row has been copied. Check if we need to insert newline if old line was not wrapping:
                 if (externalOldRow != (oldScreenRows - 1) && !oldLine.mLineWrap) {
@@ -621,6 +629,24 @@ public final class TerminalBuffer {
             throw new IllegalArgumentException("TerminalBuffer.setChar(): row=" + row + ", column=" + column + ", mScreenRows=" + mScreenRows + ", mColumns=" + mColumns);
         row = externalToInternalRow(row);
         allocateFullLineIfNecessary(row).setChar(column, codePoint, style, linkId);
+    }
+
+    /**
+     * @return the display width the given code point will occupy when written into the given cell:
+     * zero when the code point continues the grapheme cluster in the preceding cell (a combining
+     * character, a flag half, a skin tone modifier, a variation selector or a ZWJ joined emoji),
+     * otherwise the width of the cell a cluster starting with this code point occupies. The
+     * terminal emulator must use this instead of {@link WcWidth#width(int)} to advance the cursor,
+     * so that the cursor and the stored cells agree about cluster continuations.
+     */
+    public int getWidthForWrite(int externalRow, int column, int codePoint) {
+        TerminalRow line = mLines[externalToInternalRow(externalRow)];
+        // A row that has never stored a wide or surrogate character cannot hold a continuation.
+        if (line == null || (!line.mHasNonOneWidthOrSurrogateChars && !GraphemeClusters.isRegionalIndicator(codePoint)))
+            return GraphemeClusters.baseWidth(codePoint);
+        int precedingCodePoint = (column <= 0) ? -1 : line.getLastCodePointOfColumn(column - 1);
+        if (precedingCodePoint >= 0 && GraphemeClusters.isContinuation(precedingCodePoint, codePoint)) return 0;
+        return GraphemeClusters.baseWidth(codePoint);
     }
 
     public long getStyleAt(int externalRow, int column) {

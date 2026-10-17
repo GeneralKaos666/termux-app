@@ -133,4 +133,57 @@ public class UnicodeInputTest extends TerminalTestCase {
 		enterString("a枝").assertLinesAre("枝a", "   ", "   ");
 	}
 
+	/** Regional indicator symbols ("A" and "B"): a pair of them forms a flag. */
+	private static final int REGIONAL_INDICATOR_A = 0x1F1E6;
+	private static final int REGIONAL_INDICATOR_B = 0x1F1E7;
+	/** Zero width joiner. */
+	private static final int ZWJ = 0x200D;
+	/** 'MAN' (U+1F468), 'WOMAN' (U+1F469) and 'BOY' (U+1F466): a ZWJ family. */
+	private static final int EMOJI_MAN = 0x1F468;
+	private static final int EMOJI_WOMAN = 0x1F469;
+	private static final int EMOJI_BOY = 0x1F466;
+	/** 'EMOJI MODIFIER FITZPATRICK TYPE-1-2' (U+1F3FB), a skin tone modifier. */
+	private static final int SKIN_TONE_MODIFIER = 0x1F3FB;
+	/** Variation selector-16 (emoji presentation). */
+	private static final int VS16 = 0xFE0F;
+
+	private static String stringOf(int... codePoints) {
+		StringBuilder builder = new StringBuilder();
+		for (int codePoint : codePoints) builder.appendCodePoint(codePoint);
+		return builder.toString();
+	}
+
+	public void testZwjFamilyOccupiesOneCluster() {
+		withTerminalSized(5, 2).enterString(stringOf(EMOJI_MAN, ZWJ, EMOJI_WOMAN, ZWJ, EMOJI_BOY) + "X");
+		// The whole family is one cell in the two columns of its base emoji, so "X" is at column 2:
+		assertLineStartsWith(0, EMOJI_MAN, ZWJ, EMOJI_WOMAN, ZWJ, EMOJI_BOY, 'X', ' ');
+		assertCursorAt(0, 3);
+	}
+
+	public void testFlagPairOccupiesOneCluster() {
+		withTerminalSized(5, 2).enterString(stringOf(REGIONAL_INDICATOR_A, REGIONAL_INDICATOR_B) + "X");
+		// One cell, two columns: the flag does not consume a column per regional indicator.
+		assertLineStartsWith(0, REGIONAL_INDICATOR_A, REGIONAL_INDICATOR_B, 'X', ' ');
+		assertCursorAt(0, 3);
+	}
+
+	public void testLoneRegionalIndicatorWrapsAsWidthTwo() {
+		// A lone regional indicator is two columns wide, so it wraps like a wide character:
+		withTerminalSized(3, 2).enterString("  " + stringOf(REGIONAL_INDICATOR_A));
+		assertLinesAre("   ", stringOf(REGIONAL_INDICATOR_A) + " ");
+		assertCursorAt(1, 2);
+	}
+
+	public void testEmojiModifierAndVs16DoNotAddColumns() {
+		// A skin tone modifier adds no column of its own:
+		withTerminalSized(5, 2).enterString(stringOf(EMOJI_MAN, SKIN_TONE_MODIFIER) + "X");
+		assertLineStartsWith(0, EMOJI_MAN, SKIN_TONE_MODIFIER, 'X', ' ');
+		assertCursorAt(0, 3);
+
+		// Neither does a variation selector:
+		withTerminalSized(5, 2).enterString(stringOf(EMOJI_MAN, VS16) + "X");
+		assertLineStartsWith(0, EMOJI_MAN, VS16, 'X', ' ');
+		assertCursorAt(0, 3);
+	}
+
 }

@@ -77,22 +77,31 @@ public final class TerminalRow {
         final int x2 = line.findStartOfColumn(sourceX2);
         boolean startingFromSecondHalfOfWideChar = (sourceX1 > 0 && line.wideDisplayCharacterStartingAt(sourceX1 - 1));
         final char[] sourceChars = (this == line) ? Arrays.copyOf(line.mText, line.mText.length) : line.mText;
-        int latestNonCombiningWidth = 0;
-        for (int i = x1; i < x2; i++) {
-            char sourceChar = sourceChars[i];
-            int codePoint = Character.isHighSurrogate(sourceChar) ? Character.toCodePoint(sourceChar, sourceChars[++i]) : sourceChar;
+        // Copy whole grapheme clusters, so that a cluster's width is counted once instead of once per
+        // code point. Every code point of a cluster is written at the cluster's destination column;
+        // setChar() appends the continuations to the cell it created for the base.
+        int destinationColumn = destinationX;
+        int sourceColumn = sourceX1;
+        for (int i = x1; i < x2; ) {
+            final int clusterEnd = GraphemeClusters.clusterEnd(sourceChars, i, line.mSpaceUsed);
+            final long style = line.getStyle(sourceColumn);
+            final int linkId = line.getLinkId(sourceColumn);
+            int clusterWidth = GraphemeClusters.clusterWidth(sourceChars, i, line.mSpaceUsed);
             if (startingFromSecondHalfOfWideChar) {
                 // Just treat copying second half of wide char as copying whitespace.
-                codePoint = ' ';
+                setChar(destinationColumn, ' ', style, linkId);
                 startingFromSecondHalfOfWideChar = false;
+                clusterWidth = 1;
+            } else {
+                for (int j = i; j < clusterEnd; ) {
+                    final int codePoint = codePointAt(sourceChars, j);
+                    setChar(destinationColumn, codePoint, style, linkId);
+                    j += Character.charCount(codePoint);
+                }
             }
-            int w = WcWidth.width(codePoint);
-            if (w > 0) {
-                destinationX += latestNonCombiningWidth;
-                sourceX1 += latestNonCombiningWidth;
-                latestNonCombiningWidth = w;
-            }
-            setChar(destinationX, codePoint, line.getStyle(sourceX1), line.getLinkId(sourceX1));
+            destinationColumn += clusterWidth;
+            sourceColumn += clusterWidth;
+            i = clusterEnd;
         }
     }
 
@@ -106,51 +115,73 @@ public final class TerminalRow {
 
         int currentColumn = 0;
         int currentCharIndex = 0;
-        while (true) { // 0<2 1 < 2
-            int newCharIndex = currentCharIndex;
-            char c = mText[newCharIndex++]; // cci=1, cci=2
-            boolean isHigh = Character.isHighSurrogate(c);
-            int codePoint = isHigh ? Character.toCodePoint(c, mText[newCharIndex++]) : c;
-            int wcwidth = WcWidth.width(codePoint); // 1, 2
-            if (wcwidth > 0) {
-                currentColumn += wcwidth;
-                if (currentColumn == column) {
-                    while (newCharIndex < mSpaceUsed) {
-                        // Skip combining chars.
-                        if (Character.isHighSurrogate(mText[newCharIndex])) {
-                            if (WcWidth.width(Character.toCodePoint(mText[newCharIndex], mText[newCharIndex + 1])) <= 0) {
-                                newCharIndex += 2;
-                            } else {
-                                break;
-                            }
-                        } else if (WcWidth.width(mText[newCharIndex]) <= 0) {
-                            newCharIndex++;
-                        } else {
-                            break;
-                        }
-                    }
-                    return newCharIndex;
-                } else if (currentColumn > column) {
-                    // Wide column going past end.
-                    return currentCharIndex;
-                }
+        while (currentCharIndex < mSpaceUsed) {
+            final int clusterEnd = GraphemeClusters.clusterEnd(mText, currentCharIndex, mSpaceUsed);
+            final int clusterWidth = GraphemeClusters.clusterWidth(mText, currentCharIndex, mSpaceUsed);
+            if (clusterWidth > 0) {
+                currentColumn += clusterWidth;
+                if (currentColumn > column) return currentCharIndex;
             }
-            currentCharIndex = newCharIndex;
+            currentCharIndex = clusterEnd;
+            if (currentColumn == column) return currentCharIndex;
         }
+        return currentCharIndex;
     }
 
+    /**
+     * @return whether a cluster that occupies two columns starts exactly at {@code column}. The
+     * second half of a wide cell therefore returns {@code false}.
+     */
     private boolean wideDisplayCharacterStartingAt(int column) {
-        for (int currentCharIndex = 0, currentColumn = 0; currentCharIndex < mSpaceUsed; ) {
-            char c = mText[currentCharIndex++];
-            int codePoint = Character.isHighSurrogate(c) ? Character.toCodePoint(c, mText[currentCharIndex++]) : c;
-            int wcwidth = WcWidth.width(codePoint);
-            if (wcwidth > 0) {
-                if (currentColumn == column && wcwidth == 2) return true;
-                currentColumn += wcwidth;
+        int currentColumn = 0;
+        int currentCharIndex = 0;
+        while (currentCharIndex < mSpaceUsed) {
+            final int clusterEnd = GraphemeClusters.clusterEnd(mText, currentCharIndex, mSpaceUsed);
+            final int clusterWidth = GraphemeClusters.clusterWidth(mText, currentCharIndex, mSpaceUsed);
+            if (clusterWidth > 0) {
+                if (currentColumn == column) return clusterWidth == 2;
+                currentColumn += clusterWidth;
                 if (currentColumn > column) return false;
             }
+            currentCharIndex = clusterEnd;
         }
         return false;
+    }
+
+    /**
+     * @param column a column in this row.
+     * @return the last code point of the grapheme cluster occupying {@code column}, or {@code -1}
+     * when the column is out of range or holds a lone blank cell. A continuation code point is
+     * appended to the cluster it continues, so this is what a following code point must be tested
+     * against to decide whether it continues the same cell.
+     */
+    public int getLastCodePointOfColumn(int column) {
+        if (column < 0 || column >= mColumns) return -1;
+        final int clusterStart = findStartOfColumn(column);
+        if (clusterStart >= mSpaceUsed) return -1;
+        final int clusterEnd = GraphemeClusters.clusterEnd(mText, clusterStart, mSpaceUsed);
+        int lastCodePoint = -1;
+        for (int i = clusterStart; i < clusterEnd; ) {
+            lastCodePoint = codePointAt(mText, i);
+            i += Character.charCount(lastCodePoint);
+        }
+        // A lone blank is not a cluster that can be continued by a following code point.
+        return (lastCodePoint == ' ') ? -1 : lastCodePoint;
+    }
+
+    private static int codePointAt(char[] text, int index) {
+        final char c = text[index];
+        return Character.isHighSurrogate(c) ? Character.toCodePoint(c, text[index + 1]) : c;
+    }
+
+    /** @return the number of code points in {@code text} between {@code start} and {@code end}. */
+    private static int codePointCount(char[] text, int start, int end) {
+        int count = 0;
+        for (int i = start; i < end; ) {
+            i += Character.isHighSurrogate(text[i]) ? 2 : 1;
+            count++;
+        }
+        return count;
     }
 
     public void clear(long style) {
@@ -179,14 +210,21 @@ public final class TerminalRow {
             mHasTerminalBitmap = true;
         }
 
-        final int newCodePointDisplayWidth = WcWidth.width(codePoint);
-        // Only a genuine write stamps the link. A combining character is appended to an existing cell
+        final int baseWidth = GraphemeClusters.baseWidth(codePoint);
+        // A code point continues the cell it is written into when it is a known grapheme
+        // continuation (a ZWJ join, a flag half, a skin tone modifier or a variation selector) or
+        // has zero width. The same test is used by TerminalBuffer.getWidthForWrite() for the
+        // cursor, so the cells and the cursor cannot disagree about whether a code point advances.
+        final int precedingCodePoint = getLastCodePointOfColumn(columnToSet);
+        final boolean newIsContinuation = precedingCodePoint >= 0 && GraphemeClusters.isContinuation(precedingCodePoint, codePoint);
+        final boolean newIsCombining = baseWidth <= 0 || newIsContinuation;
+        // Only a genuine write stamps the link. A continuation is appended to an existing cell
         // and must keep the link that cell was created with.
-        if (newCodePointDisplayWidth > 0) setLinkId(columnToSet, linkId);
+        if (!newIsCombining && baseWidth > 0) setLinkId(columnToSet, linkId);
 
         // Fast path when we don't have any chars with width != 1
         if (!mHasNonOneWidthOrSurrogateChars) {
-            if (codePoint >= Character.MIN_SUPPLEMENTARY_CODE_POINT || newCodePointDisplayWidth != 1) {
+            if (codePoint >= Character.MIN_SUPPLEMENTARY_CODE_POINT || baseWidth != 1) {
                 mHasNonOneWidthOrSurrogateChars = true;
             } else {
                 mText[columnToSet] = (char) codePoint;
@@ -194,24 +232,23 @@ public final class TerminalRow {
             }
         }
 
-        final boolean newIsCombining = newCodePointDisplayWidth <= 0;
-
         boolean wasExtraColForWideChar = (columnToSet > 0) && wideDisplayCharacterStartingAt(columnToSet - 1);
 
         if (newIsCombining) {
-            // When standing at second half of wide character and inserting combining:
+            // A continuation is appended to the cluster it continues, which starts at the previous
+            // column when the cursor stands on the second half of a wide cell.
             if (wasExtraColForWideChar) columnToSet--;
         } else {
             // Check if we are overwriting the second half of a wide character starting at the previous column:
             if (wasExtraColForWideChar) setChar(columnToSet - 1, ' ', style, 0);
             // Check if we are overwriting the first half of a wide character starting at the next column:
-            boolean overwritingWideCharInNextColumn = newCodePointDisplayWidth == 2 && wideDisplayCharacterStartingAt(columnToSet + 1);
+            boolean overwritingWideCharInNextColumn = baseWidth == 2 && wideDisplayCharacterStartingAt(columnToSet + 1);
             if (overwritingWideCharInNextColumn) setChar(columnToSet + 1, ' ', style, 0);
         }
 
         char[] text = mText;
         final int oldStartOfColumnIndex = findStartOfColumn(columnToSet);
-        final int oldCodePointDisplayWidth = WcWidth.width(text, oldStartOfColumnIndex);
+        final int oldCodePointDisplayWidth = GraphemeClusters.clusterWidth(text, oldStartOfColumnIndex, mSpaceUsed);
 
         // Get the number of elements in the mText array this column uses now
         int oldCharactersUsedForColumn;
@@ -223,18 +260,21 @@ public final class TerminalRow {
             oldCharactersUsedForColumn = mSpaceUsed - oldStartOfColumnIndex;
         }
 
-        // If MAX_COMBINING_CHARACTERS_PER_COLUMN already exist in column, then ignore adding additional combining characters.
+        // If MAX_COMBINING_CHARACTERS_PER_COLUMN continuations already exist in the column, then
+        // ignore adding additional ones. Both zero width characters and the non-zero width
+        // continuations (flag halves, skin tone modifiers, ZWJ joined emoji) count, so a malicious
+        // stream cannot grow one cell without bound.
         if (newIsCombining) {
-            int combiningCharsCount = WcWidth.zeroWidthCharsCount(mText, oldStartOfColumnIndex, oldStartOfColumnIndex + oldCharactersUsedForColumn);
-            if (combiningCharsCount >= MAX_COMBINING_CHARACTERS_PER_COLUMN)
+            int continuationCodePointsCount = codePointCount(mText, oldStartOfColumnIndex, oldStartOfColumnIndex + oldCharactersUsedForColumn) - 1;
+            if (continuationCodePointsCount >= MAX_COMBINING_CHARACTERS_PER_COLUMN)
                 return;
         }
 
         // Find how many chars this column will need
         int newCharactersUsedForColumn = Character.charCount(codePoint);
         if (newIsCombining) {
-            // Combining characters are added to the contents of the column instead of overwriting them, so that they
-            // modify the existing contents.
+            // Continuations are added to the contents of the column instead of overwriting them, so
+            // that they modify the existing contents.
             // FIXME: Unassigned characters also get width=0.
             newCharactersUsedForColumn += oldCharactersUsedForColumn;
         }
@@ -261,11 +301,11 @@ public final class TerminalRow {
         }
         mSpaceUsed += javaCharDifference;
 
-        // Store char. A combining character is stored at the end of the existing contents so that it modifies them:
+        // Store char. A continuation is stored at the end of the existing contents so that it modifies them:
         //noinspection ResultOfMethodCallIgnored - since we already now how many java chars is used.
         Character.toChars(codePoint, text, oldStartOfColumnIndex + (newIsCombining ? oldCharactersUsedForColumn : 0));
 
-        if (oldCodePointDisplayWidth == 2 && newCodePointDisplayWidth == 1) {
+        if (!newIsCombining && oldCodePointDisplayWidth == 2 && baseWidth == 1) {
             // Replace second half of wide char with a space. Which mean that we actually add a ' ' java character.
             if (mSpaceUsed + 1 > text.length) {
                 char[] newText = new char[text.length + mColumns];
@@ -278,7 +318,7 @@ public final class TerminalRow {
             text[newNextColumnIndex] = ' ';
 
             ++mSpaceUsed;
-        } else if (oldCodePointDisplayWidth == 1 && newCodePointDisplayWidth == 2) {
+        } else if (!newIsCombining && oldCodePointDisplayWidth == 1 && baseWidth == 2) {
             if (columnToSet == mColumns - 1) {
                 throw new IllegalArgumentException("Cannot put wide character in last column");
             } else if (columnToSet == mColumns - 2) {
