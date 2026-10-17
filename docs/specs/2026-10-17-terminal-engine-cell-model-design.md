@@ -5,14 +5,15 @@
 **Origin:** user request — "*let's do this Terminal engine upgrade*" — resuming
 [`../ideas/2026-10-14-terminal-engine-upgrade-idea.md`](../ideas/2026-10-14-terminal-engine-upgrade-idea.md), whose
 brainstorming had stopped before approach selection.
-**Scope:** **workstream 1 only — the cell model.** The idea file decomposes the program into six workstreams
-(1 cell model, 2 rendering, 3 text/shaping, 4 graphics, 5 conformance + OSC 8 + underline styles, 6
+**Scope:** **workstream 1 only — the cell model** — plus the two parsing halves that make its new storage live
+(`SGR 4:n`, `OSC 8`). The idea file decomposes the program into six workstreams
+(1 cell model, 2 rendering, 3 text/shaping, 4 graphics, 5 conformance + remaining OSC 8/underline work, 6
 `:termux-shared` shims) and recommends speccing 1 first, then 2, then 3–5 as separate cycles. This spec covers
-workstream 1 and defines the interfaces the later workstreams consume. Everything else is §11.
+workstream 1 and defines the interfaces the later workstreams consume. Everything else is §9.
 
 **Decisions taken by the user:**
-- **Approach B — substrate first.** The cell model is built before any feature work, so console graphics, OSC 8,
-  shaping and conformance all land later as small consumers.
+- **Approach B — substrate first.** The cell model is built before any feature work, so console graphics, shaping and
+  conformance land later as small consumers.
 - **Underline style** lives in the style word's four unused bits (11–14) — no extra memory.
 - **Link ids** live in a lazily-allocated per-row side array plus a buffer-level registry with GC.
 - **Grapheme clusters get no new storage.** The invariant "one column = one grapheme cluster" is enforced in the
@@ -21,6 +22,10 @@ workstream 1 and defines the interfaces the later workstreams consume. Everythin
 - **The image-placement layer is not refactored.** The existing bitmap registry *is* the placement layer; kitty
   placements join it in workstream 4.
 - **Workstream 1 touches no file outside `:terminal-emulator`.**
+- **Scope expanded 2026-10-17 (user request):** the two new cell attributes get **live producers** in this
+  workstream, so neither ships as unused storage — `SGR 4:n` underline-style wiring (the parser already parses the
+  sub-parameter and discards the style value) and `OSC 8` hyperlink parsing with per-cell link stamping. The items
+  that stay out, and why, are listed in §9.
 
 ---
 
@@ -42,11 +47,12 @@ already owns a **cell-anchored image registry**: `HashMap<Integer, TerminalBitma
 `getFreeTerminalBitmapNum`, a 30 s `doTerminalBitmapsGC` sweep over live rows, and `removeScrolledOutTerminalBitmaps`.
 That is the pattern the link registry mirrors.
 
-**What is missing today:** no underline style (single/double/curly/dotted/dashed) — only the boolean
-`CHARACTER_ATTRIBUTE_UNDERLINE`; no hyperlink storage (OSC 8 is unimplemented, workstream 5); no dirty state on
-`TerminalRow` or `TerminalBuffer`, so `TerminalRenderer.onDraw` repaints every visible row; and grapheme clusters
-are only approximated — each code point is measured on its own, so a ZWJ emoji sequence fans out across several
-columns.
+**What is missing today:** no underline *style* (single/double/curly/dotted/dashed) — the parser already handles the
+`4:n` sub-parameter in `selectGraphicRendition` (lines 2487–2500), but it keeps only the boolean
+`CHARACTER_ATTRIBUTE_UNDERLINE` and throws the style number away; no hyperlink storage (`doOsc`'s `switch (value)`
+has no `case 8`); no dirty state on `TerminalRow` or `TerminalBuffer`, so `TerminalRenderer.onDraw` repaints every
+visible row; and grapheme clusters are only approximated — each code point is measured on its own, so a ZWJ emoji
+sequence fans out across several columns.
 
 **Compatibility surface** (`:termux-shared` is published to JitPack and consumed by the plugin apps):
 - `termux-shared/…/shell/ShellUtils.java:52` — the only consumer. It calls `terminalSession.getEmulator()`,
@@ -74,12 +80,16 @@ must keep returning byte-for-byte the same text. Everything else on `TerminalRow
 The change counter is required because rows rotate through the ring buffer: a per-row flag alone cannot tell the
 renderer that the whole screen shifted.
 
+Underline style and link id both get **live producers in this workstream** (`SGR 4:n` and `OSC 8`, §3.5), so neither
+ships as unused storage. The dirty flag's only consumer is the workstream-2 renderer, so its contract is fixed here
+in §4 and tested even though nothing reads it yet.
+
 ---
 
 ## 3. Components
 
 ### 3.1 `TextStyle`
-- `UNDERLINE_STYLE_NONE/ SINGLE / DOUBLE / CURLY / DOTTED / DASHED` constants occupying bits 11–13, plus
+- `UNDERLINE_STYLE_NONE/SINGLE/DOUBLE/CURLY/DOTTED/DASHED` constants occupying bits 11–13, plus
   `decodeUnderlineStyle(long)`.
 - Writes go through a dedicated `encodeUnderline(long style, int underlineStyle)` rather than widening `encode`, so
   the 9-bit effect mask and the truecolor flag bits (9–10) are untouched. **Trap:** `TerminalBuffer.setOrClearEffect`
@@ -90,8 +100,10 @@ renderer that the whole screen shifted.
 ### 3.2 `TerminalRow`
 - `boolean mDirty`.
 - `int[] mLinkIds`, lazily allocated; a null array or cell `0` means "no link".
-- `setChar` **clears** the cell's link id when it overwrites the cell, so a rewritten cell can never carry a stale
-  link.
+- **Overwrite rule:** `TerminalBuffer.setChar` stamps the cell with the buffer's current link id (§3.4) — `0`
+  whenever no OSC 8 hyperlink is open — so a rewritten cell can never carry a stale link, and the
+  clear-on-overwrite case falls out of the same mechanism rather than needing a special rule. `TerminalRow` itself
+  only stores and returns ids.
 - `copyInterval`, `clear` and the resize copy path carry underline style and link id along with text and style.
 - Accessors: `getUnderlineStyle(column)`, `getLinkId(column)`.
 
@@ -112,22 +124,45 @@ Cluster growth stays bounded by the existing 15-combining-character cap; no new 
 - **Link registry:** `registerLink(String uri) → int`, `getLink(int id)`, a GC sweep of ids no live row references,
   and a cap (4 096 ids).
 - **Column API:** `setLinkAt(column, row, id)`, `getLinkIdAt(externalRow, column)`, `getUnderlineStyleAt(...)`.
+- **Current-link state:** `setCurrentLinkId(int)`, stamped by `setChar`. The OSC 8 handler (§3.5) sets it; `0` means
+  "no hyperlink".
 
-### 3.5 Untouched in this workstream
-`TerminalEmulator` (its parser sets no underline style and no link id until workstream 5), `:terminal-view`,
-`:termux-shared`, `:app`. The alt-screen switch will call `markAllDirty()` when workstream 2 consumes the flag.
+### 3.5 `TerminalEmulator` — narrow producer wiring
+Two small, additive edits, both inside the existing parsers. No state machine, APC or DCS work.
+
+- **`SGR 4:n` → underline style.** `selectGraphicRendition` already detects the sub-parameter; it must keep the value
+  (`0` = none … `5` = dashed) in a new `mUnderlineStyle` field instead of discarding it, and clear that field for
+  `24` (and for the reset `0`). The single style-composition point `mStyle()` (line 3026) then emits the underline
+  bits. `SGR 21` (legacy double underline; xterm treats it as double, some terminals as bold-off) is included with
+  that ambiguity documented. DECSC/DECRC save-restore (line 2123) carries the new field alongside `mSavedEffect`.
+- **`OSC 8` → hyperlink id.** `doOsc`'s `switch (value)` gains `case 8`: split the payload on the first `;` into
+  params and URI; an **empty URI closes** the hyperlink (current link id back to `0`); a non-empty URI is registered
+  once per unique string via `registerLink` and becomes the current link id, so all subsequently written cells carry
+  it. `id=`/other params are accepted and ignored — grouping is deliberately not modelled. `setOscTypeVariables`
+  gains a `case 8` length cap (§5).
+
+### 3.6 Untouched in this workstream
+`:terminal-view`, `:termux-shared`, `:app` — zero diff. In particular the renderer keeps drawing a plain underline
+for any styled underline until workstream 2 draws the styles; that graceful degradation is intentional and means the
+parser wiring can land with no visual regression. The alt-screen switch will call `markAllDirty()` when workstream 2
+consumes the flag. Link *click handling* (hit-testing, `onLinkClicked`) and scheme sanitization remain workstreams 5/6.
 
 ---
 
 ## 4. Data flow
 
 - **Write path** (entry points unchanged): emulator → `buffer.setChar` → `row.setChar`, with a dirty mark at the
-  buffer layer. Bulk operations mark every row they touch. Scrolling rotates `TerminalRow` objects through the ring
-  buffer, so each dirty flag travels with its content, and the change counter ticks to signal the shift.
+  buffer layer and the buffer's current link id stamped into the cell. Bulk operations mark every row they touch.
+  Scrolling rotates `TerminalRow` objects through the ring buffer, so each dirty flag travels with its content, and
+  the change counter ticks to signal the shift.
+- **Underline flow (live in this workstream):** `SGR 4:n` → `mUnderlineStyle` → `mStyle()` emits the bits → the cell
+  word carries them → workstream 2 reads `getUnderlineStyle(column)` to draw the style. Until then the renderer draws
+  a plain underline (it keys off `CHARACTER_ATTRIBUTE_UNDERLINE`), so nothing regresses.
+- **Link flow (parsing here, clicking later):** `OSC 8` payload → URI registered once via `registerLink` → current
+  link id → stamped into subsequent cells → hit-test in workstream 6 reads `getLinkIdAt` → registry resolves the URI
+  → new `default` no-op `onLinkClicked` on the client interfaces. An empty URI closes the hyperlink.
 - **Renderer consumption** (workstream 2; the API is shaped for it here): read `getChangeCounter()` — a tick means
   full invalidation; otherwise repaint only dirty screen rows; then `clearDirtyState()`.
-- **Link resolution** (workstreams 5/6): OSC 8 → `registerLink(uri)` once → id per cell → hit-test reads
-  `getLinkIdAt` → registry resolves the URI → new `default` no-op `onLinkClicked` on the client interfaces.
 
 ---
 
@@ -139,6 +174,9 @@ Cluster growth stays bounded by the existing 15-combining-character cap; no new 
   bitmap-cap failure behaviour (`getFreeTerminalBitmapNum` + `Logger.logError`).
 - Accessors follow existing conventions: reads are unvalidated like `getStyleAt`; writes throw
   `IllegalArgumentException` like `setChar`.
+- **OSC 8 payload bound:** `setOscTypeVariables` gains a `case 8` length cap (as `case 52` already does), so an
+  unbounded URI cannot grow the terminal-control buffer without limit.
+- Unknown `SGR 4:n` values clamp to "single underline" rather than being dropped.
 - Absorption cannot grow a column without bound (15-character cap).
 
 ---
@@ -152,6 +190,10 @@ Plain JUnit in `:terminal-emulator` (no JNI; `unitTests.returnDefaultValues = tr
 - `TerminalBuffer`/`ScreenBufferTest` — dirty marking table-driven across every mutation path; change counter ticks
   on scroll and resize; `markAllDirty`; registry GC and cap behaviour.
 - `GraphemeClusters`/`WcWidthTest` — rule table: sequence → expected width/absorption.
+- Parser wiring (new cases in the existing suites): `SGR 4:1..4:5` → expected `getUnderlineStyle` on the cell, `4:0`
+  and `24` clear it, `21` sets double, an unknown `4:n` clamps to single, and DECSC/DECRC round-trips the style;
+  `OSC 8` stamps written cells, an empty URI closes the hyperlink, an oversized payload is ignored, and repeated
+  identical URIs share one registry entry.
 
 `TerminalTestCase` escape-sequence tests for the visible change: ZWJ family emoji occupies 2 columns, a
 regional-indicator flag 2, skin-tone modifiers absorbed — plus regression runs of the existing wide-char and
@@ -167,9 +209,12 @@ memory assertion that `mLinkIds` stays null for untouched rows.
 Additive and invisible first, so each step is reviewable upstream on its own:
 
 1. **Dirty tracking** — flag + counter + accessors, no consumer. Invisible.
-2. **Underline-style storage** — bits 11–13 + accessors + DECCARA preservation. Invisible until workstream 5.
-3. **Link registry + side array** — storage, GC, cap, accessors. Invisible until workstream 5.
-4. **Grapheme absorption** — the only user-visible change; ships with its own escape-sequence tests.
+2. **Underline-style storage** — bits 11–13 + accessors + DECCARA preservation. Invisible until step 4.
+3. **Link registry + side array** — storage, GC, cap, accessors. Invisible until step 5.
+4. **`SGR 4:n` wiring** — the parser stores the style instead of discarding it; renders as a plain underline until
+   workstream 2, so no visual regression.
+5. **`OSC 8` wiring** — hyperlinks parsed and stamped per cell; no click handling yet.
+6. **Grapheme absorption** — the only change to *text layout*; ships with its own escape-sequence tests.
 
 Every step leaves `./gradlew test` green and `:app` `/` `:terminal-view` `/` `:termux-shared` untouched.
 
@@ -178,7 +223,11 @@ Every step leaves `./gradlew test` green and `:app` `/` `:terminal-view` `/` `:t
 ## 8. Risks and things to verify during implementation
 
 - **Upstream appetite** for touching `TerminalBuffer`/`TerminalRow` at all. Mitigation is the PR shape above:
-  three invisible additive PRs, then one behaviour PR with tests.
+  four additive steps, then two small parser steps, then the one behaviour PR.
+- **`SGR 21` is ambiguous** (double underline in xterm, bold-off in some terminals). We follow xterm and document it;
+  the same ambiguity exists in the code today (it is currently ignored).
+- **Underline styles are stored but drawn as plain underlines** until workstream 2 — intentional graceful
+  degradation, verified by the absence of rendering changes.
 - **Emoji layout change** is deliberate and visible. It matches kitty/Windows Terminal behaviour and fixes genuinely
   broken rendering today, but it can move wrapped lines and selection boundaries for emoji-heavy output.
 - **Existing `TerminalRowTest` assertions** encode today's per-code-point width behaviour and may need updating, not
@@ -191,8 +240,18 @@ Every step leaves `./gradlew test` green and `:app` `/` `:terminal-view` `/` `:t
 
 ## 9. Non-goals (this workstream)
 
-No parser changes (no CSI 4:x, no OSC 8 parsing, no kitty APC) — workstream 5. No renderer, frame-snapshot or
-dirty-region drawing — workstream 2. No shaping/ligatures — workstream 3. No new image decoding and no change to
-the sixel/iTerm2 behaviour that ships today — workstream 4. No `:termux-shared` public-API change and no
-`:terminal-emulator` module split. No Kotlin rewrite, no packaging change, no `targetSdk` change. No new
-third-party dependency.
+Assessment of the four deferred workstreams against a 2026-10-17 user request to pull in whatever fits. Two items
+were pulled in (§3.5); the rest stay out for the reasons given:
+
+| Deferred item | Verdict | Why |
+|---|---|---|
+| `SGR 4:n` underline-style parsing | **in (step 4)** | The parser already parses the sub-parameter and discards the value; ~10 lines that make the new storage live |
+| `OSC 8` hyperlink parsing + per-cell stamping | **in (step 5)** | Contained `case 8` in the existing `doOsc`, and it keeps the link registry from being dead storage |
+| Kitty APC graphics | out (workstream 4) | A full decode + placement pipeline — new image decoding, which is workstream 4's core |
+| Renderer, frame snapshot, dirty-region drawing | out (workstream 2) | Needs cursor-blink, selection, image and theme invalidation handled together; a naive dirty-row consumer produces visual artifacts, and drawing is the least unit-testable surface here |
+| Shaping / ligatures | out (workstream 3) | Requires run-level whole-string drawing, i.e. the renderer |
+| Image-placement unification (sixel/iTerm2 refactor) | out (workstream 4) | Refactors working, shipped code for no user benefit, against the recorded "don't regress sixel/iTerm2" risk |
+| Link click handling (`onLinkClicked`, hit-testing, scheme sanitization) | out (workstreams 5/6) | Crosses into `:terminal-view` and the published client interfaces, which need Java 8 `default` methods |
+
+Also out: no `:termux-shared` public-API change and no `:terminal-emulator` module split; no Kotlin rewrite; no
+packaging change; no `targetSdk` change; no new third-party dependency.
