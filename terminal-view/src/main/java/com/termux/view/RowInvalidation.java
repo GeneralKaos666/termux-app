@@ -5,9 +5,10 @@ import com.termux.terminal.TerminalBuffer;
 /**
  * Pure decision logic for renderer dirty-region invalidation.
  *
- * <p>No Android imports: this helper only does arithmetic on viewport state the caller already knows
- * (dirty flags of the visible rows, the change counter, the row height and the view height), so it
- * can be unit tested on the JVM without Android.
+ * <p>The arithmetic here is Android-free and runs on a plain JVM. The one method that touches the
+ * emulator ({@link #dirtyByIndex}) only reads flags through {@link com.termux.terminal.TerminalBuffer};
+ * because that class' constructor touches {@code android.os.SystemClock}, the tests enable Gradle's
+ * {@code testOptions { unitTests.returnDefaultValues = true }} (test scope only).
  *
  * <p>Package-private on purpose: this is an implementation detail of {@link TerminalView} and
  * {@link TerminalRenderer}.
@@ -58,8 +59,8 @@ final class RowInvalidation {
      *
      * <p><b>Coordinates:</b> {@code dirtyByIndex} is <b>viewport-relative</b>: index {@code 0} is the
      * top visible row and index {@code rows - 1} the bottom one. This helper never sees the scroll
-     * offset (the caller owns the {@code screen row = topRow + index} mapping), so the band it returns
-     * is already view-relative: {@code topPx = firstDirtyIndex * fontLineSpacing} and
+     * offset — {@link #dirtyByIndex} is the single place that owns the {@code screen row = topRow + index}
+     * mapping — so the band it returns is already view-relative: {@code topPx = firstDirtyIndex * fontLineSpacing} and
      * {@code bottomPx = (lastDirtyIndex + 1) * fontLineSpacing}. The low end is therefore
      * non-negative by construction (a viewport-relative index times a positive row height). The high
      * end is clamped to {@code viewHeight} when {@code viewHeight > 0}; if the band ends up empty or
@@ -119,10 +120,14 @@ final class RowInvalidation {
      * changing.
      *
      * @param screen The buffer to read, or {@code null} (meaning "nothing dirty").
-     * @param topRow The external row shown at the top of the viewport; negative reads the transcript.
+     * @param topRow The external row shown at the top of the viewport; negative reads the transcript. It
+     *               must not be older than the oldest transcript row (the caller clamps {@code mTopRow} to
+     *               {@code -getActiveTranscriptRows()} before building the flags), because
+     *               {@link com.termux.terminal.TerminalBuffer#isRowDirty} throws past that bound.
      * @param rows   The number of visible rows. Anything {@code <= 0} means an empty viewport.
      * @return An array of {@code rows} viewport-relative flags, or an empty array when {@code screen} is
      *         {@code null} or {@code rows <= 0} ({@link #decide} tolerates a short, even empty, array).
+     * @throws IllegalArgumentException if {@code topRow} is older than the oldest transcript row.
      */
     static boolean[] dirtyByIndex(TerminalBuffer screen, int topRow, int rows) {
         if (screen == null || rows <= 0) return new boolean[0];
