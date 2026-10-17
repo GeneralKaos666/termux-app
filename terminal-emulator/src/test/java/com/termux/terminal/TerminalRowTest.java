@@ -442,4 +442,62 @@ public class TerminalRowTest extends TestCase {
 		assertEquals(TextStyle.UNDERLINE_STYLE_DASHED, row.getUnderlineStyle(0));
 	}
 
+	public void testLinkIdsAreLazy() {
+		assertNull(row.mLinkIds);
+		assertEquals(0, row.getLinkId(0));
+		row.setLinkId(2, 5);
+		assertNotNull(row.mLinkIds);
+		assertEquals(5, row.getLinkId(2));
+		assertEquals(0, row.getLinkId(1));
+	}
+
+	public void testOverwriteClearsTheLink() {
+		row.setChar(0, 'a', TextStyle.NORMAL, 5);
+		assertEquals(5, row.getLinkId(0));
+		row.setChar(0, 'b', TextStyle.NORMAL, 0);
+		assertEquals(0, row.getLinkId(0));
+	}
+
+	public void testContinuationKeepsTheCellLink() {
+		row.setChar(0, ONE_JAVA_CHAR_DISPLAY_WIDTH_TWO_1, TextStyle.NORMAL, 5);
+		// The combining char is redirected onto the wide char's base column, which must keep its link.
+		row.setChar(1, DIARESIS_CODEPOINT, TextStyle.NORMAL, 7);
+		assertEquals(5, row.getLinkId(0));
+		assertEquals(0, row.getLinkId(1));
+	}
+
+	public void testBlankedNeighbourLosesItsLink() {
+		// A wide char spans columns 0-1 but its link is stamped on its base column only.
+		row.setChar(0, ONE_JAVA_CHAR_DISPLAY_WIDTH_TWO_1, TextStyle.NORMAL, 5);
+		assertEquals(5, row.getLinkId(0));
+		assertEquals(0, row.getLinkId(1));
+		// Overwriting column 0 with a narrow char blanks the second half:
+		row.setChar(0, 'a', TextStyle.NORMAL, 0);
+		assertEquals(0, row.getLinkId(0));
+		assertEquals(0, row.getLinkId(1));
+
+		// Writing into the second half of a wide char blanks the wide char's base column, which
+		// must lose its link (the recursive blank passes id 0, it must not inherit the write's id).
+		row.setChar(0, ONE_JAVA_CHAR_DISPLAY_WIDTH_TWO_1, TextStyle.NORMAL, 5);
+		assertEquals(5, row.getLinkId(0));
+		row.setChar(1, 'b', TextStyle.NORMAL, 0);
+		assertEquals(0, row.getLinkId(0));
+	}
+
+	public void testCopyIntervalCarriesLinkIds() {
+		TerminalRow source = new TerminalRow(COLUMNS, TextStyle.NORMAL);
+		source.setChar(0, 'a', TextStyle.NORMAL, 5);
+		source.setChar(1, 'b', TextStyle.NORMAL, 0);
+		row.copyInterval(source, 0, 2, 0);
+		assertEquals(5, row.getLinkId(0));
+		assertEquals(0, row.getLinkId(1));
+	}
+
+	public void testClearDropsLinkIds() {
+		row.setChar(0, 'a', TextStyle.NORMAL, 5);
+		assertEquals(5, row.getLinkId(0));
+		row.clear(TextStyle.NORMAL);
+		assertEquals(0, row.getLinkId(0));
+	}
+
 }

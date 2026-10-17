@@ -47,6 +47,11 @@ public final class TerminalRow {
     boolean mLineWrap;
     /** The style bits of each cell in the row. See {@link TextStyle}. */
     final long[] mStyle;
+    /**
+     * The hyperlink id of each cell in the row, or {@code null} until the first non-zero id is
+     * stored. A {@code 0} means "no hyperlink". See {@link TerminalBuffer#registerLink(String)}.
+     */
+    int[] mLinkIds;
     /** If this row might contain chars with width != 1, used for deactivating fast path */
     boolean mHasNonOneWidthOrSurrogateChars;
     /** If this row has a {@link TerminalBitmap}. Used for performance only. */
@@ -87,7 +92,7 @@ public final class TerminalRow {
                 sourceX1 += latestNonCombiningWidth;
                 latestNonCombiningWidth = w;
             }
-            setChar(destinationX, codePoint, line.getStyle(sourceX1));
+            setChar(destinationX, codePoint, line.getStyle(sourceX1), line.getLinkId(sourceX1));
         }
     }
 
@@ -151,6 +156,7 @@ public final class TerminalRow {
     public void clear(long style) {
         Arrays.fill(mText, ' ');
         Arrays.fill(mStyle, style);
+        clearLinkIds();
         mSpaceUsed = mColumns;
         mHasNonOneWidthOrSurrogateChars = false;
         mHasTerminalBitmap = false;
@@ -158,6 +164,11 @@ public final class TerminalRow {
 
     // https://github.com/steven676/Android-Terminal-Emulator/commit/9a47042620bec87617f0b4f5d50568535668fe26
     public void setChar(int columnToSet, int codePoint, long style) {
+        setChar(columnToSet, codePoint, style, 0);
+    }
+
+    // https://github.com/steven676/Android-Terminal-Emulator/commit/9a47042620bec87617f0b4f5d50568535668fe26
+    public void setChar(int columnToSet, int codePoint, long style, int linkId) {
         if (columnToSet  < 0 || columnToSet >= mStyle.length)
             throw new IllegalArgumentException("TerminalRow.setChar(): columnToSet=" + columnToSet + ", codePoint=" + codePoint + ", style=" + style);
 
@@ -169,6 +180,9 @@ public final class TerminalRow {
         }
 
         final int newCodePointDisplayWidth = WcWidth.width(codePoint);
+        // Only a genuine write stamps the link. A combining character is appended to an existing cell
+        // and must keep the link that cell was created with.
+        if (newCodePointDisplayWidth > 0) setLinkId(columnToSet, linkId);
 
         // Fast path when we don't have any chars with width != 1
         if (!mHasNonOneWidthOrSurrogateChars) {
@@ -189,10 +203,10 @@ public final class TerminalRow {
             if (wasExtraColForWideChar) columnToSet--;
         } else {
             // Check if we are overwriting the second half of a wide character starting at the previous column:
-            if (wasExtraColForWideChar) setChar(columnToSet - 1, ' ', style);
+            if (wasExtraColForWideChar) setChar(columnToSet - 1, ' ', style, 0);
             // Check if we are overwriting the first half of a wide character starting at the next column:
             boolean overwritingWideCharInNextColumn = newCodePointDisplayWidth == 2 && wideDisplayCharacterStartingAt(columnToSet + 1);
-            if (overwritingWideCharInNextColumn) setChar(columnToSet + 1, ' ', style);
+            if (overwritingWideCharInNextColumn) setChar(columnToSet + 1, ' ', style, 0);
         }
 
         char[] text = mText;
@@ -291,6 +305,30 @@ public final class TerminalRow {
 
     public final long getStyle(int column) {
         return mStyle[column];
+    }
+
+    /** @return the hyperlink id of the cell, or {@code 0} if it has no link. */
+    public int getLinkId(int column) {
+        return (mLinkIds == null) ? 0 : mLinkIds[column];
+    }
+
+    /**
+     * Sets the hyperlink id of a cell. A {@code 0} on a row that has never stored a link is a no-op,
+     * so the {@link #mLinkIds} array stays {@code null} until a non-zero id is stored.
+     */
+    void setLinkId(int column, int linkId) {
+        if (column < 0 || column >= mStyle.length)
+            throw new IllegalArgumentException("TerminalRow.setLinkId(): column=" + column + ", linkId=" + linkId);
+        if (mLinkIds == null) {
+            if (linkId == 0) return;
+            mLinkIds = new int[mColumns];
+        }
+        mLinkIds[column] = linkId;
+    }
+
+    /** Clears every hyperlink id in the row, keeping the backing array if it was allocated. */
+    void clearLinkIds() {
+        if (mLinkIds != null) Arrays.fill(mLinkIds, 0);
     }
 
     /** @return the {@link TextStyle#UNDERLINE_STYLE_NONE} or other underline style of the cell. */

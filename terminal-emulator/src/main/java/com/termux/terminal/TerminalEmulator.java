@@ -956,7 +956,7 @@ public final class TerminalEmulator {
                                     for (int row = top - 1; row < bottom; row++)
                                         for (int col = left - 1; col < right; col++)
                                             if (!selective || (TextStyle.decodeEffect(mScreen.getStyleAt(row, col)) & TextStyle.CHARACTER_ATTRIBUTE_PROTECTED) == 0)
-                                                mScreen.setChar(col, row, fillChar, keepVisualAttributes ? mScreen.getStyleAt(row, col) : style);
+                                                mScreen.setChar(col, row, fillChar, keepVisualAttributes ? mScreen.getStyleAt(row, col) : style, 0);
                                 }
                                 break;
                             case 'r': // "${CSI}${TOP}${LEFT}${BOTTOM}${RIGHT}${ATTRIBUTES}$r"
@@ -1739,7 +1739,7 @@ public final class TerminalEmulator {
                 for (int row = startRow; row < endRow; row++) {
                     for (int col = startCol; col < endCol; col++) {
                         if ((TextStyle.decodeEffect(mScreen.getStyleAt(row, col)) & TextStyle.CHARACTER_ATTRIBUTE_PROTECTED) == 0)
-                            mScreen.setChar(col, row, fillChar, style);
+                            mScreen.setChar(col, row, fillChar, style, 0);
                     }
                 }
                 break;
