@@ -42,17 +42,20 @@ fun sessionState(running: Boolean, exitCode: Int): SessionState =
  * Builds the single-line tab title for a session: the user-set name if present, otherwise the
  * terminal title, otherwise a numbered fallback. Flattened from the two-line title composition in
  * `TermuxSessionsListViewController` so it fits on one tab.
+ *
+ * The fallback number is derived from the session's stable [id] so that reordering a session with
+ * no explicit name/terminal title does not rename it (the old behaviour incorrectly used the
+ * list index).
  */
-fun sessionTitle(number: Int, name: String?, terminalTitle: String?): String {
+fun sessionTitle(id: Int, name: String?, terminalTitle: String?): String {
     name?.takeIf { it.isNotBlank() }?.let { return it }
     terminalTitle?.takeIf { it.isNotBlank() }?.let { return it }
-    return "Session $number"
+    return "Session $id"
 }
 
 /** Convenience factory for a [SessionItem] from raw session fields. */
 fun sessionItem(
     id: Int,
-    number: Int,
     name: String?,
     terminalTitle: String?,
     running: Boolean,
@@ -60,7 +63,7 @@ fun sessionItem(
     active: Boolean,
 ): SessionItem = SessionItem(
     id = id,
-    title = sessionTitle(number, name, terminalTitle),
+    title = sessionTitle(id, name, terminalTitle),
     running = running,
     exitCode = exitCode,
     active = active,

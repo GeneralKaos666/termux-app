@@ -45,10 +45,31 @@ class SessionItemMappingTest {
     }
 
     @Test
+    fun `title fallback uses stable id so reordering does not rename sessions`() {
+        // The fallback number must come from the session's stable id, not its list position:
+        // the same session at list position 1 vs 3 keeps the same fallback title.
+        assertEquals("Session 5", sessionTitle(5, null, null))
+        assertEquals("Session 5", sessionTitle(5, "   ", ""))
+    }
+
+    @Test
+    fun `factory fallback title follows the stable id, not the list position`() {
+        val item = sessionItem(
+            id = 5,
+            name = null,
+            terminalTitle = null,
+            running = true,
+            exitCode = 0,
+            active = false,
+        )
+
+        assertEquals("Session 5", item.title)
+    }
+
+    @Test
     fun `factory composes title and state fields`() {
         val item = sessionItem(
             id = 1,
-            number = 2,
             name = null,
             terminalTitle = "zsh",
             running = false,

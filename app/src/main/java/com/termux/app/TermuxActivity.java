@@ -768,7 +768,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
                 items.add(SessionItemKt.sessionItem(
                     stableId,
-                    i + 1,
                     terminalSession.mSessionName,
                     terminalSession.getTitle(),
                     terminalSession.isRunning(),
