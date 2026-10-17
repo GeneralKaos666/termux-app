@@ -2724,6 +2724,11 @@ public final class TerminalEmulator {
             Integer terminalControlArgsCapacity = null;
             Integer terminalControlArgsMaxLength = null;
             switch (mOscType) {
+                case 8: // OSC 8 hyperlink `OSC 8 ; params ; URI ST` - the uri is registered verbatim by the
+                    // link registry, so bound the args length. On overflow the whole sequence is dropped.
+                    // - https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+                    terminalControlArgsMaxLength = 4096;
+                    break;
                 case 52:
                     // Android has a `~100KB` limit for sharing/sending `UTF-16` encoded `String`
                     // with binder tranasactions, including clipboard, otherwise can result in a
@@ -2836,6 +2841,19 @@ public final class TerminalEmulator {
                         return;
                     }
                     if (endOfInput) break;
+                }
+                break;
+            case 8: // "OSC 8 ; params ; URI ST" - open the current hyperlink, an empty uri closes it.
+                // - https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+                // `textParameter` is "params;URI" - split only on the first ";" since the uri itself
+                // may contain ";" (e.g. "https://example.com/a;b?c=1"). A payload without a second
+                // ";" yields an empty uri, which closes the link.
+                int linkSeparator = textParameter.indexOf(';');
+                String linkUri = (linkSeparator < 0) ? "" : textParameter.substring(linkSeparator + 1);
+                if (linkUri.isEmpty()) {
+                    mScreen.setCurrentLinkId(0);
+                } else {
+                    mScreen.setCurrentLinkId(mScreen.registerLink(linkUri));
                 }
                 break;
             case 10: // Set foreground color.

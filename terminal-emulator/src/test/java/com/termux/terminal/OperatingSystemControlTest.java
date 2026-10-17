@@ -193,4 +193,110 @@ public class OperatingSystemControlTest extends TerminalTestCase {
 		assertEnteringStringGivesResponse("\033]10;?\033\\", "\033]10;rgb:abab/cdcd/0000\033\\");
 	}
 
+	public void testOsc8StampsCellsWithLink() throws Exception {
+		withTerminalSized(10, 10);
+		enterString("\033]8;;https://example.com\007ab\033]8;;\007cd");
+		TerminalBuffer screen = mTerminal.getScreen();
+		int linkId = screen.getLinkIdAt(0, 0);
+		assertTrue("cell written inside the link must carry a non-zero id", linkId != 0);
+		assertEquals("both cells of one link share an id", linkId, screen.getLinkIdAt(0, 1));
+		assertEquals("the id resolves to the uri", "https://example.com", screen.getLink(linkId));
+		assertEquals("cells after the closing OSC 8 are unlinked", 0, screen.getLinkIdAt(0, 2));
+		assertEquals("cells after the closing OSC 8 are unlinked", 0, screen.getLinkIdAt(0, 3));
+	}
+
+	public void testOsc8ParamsAreIgnored() throws Exception {
+		withTerminalSized(10, 10);
+		enterString("\033]8;id=42;https://example.com\007x");
+		TerminalBuffer screen = mTerminal.getScreen();
+		int linkId = screen.getLinkIdAt(0, 0);
+		assertTrue("cell must carry a non-zero id", linkId != 0);
+		assertEquals("only the uri is registered, not the params", "https://example.com", screen.getLink(linkId));
+	}
+
+	public void testOsc8UriKeepsEmbeddedSemicolons() throws Exception {
+		withTerminalSized(10, 10);
+		// Only the first ";" of "params;URI" splits - the uri itself may contain ";".
+		enterString("\033]8;;https://example.com/a;b?c=1\007x");
+		TerminalBuffer screen = mTerminal.getScreen();
+		int linkId = screen.getLinkIdAt(0, 0);
+		assertTrue("cell must carry a non-zero id", linkId != 0);
+		assertEquals("the uri is stored whole", "https://example.com/a;b?c=1", screen.getLink(linkId));
+	}
+
+	public void testOsc8EmptyUriClosesLink() throws Exception {
+		withTerminalSized(10, 10);
+		enterString("\033]8;;https://example.com\007a");
+		TerminalBuffer screen = mTerminal.getScreen();
+		int linkId = screen.getLinkIdAt(0, 0);
+		assertTrue("cell must carry a non-zero id", linkId != 0);
+
+		enterString("\033]8;;\007b");
+		assertEquals("an empty uri closes the link", 0, screen.getLinkIdAt(0, 1));
+
+		// A payload without a second ";" (params only) also closes the link.
+		enterString("\033]8;;https://example.com\007");
+		enterString("\033]8;\007c");
+		assertEquals("a payload without a second ';' closes the link", 0, screen.getLinkIdAt(0, 2));
+	}
+
+	public void testOsc8IdenticalUrisShareAnId() throws Exception {
+		withTerminalSized(10, 10);
+		enterString("\033]8;;https://example.com\007a");
+		enterString("\033]8;;\007");
+		enterString("\033]8;;https://example.com\007b");
+		TerminalBuffer screen = mTerminal.getScreen();
+		int firstId = screen.getLinkIdAt(0, 0);
+		int secondId = screen.getLinkIdAt(0, 1);
+		assertTrue("cell must carry a non-zero id", firstId != 0);
+		assertEquals("identical uris must be deduplicated to one id", firstId, secondId);
+	}
+
+	public void testOsc8OversizedPayloadIsIgnored() throws Exception {
+		withTerminalSized(10, 10);
+		enterString("\033]8;;https://keep.example\007K");
+		TerminalBuffer screen = mTerminal.getScreen();
+		int keepId = screen.getLinkIdAt(0, 0);
+		assertTrue("cell must carry a non-zero id", keepId != 0);
+		assertEquals("https://keep.example", screen.getLink(keepId));
+
+		// Larger than the 4096 argument cap for OSC 8, so the whole sequence is dropped:
+		StringBuilder oversized = new StringBuilder("\033]8;;https://");
+		for (int i = 0; i < 5000; i++) oversized.append('x');
+		oversized.append('\007');
+		enterString(oversized.toString());
+
+		assertEquals("the dropped sequence must leave the open link unchanged", keepId, screen.getCurrentLinkId());
+
+		// Whatever tail of the dropped sequence was printed as text, home first and then write a
+		// char: it must still carry the previously opened link.
+		enterString("\033[Hx");
+		assertEquals("the char after the dropped sequence keeps the open link", keepId, screen.getLinkIdAt(0, 0));
+	}
+
+	public void testEraseWhileLinkIsOpenLeavesCellsUnlinked() throws Exception {
+		withTerminalSized(10, 10);
+		enterString("\033]8;;https://example.com\007abc");
+		TerminalBuffer screen = mTerminal.getScreen();
+		int linkId = screen.getLinkIdAt(0, 0);
+		assertTrue("cells must carry a non-zero id", linkId != 0);
+		assertEquals(linkId, screen.getLinkIdAt(0, 1));
+		assertEquals(linkId, screen.getLinkIdAt(0, 2));
+
+		// Erase in line (EL) from column 2 to the end of the line while the link is open:
+		enterString("\033[1;2H\033[K");
+		assertEquals("the cell before the cursor keeps its link", linkId, screen.getLinkIdAt(0, 0));
+		assertEquals("erased cells are unlinked", 0, screen.getLinkIdAt(0, 1));
+		assertEquals("erased cells are unlinked", 0, screen.getLinkIdAt(0, 2));
+		assertEquals("erased cells are unlinked", 0, screen.getLinkIdAt(0, 3));
+
+		// Rectangular erase (DECERA) writes cells with an explicit link id of 0 as well:
+		enterString("\033[2;1Hdef");
+		assertEquals("the newly written cell carries the open link", linkId, screen.getLinkIdAt(1, 0));
+		enterString("\033[2;2;2;3$z");
+		assertEquals("the cell outside the rectangle keeps its link", linkId, screen.getLinkIdAt(1, 0));
+		assertEquals("erased cells are unlinked", 0, screen.getLinkIdAt(1, 1));
+		assertEquals("erased cells are unlinked", 0, screen.getLinkIdAt(1, 2));
+	}
+
 }
