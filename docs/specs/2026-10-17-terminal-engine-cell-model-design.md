@@ -2,6 +2,10 @@
 
 **Date:** 2026-10-17
 **Status:** awaiting user review (pre-planning)
+**Premise note (2026-10-17):** `AGENTS.md` now states this app is **standalone** — never merging back to upstream
+`termux/termux-app` — so the idea file's "*upstream-compatible*" constraint is superseded. The binding constraints
+are now companion-app interoperability (package identity, `TermuxConstants`, the client extension points) plus
+`minSdk 21` / Java 1.8. §7 and §8 are written against this.
 **Origin:** user request — "*let's do this Terminal engine upgrade*" — resuming
 [`../ideas/2026-10-14-terminal-engine-upgrade-idea.md`](../ideas/2026-10-14-terminal-engine-upgrade-idea.md), whose
 brainstorming had stopped before approach selection.
@@ -206,7 +210,9 @@ memory assertion that `mLinkIds` stays null for untouched rows.
 
 ## 7. Delivery sequence (PR shape)
 
-Additive and invisible first, so each step is reviewable upstream on its own:
+Additive and invisible first, so each step lands on its own and stays bisectable. (Upstream mergeability is **not** a
+constraint — per `AGENTS.md` (2026-10-17) this app is standalone and divergence is deliberate — so the ordering is
+about review and blame, not about what upstream would accept.)
 
 1. **Dirty tracking** — flag + counter + accessors, no consumer. Invisible.
 2. **Underline-style storage** — bits 11–13 + accessors + DECCARA preservation. Invisible until step 4.
@@ -222,8 +228,13 @@ Every step leaves `./gradlew test` green and `:app` `/` `:terminal-view` `/` `:t
 
 ## 8. Risks and things to verify during implementation
 
-- **Upstream appetite** for touching `TerminalBuffer`/`TerminalRow` at all. Mitigation is the PR shape above:
-  four additive steps, then two small parser steps, then the one behaviour PR.
+- **No upstream-merge constraint.** Per `AGENTS.md` (2026-10-17) the app is standalone, so these modules may be
+  changed freely. The cell model is still on the hot path for every terminal byte, so steps stay additive and
+  test-gated rather than being bundled into one rewrite.
+- **Companion-app compatibility** replaces the old upstream constraint: the package identity and
+  `TermuxConstants` package names must not change, and the client extension points the companion apps
+  (`Termux:Styling`, `Termux:API`, …) build against stay source-compatible. Workstream 1 changes no interface they
+  touch.
 - **`SGR 21` is ambiguous** (double underline in xterm, bold-off in some terminals). We follow xterm and document it;
   the same ambiguity exists in the code today (it is currently ignored).
 - **Underline styles are stored but drawn as plain underlines** until workstream 2 — intentional graceful
