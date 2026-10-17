@@ -108,7 +108,10 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
 - Captured separately in `ideas/2026-10-14-terminal-engine-upgrade-idea.md` (brainstorming stopped
   before approach selection; resume at its "Open decision" section). Not repeated here.
   `[updated 2026-10-17]` Approach **B (substrate first)** chosen; workstream 1 (cell model) has a spec at
-  `specs/2026-10-17-terminal-engine-cell-model-design.md` (pre-planning review). Workstreams 2–6 remain unspecced.
+  `specs/2026-10-17-terminal-engine-cell-model-design.md` (pre-planning review). It also absorbed the parsing halves
+  of `SGR 4:n` (underline styles) and `OSC 8` (hyperlinks) so the new storage ships live rather than unused;
+  workstream 5 keeps xterm conformance, link click handling and the remaining OSC 8 work. Workstreams 2–6 remain
+  unspecced.
 
 ## 10. Doc hygiene debt (this directory)
 
