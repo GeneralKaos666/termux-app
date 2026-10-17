@@ -60,8 +60,20 @@ public final class TerminalRenderer {
     /** Render the terminal to a canvas with at a specified row scroll, and an optional rectangular selection. */
     public final void render(TerminalEmulator mEmulator, Canvas canvas, int topRow,
                              int selectionY1, int selectionY2, int selectionX1, int selectionX2) {
+        render(mEmulator, canvas, topRow, selectionY1, selectionY2, selectionX1, selectionX2, topRow, topRow + mEmulator.mRows);
+    }
+
+    /**
+     * Render the terminal to a canvas at a specified row scroll and an optional rectangular selection, but only the
+     * rows in the range {@code [firstScreenRow, lastScreenRowExclusive)}.
+     * <p/>
+     * The row range is expressed in external (screen) row numbers and must already be clamped inside the visible band
+     * {@code [topRow, topRow + mEmulator.mRows)} by the caller, so that {@code firstScreenRow >= topRow} holds.
+     */
+    public final void render(TerminalEmulator mEmulator, Canvas canvas, int topRow,
+                             int selectionY1, int selectionY2, int selectionX1, int selectionX2,
+                             int firstScreenRow, int lastScreenRowExclusive) {
         final boolean reverseVideo = mEmulator.isReverseVideo();
-        final int endRow = topRow + mEmulator.mRows;
         final int columns = mEmulator.mColumns;
         final int cursorCol = mEmulator.getCursorCol();
         final int cursorRow = mEmulator.getCursorRow();
@@ -73,8 +85,10 @@ public final class TerminalRenderer {
         if (reverseVideo)
             canvas.drawColor(palette[TextStyle.COLOR_INDEX_FOREGROUND], PorterDuff.Mode.SRC);
 
-        float heightOffset = mFontLineSpacingAndAscent;
-        for (int row = topRow; row < endRow; row++) {
+        // The offset is advanced by one line spacing per row, so rows skipped at the start of the range must be
+        // accounted for here to keep every row at its true pixel offset.
+        float heightOffset = mFontLineSpacingAndAscent + (firstScreenRow - topRow) * mFontLineSpacing;
+        for (int row = firstScreenRow; row < lastScreenRowExclusive; row++) {
             heightOffset += mFontLineSpacing;
 
             final int cursorX = (row == cursorRow && cursorVisible) ? cursorCol : -1;
