@@ -3,8 +3,10 @@
 **Date:** 2026-10-14
 **Status:** **updated 2026-10-17** — approach **B (substrate first)** chosen; workstream 1 (the cell model) is
 designed, with the spec at [`../specs/2026-10-17-terminal-engine-cell-model-design.md`](../specs/2026-10-17-terminal-engine-cell-model-design.md)
-(awaiting user review, pre-planning). Workstreams 2–6 remain unspecced. §§1–5 and 7 are the record that led there;
-§6's resume steps are now complete for workstream 1.
+(approved 2026-10-17; also absorbed the parsing halves of `SGR 4:n` and `OSC 8`). Workstreams 2–6 remain unspecced.
+§§1–5 and 7 are the record that led there; §6's resume steps are now complete for workstream 1. **§1's
+"upstream-compatible" constraint is superseded** — per `AGENTS.md` (2026-10-17) the app is standalone, so the binding
+constraint is companion-app interoperability, not upstream acceptance.
 **Origin:** user question — "what would an upgraded `terminal-emulator`, `terminal-view`
 and `termux-shared` look like?"
 **Path classification:** architectural (restructures module internals and touches a
