@@ -25,11 +25,13 @@ Emulation stays upstream's; changes concentrate in the `:app` module.
 
 ## Install
 
-This fork publishes no GitHub releases. Every APK comes from the
+Take an APK from the [latest prerelease](https://github.com/GeneralKaos666/termux-app/releases)
+(`v2.0.0-beta`). The tip of `master` is always available as an artifact on the
 [Build workflow](https://github.com/GeneralKaos666/termux-app/actions/workflows/debug_build.yml):
 
-1. Open the workflow, pick the latest successful run on `master`, and download an artifact
-   from it. Artifact downloads require you to be logged into a GitHub account.
+1. Download from the prerelease page, or open the Build workflow, pick the latest successful run
+   on `master`, and download an artifact from it. Artifact downloads require you to be logged
+   into a GitHub account.
 2. Pick the variant that matches your device: `apt-android-7` for Android 7 and above,
    `apt-android-5` for Android 5 and 6. Inside a variant, grab the `universal` APK, or the
    smaller one for your architecture (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`).
@@ -41,7 +43,7 @@ This fork publishes no GitHub releases. Every APK comes from the
 4. Allow your browser or file manager to install unknown apps, then open the APK.
 
 The builds are debug-signed and debuggable. Treat APKs from anywhere other than this
-repository's Actions page as untrusted.
+repository's releases and Actions pages as untrusted.
 
 ## Using it
 
