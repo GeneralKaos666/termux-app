@@ -26,7 +26,11 @@ public final class TerminalRenderer {
 
     final int mTextSize;
     final Typeface mTypeface;
-    private final Paint mTextPaint = new Paint();
+    private final Paint mTextPaint;
+    /** The shaped-advance provider; {@code null} when the platform cannot report them (API < 29). */
+    private final RunAdvancesSource mRunAdvances;
+    /** Grow-only scratch for shaped advances; only the run just measured is ever read back. */
+    private float[] mRunAdvancesBuffer = new float[0];
 
     /** The width of a single mono spaced character obtained by {@link Paint#measureText(String)} on a single 'X'. */
     final float mFontWidth;
@@ -46,8 +50,15 @@ public final class TerminalRenderer {
     private final DashPathEffect mDashedUnderlineEffect;
 
     public TerminalRenderer(int textSize, Typeface typeface) {
+        this(textSize, typeface, new Paint(), null);
+    }
+
+    /** Test seam: {@code textPaint} and {@code runAdvances} replace the platform implementations. */
+    TerminalRenderer(int textSize, Typeface typeface, Paint textPaint, RunAdvancesSource runAdvances) {
         mTextSize = textSize;
         mTypeface = typeface;
+        mTextPaint = textPaint;
+        mRunAdvances = (runAdvances != null) ? runAdvances : RunAdvancesSource.forPaint(mTextPaint);
 
         mTextPaint.setTypeface(typeface);
         mTextPaint.setAntiAlias(true);
@@ -124,7 +135,6 @@ public final class TerminalRenderer {
             int lastRunStartIndex = 0;
             boolean lastRunFontWidthMismatch = false;
             int currentCharIndex = 0;
-            float measuredWidthForRun = 0.f;
 
             for (int column = 0; column < columns; ) {
                 final char charAtIndex = line[currentCharIndex];
@@ -144,7 +154,6 @@ public final class TerminalRenderer {
                         canvas.drawBitmap(bitmap, bitmapSrcRect, bitmapDestRect, null);
                     }
                     column += 1;
-                    measuredWidthForRun = 0.f;
                     lastRunStyle = 0;
                     lastRunLinkId = 0;
                     lastRunUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND;
@@ -179,11 +188,10 @@ public final class TerminalRenderer {
                             invertCursorTextColor = true;
                         }
                         drawTextRun(canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun,
-                            lastRunStartIndex, charsSinceLastRun, measuredWidthForRun,
+                            lastRunStartIndex, charsSinceLastRun,
                             cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
                             lastRunLinkId, lastRunUnderlineColor);
                     }
-                    measuredWidthForRun = 0.f;
                     lastRunStyle = style;
                     lastRunLinkId = linkId;
                     lastRunUnderlineColor = underlineColor;
@@ -193,7 +201,6 @@ public final class TerminalRenderer {
                     lastRunStartIndex = currentCharIndex;
                     lastRunFontWidthMismatch = fontWidthMismatch;
                 }
-                measuredWidthForRun += measuredCodePointWidth;
                 column += codePointWcWidth;
                 currentCharIndex += charsForCodePoint;
                 while (currentCharIndex < charsUsedInLine && WcWidth.width(line, currentCharIndex) <= 0) {
@@ -211,13 +218,13 @@ public final class TerminalRenderer {
                 invertCursorTextColor = true;
             }
             drawTextRun(canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun, lastRunStartIndex, charsSinceLastRun,
-                measuredWidthForRun, cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
+                cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
                 lastRunLinkId, lastRunUnderlineColor);
         }
     }
 
     private void drawTextRun(Canvas canvas, char[] text, int[] palette, float y, int startColumn, int runWidthColumns,
-                             int startCharIndex, int runWidthChars, float mes, int cursor, int cursorStyle,
+                             int startCharIndex, int runWidthChars, int cursor, int cursorStyle,
                              long textStyle, boolean reverseVideo, int linkId, int underlineColor) {
         int foreColor = TextStyle.decodeForeColor(textStyle);
         final int effect = TextStyle.decodeEffect(textStyle);
@@ -258,15 +265,9 @@ public final class TerminalRenderer {
         float left = startColumn * mFontWidth;
         float right = left + runWidthColumns * mFontWidth;
 
-        mes = mes / mFontWidth;
-        boolean savedMatrix = false;
-        if (Math.abs(mes - runWidthColumns) > 0.01) {
-            canvas.save();
-            canvas.scale(runWidthColumns / mes, 1.f);
-            left *= mes / runWidthColumns;
-            right *= mes / runWidthColumns;
-            savedMatrix = true;
-        }
+        // The run's background, cursor and custom underline are cell-exact and are never scaled; only the
+        // glyphs are, and only within a span (drawGlyphs). The rectangles are therefore drawn directly at
+        // their cells instead of being pre-divided by a canvas transform.
         // Kept before the cursor block below can shorten "right" (bar cursor): an underline spans the run.
         final float runRight = right;
 
@@ -304,11 +305,7 @@ public final class TerminalRenderer {
             mTextPaint.setColor(foreColor);
 
             // The text alignment is the default Paint.Align.LEFT.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                canvas.drawTextRun(text, startCharIndex, runWidthChars, startCharIndex, runWidthChars, left, y - mFontLineSpacingAndAscent, false, mTextPaint);
-            } else {
-                canvas.drawText(text, startCharIndex, runWidthChars, left, y - mFontLineSpacingAndAscent, mTextPaint);
-            }
+            drawGlyphs(canvas, text, startCharIndex, runWidthChars, startColumn, runWidthColumns, y);
 
             if (customUnderline) {
                 // A hyperlink cell with no SGR underline of its own gets a plain single underline in its
@@ -323,8 +320,98 @@ public final class TerminalRenderer {
                 drawUnderline(canvas, left, runRight, y, underlineDrawColor, underlineDrawStyle);
             }
         }
+    }
 
-        if (savedMatrix) canvas.restore();
+    /**
+     * Draws the glyphs of one run. Where the platform reports shaped advances (API 29+), the run is verified
+     * against the cell grid: at the first cell boundary the advances miss, the run is cut and the spans are drawn
+     * on their own, so a cluster can never push a glyph into the next cell. A run the policy does not cut, and
+     * every run when no advances are available, is drawn as a single span.
+     */
+    private void drawGlyphs(Canvas canvas, char[] text, int startCharIndex, int runWidthChars, int startColumn,
+                            int runWidthColumns, float y) {
+        int spanCharIndex = startCharIndex;
+        int spanStartColumn = startColumn;
+        int columnsLeft = runWidthColumns;
+        int charsLeft = runWidthChars;
+        while (columnsLeft > 0) {
+            int spanColumns = columnsLeft;
+            if (mRunAdvances != null && columnsLeft > 1) {
+                ensureRunAdvancesBuffer(charsLeft);
+                final int advanceCount = mRunAdvances.advances(text, spanCharIndex, charsLeft, mRunAdvancesBuffer);
+                final int misalignedCell = ShapedRunPolicy.firstMisalignedCell(mRunAdvancesBuffer, advanceCount,
+                    columnsLeft, mFontWidth);
+                if (misalignedCell > 0) spanColumns = misalignedCell;
+            }
+            final int spanChars = charsForColumns(text, spanCharIndex, spanColumns, spanCharIndex + charsLeft);
+            if (spanChars <= 0) {
+                // Defensive: the slice cannot be walked (degenerate zero-width data); draw the rest and stop.
+                drawGlyphSpan(canvas, text, spanCharIndex, charsLeft, spanStartColumn, columnsLeft, y);
+                return;
+            }
+            drawGlyphSpan(canvas, text, spanCharIndex, spanChars, spanStartColumn, spanColumns, y);
+            spanCharIndex += spanChars;
+            spanStartColumn += spanColumns;
+            charsLeft -= spanChars;
+            columnsLeft -= spanColumns;
+        }
+    }
+
+    /**
+     * Draws one span onto its own cells. The span's shaped total decides whether the canvas is scaled
+     * horizontally, so a span the font measures off its cells still lands inside them (the same 1% tolerance the
+     * run loop's per-codepoint check uses). A non-positive cell width cannot be scaled, so the span is drawn at
+     * its cell origin instead.
+     */
+    private void drawGlyphSpan(Canvas canvas, char[] text, int startCharIndex, int spanChars, int startColumn,
+                               int spanColumns, float y) {
+        final float left = startColumn * mFontWidth;
+        final float measuredWidth = mTextPaint.measureText(text, startCharIndex, spanChars);
+        final float measuredColumns = (mFontWidth > 0f) ? measuredWidth / mFontWidth : spanColumns;
+        if (measuredColumns > 0f && Math.abs(measuredColumns - spanColumns) > 0.01) {
+            // The canvas is scaled about the origin, so the glyph origin is pre-divided to land on the cell.
+            canvas.save();
+            canvas.scale(spanColumns / measuredColumns, 1.f);
+            drawGlyphText(canvas, text, startCharIndex, spanChars, left * (measuredColumns / spanColumns), y);
+            canvas.restore();
+        } else {
+            drawGlyphText(canvas, text, startCharIndex, spanChars, left, y);
+        }
+    }
+
+    /** Draws the glyphs of one span, shaped when the platform can shape them (API 23+). */
+    private void drawGlyphText(Canvas canvas, char[] text, int startCharIndex, int spanChars, float x, float y) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            canvas.drawTextRun(text, startCharIndex, spanChars, startCharIndex, spanChars, x, y - mFontLineSpacingAndAscent, false, mTextPaint);
+        } else {
+            canvas.drawText(text, startCharIndex, spanChars, x, y - mFontLineSpacingAndAscent, mTextPaint);
+        }
+    }
+
+    /**
+     * How many chars of {@code text} (from {@code startCharIndex}) occupy {@code columns} cells, bounded by
+     * {@code endCharIndex}. Combining chars are eaten with the cell of their base char, the same way the run loop
+     * keeps them in the run, so a span never splits a base char from its marks.
+     */
+    private static int charsForColumns(char[] text, int startCharIndex, int columns, int endCharIndex) {
+        int charIndex = startCharIndex;
+        int columnsLeft = columns;
+        while (charIndex < endCharIndex && columnsLeft > 0) {
+            final boolean highSurrogate = Character.isHighSurrogate(text[charIndex]) && charIndex + 1 < endCharIndex;
+            final int codePoint = highSurrogate
+                ? Character.toCodePoint(text[charIndex], text[charIndex + 1])
+                : text[charIndex];
+            columnsLeft -= Math.max(WcWidth.width(codePoint), 0);
+            charIndex += highSurrogate ? 2 : 1;
+            while (charIndex < endCharIndex && WcWidth.width(text, charIndex) <= 0) {
+                charIndex += (Character.isHighSurrogate(text[charIndex]) && charIndex + 1 < endCharIndex) ? 2 : 1;
+            }
+        }
+        return charIndex - startCharIndex;
+    }
+
+    private void ensureRunAdvancesBuffer(int chars) {
+        if (mRunAdvancesBuffer.length < chars) mRunAdvancesBuffer = new float[chars];
     }
 
     /**
@@ -341,8 +428,8 @@ public final class TerminalRenderer {
     /**
      * Strokes an underline for one text run: the single underline, the decorated styles (double, curly,
      * dotted or dashed) and single underlines that carry an explicit SGR 58 color (which the text paint's
-     * own underline cannot be given). The canvas already carries the run's horizontal scale, so
-     * {@code left}/{@code right} are run coordinates. An unrecognized style is stroked as a single
+     * own underline cannot be given). {@code left}/{@code right} are the run's cell coordinates; the glyphs
+     * of an off-grid span may be scaled, but the underline is not. An unrecognized style is stroked as a single
      * underline rather than dropped.
      *
      * <p>Leaves {@link #mTextPaint} in the state the rest of the renderer assumes: the next run paints
