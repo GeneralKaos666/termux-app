@@ -57,6 +57,8 @@ data class TerminalAppearance(
     val cursorStyle: CursorStyle?,
     /** The blink-rate override in ms, or `null` to follow `termux.properties`. */
     val cursorBlinkRate: Int?,
+    /** Whether the terminal asks the font for ligatures. */
+    val ligatures: Boolean = true,
 )
 
 /**
@@ -192,5 +194,9 @@ class AppearanceState(private val defaultAppearance: TerminalAppearance) {
     /** Stages a blink rate, or `null` to clear the override and follow `termux.properties`. */
     fun setCursorBlinkRate(rate: Int?) {
         draft = draft.copy(cursorBlinkRate = rate?.let(CursorBlink::sanitize))
+    }
+
+    fun setLigatures(enabled: Boolean) {
+        draft = draft.copy(ligatures = enabled)
     }
 }

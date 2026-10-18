@@ -21,6 +21,7 @@ class AppearanceStateTest {
         fontSize: Int = 14,
         cursorStyle: CursorStyle? = CursorStyle.BLOCK,
         cursorBlinkRate: Int? = 0,
+        ligatures: Boolean = true,
     ) = TerminalAppearance(
         colors = TerminalColorSet(
             foreground = foreground,
@@ -32,6 +33,7 @@ class AppearanceStateTest {
         fontSize = fontSize,
         cursorStyle = cursorStyle,
         cursorBlinkRate = cursorBlinkRate,
+        ligatures = ligatures,
     )
 
     @Test
@@ -198,5 +200,22 @@ class AppearanceStateTest {
         assertEquals("/tmp/my.ttf", state.draft.fontPath)
         state.setFontPath(null)
         assertNull(state.draft.fontPath)
+    }
+
+    @Test
+    fun `staging the ligature flag marks the state dirty`() {
+        val state = AppearanceState(appearance())
+        state.setLigatures(false)
+        assertFalse(state.draft.ligatures)
+        assertTrue(state.isDirty)
+    }
+
+    @Test
+    fun `reset leaves the ligature flag alone`() {
+        // Reset is documented as leaving the font settings (family, size) alone, so the toggle is not reset.
+        val state = AppearanceState(appearance(ligatures = false))
+        state.setForeground(0xff123456.toInt())
+        state.resetToDefault()
+        assertFalse(state.draft.ligatures)
     }
 }

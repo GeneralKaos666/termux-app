@@ -136,6 +136,7 @@
 
     <string name="appearance_font_none">Monospace (default)</string>
     <string name="appearance_font_size">Font size</string>
+    <string name="appearance_ligatures">Ligatures</string>
     <string name="appearance_action_choose_font">Choose font</string>
     <string name="appearance_action_remove_font">Remove</string>
 

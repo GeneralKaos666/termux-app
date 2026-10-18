@@ -28,6 +28,7 @@ class AppearanceControllerTest {
         var storedCursorStyle: Int? = null,
         var storedCursorBlinkRate: Int? = null,
         var propertyCursorStyle: Int? = null,
+        var storedLigatures: Boolean = true,
     ) : AppearancePreferences {
         override fun getFontSize(): Int = storedFontSize
         override fun setFontSize(size: Int) {
@@ -43,6 +44,11 @@ class AppearanceControllerTest {
         override fun getCursorBlinkRateOverride(): Int? = storedCursorBlinkRate
         override fun setCursorBlinkRate(rate: Int?) {
             storedCursorBlinkRate = rate
+        }
+
+        override fun getLigatures(): Boolean = storedLigatures
+        override fun setLigatures(enabled: Boolean) {
+            storedLigatures = enabled
         }
     }
 

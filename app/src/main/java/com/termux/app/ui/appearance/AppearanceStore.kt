@@ -30,6 +30,11 @@ interface AppearancePreferences {
     fun getCursorBlinkRateOverride(): Int?
 
     fun setCursorBlinkRate(rate: Int?)
+
+    /** Whether the terminal asks the font for ligatures. */
+    fun getLigatures(): Boolean
+
+    fun setLigatures(enabled: Boolean)
 }
 
 /** Why a candidate font was not installed. */
@@ -51,6 +56,11 @@ object AppearancePreferenceKeys {
 
     const val CURSOR_STYLE = "appearance_cursor_style"
     const val CURSOR_BLINK_RATE = "appearance_cursor_blink_rate"
+
+    /** Whether the terminal asks the font for ligatures. */
+    const val LIGATURES = "appearance_ligatures"
+    /** Ligatures are on unless the user turns them off. */
+    const val LIGATURES_DEFAULT = true
 
     /** Bumped on every successful apply so the terminal can detect a change it has not shown. */
     const val STYLING_REVISION = "appearance_styling_revision"
@@ -131,6 +141,7 @@ class AppearanceStore(
             fontSize = preferences.getFontSize(),
             cursorStyle = preferences.getCursorStyleOverride()?.let(CursorStyle::fromValue),
             cursorBlinkRate = preferences.getCursorBlinkRateOverride()?.let(CursorBlink::sanitize),
+            ligatures = preferences.getLigatures(),
         )
     }
 
@@ -163,6 +174,7 @@ class AppearanceStore(
         // A null cursor value clears the override, handing the cursor back to termux.properties.
         preferences.setCursorStyle(appearance.cursorStyle?.value)
         preferences.setCursorBlinkRate(appearance.cursorBlinkRate?.let(CursorBlink::sanitize))
+        preferences.setLigatures(appearance.ligatures)
 
         var fontError: FontError? = null
         if (fontSource != null) {

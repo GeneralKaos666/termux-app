@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,6 +24,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -206,6 +208,7 @@ fun AppearanceScreen(
                 onRemoveFont = controller::removeFont,
             )
             FontSizeRow(draft.fontSize, fontSizeRange) { state.setFontSize(it) }
+            LigaturesRow(draft.ligatures) { state.setLigatures(it) }
 
             Spacer(Modifier.height(16.dp))
         }
@@ -490,6 +493,20 @@ private fun FontSizeRow(size: Int, range: IntRange, onChange: (Int) -> Unit) {
         valueRange = range.first.toFloat()..range.last.toFloat(),
         steps = (range.last - range.first - 1).coerceAtLeast(0),
     )
+}
+
+@Composable
+private fun LigaturesRow(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = enabled, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(stringResource(R.string.appearance_ligatures))
+        Switch(checked = enabled, onCheckedChange = null)
+    }
 }
 
 @Composable

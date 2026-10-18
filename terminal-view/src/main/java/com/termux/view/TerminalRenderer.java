@@ -24,6 +24,11 @@ import com.termux.terminal.WcWidth;
  */
 public final class TerminalRenderer {
 
+    /** Font features that ligatures-on requests: standard ligatures plus contextual alternates. */
+    static final String LIGATURES_ON = "+liga,+calt";
+    /** Font features that ligatures-off requests. */
+    static final String LIGATURES_OFF = "-liga,-calt";
+
     final int mTextSize;
     final Typeface mTypeface;
     private final Paint mTextPaint;
@@ -50,11 +55,17 @@ public final class TerminalRenderer {
     private final DashPathEffect mDashedUnderlineEffect;
 
     public TerminalRenderer(int textSize, Typeface typeface) {
-        this(textSize, typeface, new Paint(), null);
+        this(textSize, typeface, true);
+    }
+
+    /** Whether the paint asks the font for ligatures is a construction setting: it does not affect metrics. */
+    public TerminalRenderer(int textSize, Typeface typeface, boolean ligatures) {
+        this(textSize, typeface, ligatures, new Paint(), null);
     }
 
     /** Test seam: {@code textPaint} and {@code runAdvances} replace the platform implementations. */
-    TerminalRenderer(int textSize, Typeface typeface, Paint textPaint, RunAdvancesSource runAdvances) {
+    TerminalRenderer(int textSize, Typeface typeface, boolean ligatures, Paint textPaint,
+                     RunAdvancesSource runAdvances) {
         mTextSize = textSize;
         mTypeface = typeface;
         mTextPaint = textPaint;
@@ -63,6 +74,7 @@ public final class TerminalRenderer {
         mTextPaint.setTypeface(typeface);
         mTextPaint.setAntiAlias(true);
         mTextPaint.setTextSize(textSize);
+        mTextPaint.setFontFeatureSettings(ligatures ? LIGATURES_ON : LIGATURES_OFF);
 
         mFontLineSpacing = (int) Math.ceil(mTextPaint.getFontSpacing());
         mFontAscent = (int) Math.ceil(mTextPaint.ascent());

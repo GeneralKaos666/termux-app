@@ -58,6 +58,9 @@ public final class TerminalView extends View {
 
     public TerminalRenderer mRenderer;
 
+    /** Whether ligatures are requested; carried across the renderer rebuilds in setTextSize/setTypeface. */
+    private boolean mLigaturesEnabled = true;
+
     public TerminalViewClient mClient;
 
     private TextSelectionCursorController mTextSelectionCursorController;
@@ -565,13 +568,27 @@ public final class TerminalView extends View {
      * @param textSize the new font size, in density-independent pixels.
      */
     public void setTextSize(int textSize) {
-        mRenderer = new TerminalRenderer(textSize, mRenderer == null ? Typeface.MONOSPACE : mRenderer.mTypeface);
+        mRenderer = new TerminalRenderer(textSize,
+            mRenderer == null ? Typeface.MONOSPACE : mRenderer.mTypeface, mLigaturesEnabled);
         updateSize();
     }
 
     public void setTypeface(Typeface newTypeface) {
-        mRenderer = new TerminalRenderer(mRenderer.mTextSize, newTypeface);
+        mRenderer = new TerminalRenderer(mRenderer.mTextSize, newTypeface, mLigaturesEnabled);
         updateSize();
+        invalidate();
+    }
+
+    /**
+     * Sets whether the font's ligatures are used. The feature string cannot change the cell metrics, so a change
+     * only needs the renderer rebuilt and the view repainted; no re-layout is requested.
+     */
+    public void setLigaturesEnabled(boolean ligaturesEnabled) {
+        if (mLigaturesEnabled == ligaturesEnabled) return;
+        mLigaturesEnabled = ligaturesEnabled;
+        if (mRenderer != null) {
+            mRenderer = new TerminalRenderer(mRenderer.mTextSize, mRenderer.mTypeface, mLigaturesEnabled);
+        }
         invalidate();
     }
 

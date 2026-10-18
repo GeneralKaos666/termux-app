@@ -183,6 +183,22 @@ class AndroidAppearancePreferences(context: Context) : AppearancePreferences {
 
     override fun setCursorBlinkRate(rate: Int?) = cursorPreferences.setCursorBlinkRate(rate)
 
+    private val appearancePreferences =
+        context.applicationContext.getSharedPreferences(
+            AppearancePreferenceKeys.PREFERENCES_FILE,
+            Context.MODE_PRIVATE,
+        )
+
+    override fun getLigatures(): Boolean =
+        appearancePreferences.getBoolean(
+            AppearancePreferenceKeys.LIGATURES,
+            AppearancePreferenceKeys.LIGATURES_DEFAULT,
+        )
+
+    override fun setLigatures(enabled: Boolean) {
+        appearancePreferences.edit().putBoolean(AppearancePreferenceKeys.LIGATURES, enabled).apply()
+    }
+
     private companion object {
         const val DEFAULT_FONT_SIZE = 14
     }

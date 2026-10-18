@@ -20,6 +20,7 @@ import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.interact.TextInputDialogUtils;
 import com.termux.app.TermuxActivity;
+import com.termux.app.ui.appearance.AppearancePreferenceKeys;
 import com.termux.app.ui.appearance.CursorPreferences;
 import com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
 import com.termux.shared.termux.TermuxConstants;
@@ -546,6 +547,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
             final Typeface newTypeface = (fontFile.exists() && fontFile.length() > 0) ? Typeface.createFromFile(fontFile) : Typeface.MONOSPACE;
             mActivity.getTerminalView().setTypeface(newTypeface);
+            // The appearance screen owns the ligature preference; the constants are the read-site contract.
+            mActivity.getTerminalView().setLigaturesEnabled(mActivity
+                .getSharedPreferences(AppearancePreferenceKeys.PREFERENCES_FILE, Context.MODE_PRIVATE)
+                .getBoolean(AppearancePreferenceKeys.LIGATURES, AppearancePreferenceKeys.LIGATURES_DEFAULT));
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error in checkForFontAndColors()", e);
         }

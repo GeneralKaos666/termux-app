@@ -126,7 +126,7 @@ public class TerminalRendererRunTest extends TestCase {
 
     /** Renders row 0. The row is space-filled to the full width, so its final run covers all 10 cells. */
     private void render(RunAdvancesSource advances) {
-        TerminalRenderer renderer = new TerminalRenderer(14, Typeface.MONOSPACE, mPaint, advances);
+        TerminalRenderer renderer = new TerminalRenderer(14, Typeface.MONOSPACE, true, mPaint, advances);
         renderer.render(mTerminal, mCanvas, 0, -1, -1, -1, -1, 0, 1);
     }
 
@@ -208,7 +208,7 @@ public class TerminalRendererRunTest extends TestCase {
         enter("===\r\n");
         // Below API 29 RunAdvancesSource.forPaint returns null (the host stub reports API 0), so a run is drawn as
         // one shaped span and the policy is never consulted at all.
-        TerminalRenderer renderer = new TerminalRenderer(14, Typeface.MONOSPACE, mPaint, null);
+        TerminalRenderer renderer = new TerminalRenderer(14, Typeface.MONOSPACE, true, mPaint, null);
         renderer.render(mTerminal, mCanvas, 0, -1, -1, -1, -1, 0, 1);
         assertEquals(1, mCanvas.glyphs.size());
         assertEquals(10f, mCanvas.glyphs.get(0)[1], 0.001f);

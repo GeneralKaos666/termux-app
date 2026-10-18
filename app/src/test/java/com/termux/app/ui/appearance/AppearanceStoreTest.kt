@@ -30,6 +30,7 @@ class AppearanceStoreTest {
         var storedCursorStyle: Int? = null,
         var storedCursorBlinkRate: Int? = null,
         var propertyCursorStyle: Int? = null,
+        var storedLigatures: Boolean = true,
     ) : AppearancePreferences {
         override fun getFontSize(): Int = storedFontSize
         override fun setFontSize(size: Int) {
@@ -45,6 +46,11 @@ class AppearanceStoreTest {
         override fun getCursorBlinkRateOverride(): Int? = storedCursorBlinkRate
         override fun setCursorBlinkRate(rate: Int?) {
             storedCursorBlinkRate = rate
+        }
+
+        override fun getLigatures(): Boolean = storedLigatures
+        override fun setLigatures(enabled: Boolean) {
+            storedLigatures = enabled
         }
     }
 
@@ -65,12 +71,14 @@ class AppearanceStoreTest {
         fontSize: Int = 18,
         cursorStyle: CursorStyle? = CursorStyle.UNDERLINE,
         cursorBlinkRate: Int? = 600,
+        ligatures: Boolean = true,
     ) = TerminalAppearance(
         colors = TerminalColorSet(foreground, background, cursor, List(16) { 0xff000000.toInt() + it }),
         fontPath = null,
         fontSize = fontSize,
         cursorStyle = cursorStyle,
         cursorBlinkRate = cursorBlinkRate,
+        ligatures = ligatures,
     )
 
     // --- reading -----------------------------------------------------------------------------
@@ -261,6 +269,20 @@ class AppearanceStoreTest {
 
         assertNull(preferences.storedCursorStyle)
         assertNull(preferences.storedCursorBlinkRate)
+    }
+
+    @Test
+    fun `ligatures round-trip through the store`() {
+        val preferences = FakePreferences()
+        store(preferences).write(appearance().copy(ligatures = false))
+
+        assertFalse(preferences.storedLigatures)
+        assertFalse(store(preferences).read().ligatures)
+    }
+
+    @Test
+    fun `a store with the default preference reads ligatures as on`() {
+        assertTrue(store(FakePreferences()).read().ligatures)
     }
 
     // --- font handling -----------------------------------------------------------------------
