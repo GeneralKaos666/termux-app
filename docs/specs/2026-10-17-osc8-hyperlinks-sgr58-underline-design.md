@@ -305,9 +305,20 @@ cell model (a `CellAttributes` value type to replace the travelling `style`/`lin
 `underlineColor` triple; the static resolver reaching into `TerminalBuffer`) and were declined as
 out of WS5's scope.
 
-Device sanity (manual): tap a real `OSC 8` link from `curl`/`printf` output in a shell, confirm
-browser opens; confirm a `file:` link does nothing; confirm a colored-underline TUI renders
-SGR-58 underlines in the right color.
+Device sanity (manual) — **performed and passed** (2026-10-18) on the debug build of this tree
+(`2.0.0-beta`, versionCode 119, arm64-v8a; same signing key, installed in place over the previous
+build on a physical NX769J, Android 14, via wireless adb):
+
+| Check | Method | Result |
+|---|---|---|
+| `OSC 8` `https` link opens the browser | a script fills every grid cell with `https://example.com/ws5`; `input tap` at the centre of the live `terminal_view` bounds | Chrome resumed (`dumpsys window` focus) — repeated after a refill, Chrome again |
+| `file:` link is refused | identical fill and **identical tap point** with `file:///data/data/com.termux/files/home/ws5-must-not-open.txt` | focus stayed on `com.termux`, no activity started |
+| `SGR 58` colour reaches the underline | one `clear`ed line per frame, `adb exec-out screencap` scanned pixel-by-pixel (each colour can only be the underline) | `SGR 4` + `58;5;196` → 2-row, 874-px-wide pure-red band; `SGR 4:3` + `58;2;0;255;0` → 12-row wavy pure-green band; `OSC 8` link + `58;2;255;0;255` with no `SGR 4` → 2-row pure-magenta band |
+| `SGR 58` alone draws nothing | `58;5;196` with no underline attribute and no link, against a control frame | no coloured band, exactly like the control |
+
+The `file:` refusal is evidenced by the absence of a start, not by the resolver's warning: `logcat`
+returns nothing to the `shell` user on this ROM. The only coloured pixels in a control frame are the
+theme's red block cursor, which appears identically in the test frames.
 
 ## 9. Compatibility & non-goals
 

@@ -165,6 +165,13 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
     pure static resolver; both are wider refactors than WS5.
   - `[open]` the erase/scroll/reflow plumbing for the underline-color array has no direct test (the
     plan named none); see spec §8 "Not covered by tests".
+  - **Device check (manual, spec §8): passed** (2026-10-18) on the debug build of this tree installed
+    in place on a physical NX769J / Android 14 over wireless adb. An `OSC 8` `https` link tap opened
+    Chrome (twice); the *same* tap point on a `file:` fill opened nothing; the underline colours were
+    confirmed by scanning raw `screencap` pixels — `SGR 4` + `58;5;196` stroked a 2-row pure-red band,
+    `SGR 4:3` + `58;2;0;255;0` a 12-row wavy pure-green band, and an `OSC 8` link + `58;2;255;0;255`
+    with no `SGR 4` a 2-row pure-magenta band, while `58;5;196` alone drew nothing (the control frame
+    contains only the theme's red cursor). Method and measurements: spec §8.
 
 ## 10. Doc hygiene debt (this directory)
 
