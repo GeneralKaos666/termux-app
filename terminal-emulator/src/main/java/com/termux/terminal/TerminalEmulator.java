@@ -1,5 +1,8 @@
 package com.termux.terminal;
 
+import com.termux.terminal.kitty.KittyGraphicsCommand;
+import com.termux.terminal.kitty.KittyGraphicsParser;
+
 import android.util.Base64;
 
 import java.nio.charset.StandardCharsets;
@@ -2634,8 +2637,8 @@ public final class TerminalEmulator {
     private void receiveApcEsc(final int b) {
         switch (b) {
             case '\\':
-                //doApc();
-                //clearApcTypeVariables();
+                doApc();
+                clearApcTypeVariables();
                 break;
             default:
                 // The ESC character was not followed by a \, so insert the ESC and
@@ -2655,7 +2658,30 @@ public final class TerminalEmulator {
     /**
      * Do {@link #ESC_APC}. Check its docs for more info.
      */
-    private void doApc() {}
+    private void doApc() {
+        String content = mTerminalControlArgs.toString();
+        if (content == null || content.isEmpty()) {
+            return;
+        }
+        if (content.startsWith("G")) {
+            KittyGraphicsCommand cmd = KittyGraphicsParser.parse(content, null);
+            if (cmd.isOk() && cmd.imageId != 0 && mSession != null) {
+                boolean ok = true;
+                String code = null;
+                String msg = null;
+                if (cmd.quiet == 0 || (cmd.quiet == 1 && !ok)) {
+                    String reply = KittyGraphicsParser.formatReply(cmd.imageId, cmd.placementId, ok, code, msg);
+                    mSession.write(reply);
+                }
+            } else if (!cmd.isOk() && cmd.imageId != 0 && mSession != null) {
+                if (cmd.quiet == 0) {
+                    String reply = KittyGraphicsParser.formatReply(cmd.imageId, cmd.placementId, false, cmd.errorCode, cmd.errorMessage);
+                    mSession.write(reply);
+                }
+            }
+        }
+        // Otherwise ignore
+    }
 
 
 
