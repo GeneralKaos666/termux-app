@@ -193,4 +193,63 @@ public class ControlSequenceIntroducerTest extends TerminalTestCase {
         assertEquals(TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, mTerminal.mEffect);
     }
 
+    /**
+     * SGR 58 (underline color) must reach the stored cell, not just the writer field:
+     * <pre>
+     *  <ESC>[58;5;n m   # indexed underline color
+     *  <ESC>[58;2;r;g;b m  # 24-bit underline color
+     *  <ESC>[59m   # back to the default (inherit foreground)
+     * </pre>
+     */
+    public void testUnderlineColorIndexedIsStoredPerCell() {
+        withTerminalSized(3, 3).enterString("A\033[58;5;9mB");
+        assertEquals(9, mTerminal.getScreen().getUnderlineColorAt(0, 1));
+        // The cell written before the SGR keeps the default:
+        assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, mTerminal.getScreen().getUnderlineColorAt(0, 0));
+        assertEquals(9, mTerminal.mUnderlineColor);
+    }
+
+    public void testUnderlineColorRgbIsStoredPerCell() {
+        withTerminalSized(3, 3).enterString("\033[58;2;10;20;30mX");
+        assertEquals(0xff0a141e, mTerminal.getScreen().getUnderlineColorAt(0, 0));
+    }
+
+    public void testSgr59ResetsToDefaultForSubsequentCells() {
+        withTerminalSized(3, 3).enterString("\033[58;5;9mA\033[59mB");
+        assertEquals(9, mTerminal.getScreen().getUnderlineColorAt(0, 0));
+        assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, mTerminal.getScreen().getUnderlineColorAt(0, 1));
+        assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, mTerminal.mUnderlineColor);
+    }
+
+    public void testDefaultTerminalNeverAllocatesUnderlineColorArray() {
+        withTerminalSized(3, 3).enterString("plain text");
+        assertNull(mTerminal.getScreen().mLines[mTerminal.getScreen().externalToInternalRow(0)].mUnderlineColors);
+    }
+
+    public void testSgr0RestoresDefaultUnderlineColor() {
+        withTerminalSized(3, 3).enterString("\033[58;5;9mA\033[0mB");
+        assertEquals(9, mTerminal.getScreen().getUnderlineColorAt(0, 0));
+        assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, mTerminal.getScreen().getUnderlineColorAt(0, 1));
+        assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, mTerminal.mUnderlineColor);
+    }
+
+    public void testResetRestoresDefaultUnderlineColor() {
+        withTerminalSized(3, 3).enterString("\033[58;5;9m");
+        assertEquals(9, mTerminal.mUnderlineColor);
+        mTerminal.reset();
+        assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, mTerminal.mUnderlineColor);
+    }
+
+    public void testDecscDecrcRestoresUnderlineColor() {
+        withTerminalSized(3, 3);
+        enterString("\033[58;5;9m");
+        enterString("\0337"); // DECSC - save cursor.
+        enterString("\033[58;5;3m");
+        assertEquals(3, mTerminal.mUnderlineColor);
+        enterString("\0338"); // DECRC - restore cursor.
+        assertEquals(9, mTerminal.mUnderlineColor);
+        enterString("X");
+        assertEquals(9, mTerminal.getScreen().getUnderlineColorAt(0, 0));
+    }
+
 }

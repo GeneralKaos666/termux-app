@@ -441,6 +441,7 @@ public final class TerminalBuffer {
                 int currentOldCol = 0;
                 long styleAtCol = 0;
                 int linkIdAtCol = 0;
+                int underlineColorAtCol = TextStyle.COLOR_INDEX_FOREGROUND;
                 for (int i = 0; i < lastNonSpaceIndex; ) {
                     // Walk whole grapheme clusters: the cluster occupies the columns of its base
                     // code point, not the sum of the widths of all of its code points.
@@ -451,6 +452,7 @@ public final class TerminalBuffer {
                     if (displayWidth > 0) {
                         styleAtCol = oldLine.getStyle(currentOldCol);
                         linkIdAtCol = oldLine.getLinkId(currentOldCol);
+                        underlineColorAtCol = oldLine.getUnderlineColor(currentOldCol);
                     }
 
                     // Line wrap as necessary:
@@ -471,7 +473,7 @@ public final class TerminalBuffer {
                         int codePoint = (Character.isHighSurrogate(oldLine.mText[j]))
                                 ? Character.toCodePoint(oldLine.mText[j], oldLine.mText[j + 1])
                                 : oldLine.mText[j];
-                        setChar(outputColumn, currentOutputExternalRow, codePoint, styleAtCol, linkIdAtCol);
+                        setChar(outputColumn, currentOutputExternalRow, codePoint, styleAtCol, linkIdAtCol, underlineColorAtCol);
                         j += Character.charCount(codePoint);
                     }
 
@@ -625,10 +627,14 @@ public final class TerminalBuffer {
     }
 
     public void setChar(int column, int row, int codePoint, long style, int linkId) {
+        setChar(column, row, codePoint, style, linkId, TextStyle.COLOR_INDEX_FOREGROUND);
+    }
+
+    public void setChar(int column, int row, int codePoint, long style, int linkId, int underlineColor) {
         if (row  < 0 || row >= mScreenRows || column < 0 || column >= mColumns)
             throw new IllegalArgumentException("TerminalBuffer.setChar(): row=" + row + ", column=" + column + ", mScreenRows=" + mScreenRows + ", mColumns=" + mColumns);
         row = externalToInternalRow(row);
-        allocateFullLineIfNecessary(row).setChar(column, codePoint, style, linkId);
+        allocateFullLineIfNecessary(row).setChar(column, codePoint, style, linkId, underlineColor);
     }
 
     /**
@@ -664,6 +670,16 @@ public final class TerminalBuffer {
     public int getLinkIdAt(int externalRow, int column) {
         TerminalRow line = mLines[externalToInternalRow(externalRow)];
         return (line == null) ? 0 : line.getLinkId(column);
+    }
+
+    /**
+     * @return the SGR 58 underline color at the given cell, or
+     * {@link TextStyle#COLOR_INDEX_FOREGROUND} if the row or the cell has none. Never allocates a
+     * row, unlike {@link #getStyleAt}.
+     */
+    public int getUnderlineColorAt(int externalRow, int column) {
+        TerminalRow line = mLines[externalToInternalRow(externalRow)];
+        return (line == null) ? TextStyle.COLOR_INDEX_FOREGROUND : line.getUnderlineColor(column);
     }
 
     /** Sets the hyperlink id of a cell. This is a write, so it allocates the row if necessary and marks it dirty. */

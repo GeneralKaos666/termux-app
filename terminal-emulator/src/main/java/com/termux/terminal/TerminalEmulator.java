@@ -963,7 +963,8 @@ public final class TerminalEmulator {
                                     for (int row = top - 1; row < bottom; row++)
                                         for (int col = left - 1; col < right; col++)
                                             if (!selective || (TextStyle.decodeEffect(mScreen.getStyleAt(row, col)) & TextStyle.CHARACTER_ATTRIBUTE_PROTECTED) == 0)
-                                                mScreen.setChar(col, row, fillChar, keepVisualAttributes ? mScreen.getStyleAt(row, col) : style, 0);
+                                                mScreen.setChar(col, row, fillChar, keepVisualAttributes ? mScreen.getStyleAt(row, col) : style, 0,
+                                                    keepVisualAttributes ? mScreen.getUnderlineColorAt(row, col) : TextStyle.COLOR_INDEX_FOREGROUND);
                                 }
                                 break;
                             case 'r': // "${CSI}${TOP}${LEFT}${BOTTOM}${RIGHT}${ATTRIBUTES}$r"
@@ -2116,6 +2117,7 @@ public final class TerminalEmulator {
         state.mSavedCursorCol = mCursorCol;
         state.mSavedEffect = mEffect;
         state.mSavedUnderlineStyle = mUnderlineStyle;
+        state.mSavedUnderlineColor = mUnderlineColor;
         state.mSavedForeColor = mForeColor;
         state.mSavedBackColor = mBackColor;
         state.mSavedDecFlags = mCurrentDecSetFlags;
@@ -2130,6 +2132,7 @@ public final class TerminalEmulator {
         setCursorRowCol(state.mSavedCursorRow, state.mSavedCursorCol);
         mEffect = state.mSavedEffect;
         mUnderlineStyle = state.mSavedUnderlineStyle;
+        mUnderlineColor = state.mSavedUnderlineColor;
         mForeColor = state.mSavedForeColor;
         mBackColor = state.mSavedBackColor;
         int mask = (DECSET_BIT_AUTOWRAP | DECSET_BIT_ORIGIN_MODE);
@@ -2486,6 +2489,7 @@ public final class TerminalEmulator {
             if (code == 0) { // reset
                 mForeColor = TextStyle.COLOR_INDEX_FOREGROUND;
                 mBackColor = TextStyle.COLOR_INDEX_BACKGROUND;
+                mUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND;
                 mEffect = 0;
                 mUnderlineStyle = TextStyle.UNDERLINE_STYLE_NONE;
             } else if (code == 1) {
@@ -3466,7 +3470,7 @@ public final class TerminalEmulator {
         // so was mCursorCol changed after the offsetDueToCombiningChar conditional by another thread?
         // TODO: Check if there are thread synchronization issues with mCursorCol and mCursorRow, possibly causing others bugs too.
         if (column < 0) column = 0;
-        mScreen.setChar(column, mCursorRow, codePoint, getStyle());
+        mScreen.setChar(column, mCursorRow, codePoint, getStyle(), mScreen.getCurrentLinkId(), mUnderlineColor);
 
         if (autoWrap && displayWidth > 0)
             mAboutToAutoWrap = (mCursorCol == mRightMargin - displayWidth);
@@ -3536,6 +3540,7 @@ public final class TerminalEmulator {
         mAboutToAutoWrap = false;
         mForeColor = mSavedStateMain.mSavedForeColor = mSavedStateAlt.mSavedForeColor = TextStyle.COLOR_INDEX_FOREGROUND;
         mBackColor = mSavedStateMain.mSavedBackColor = mSavedStateAlt.mSavedBackColor = TextStyle.COLOR_INDEX_BACKGROUND;
+        mUnderlineColor = mSavedStateMain.mSavedUnderlineColor = mSavedStateAlt.mSavedUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND;
         setDefaultTabStops();
 
         mUseLineDrawingG0 = mUseLineDrawingG1 = false;
@@ -3597,6 +3602,7 @@ public final class TerminalEmulator {
         /** Saved state of the cursor position, Used to implement the save/restore cursor position escape sequences. */
         int mSavedCursorRow, mSavedCursorCol;
         int mSavedEffect, mSavedUnderlineStyle, mSavedForeColor, mSavedBackColor;
+        int mSavedUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND;
         int mSavedDecFlags;
         boolean mUseLineDrawingG0, mUseLineDrawingG1, mUseLineDrawingUsesG0 = true;
     }
