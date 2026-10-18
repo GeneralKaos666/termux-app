@@ -55,6 +55,11 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
   Nord, Dracula, Solarized Dark). `ColorSchemes.kt` now ships seven, so **Solarized Light, Gruvbox Dark
   and One Dark have not been individually checked on device**. A short manual checklist now lives at
   `docs/ideas/ideas.md` (tracked).
+- **WS3 deferred checks** — `[check]` workstream 3 (run shaping + ligatures) has its spec at
+  `specs/2026-10-18-ws3-shaping-ligatures-design.md` §7, which lists what must run on a phone once one is
+  available: the Minikin-default probe, ligature toggle on/off confirmation, cursor/selection accuracy over
+  ligature text, an Arabic drift check, a perf smoke and a default-font regression. The device was
+  disconnected on 2026-10-18, so all of it is deferred.
 
 ## 4. Appearance — deferred minors from review
 
@@ -172,6 +177,14 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
       on this ROM, and `run-as com.termux logcat` returned an empty/unrelated buffer (a self-written
       `log -t WS5TEST` line was invisible too). The underline plus the client-tap fall-through pin the
       same behaviour down without it.
+
+- **WS3 — run shaping + ligatures: spec written, awaiting review (2026-10-18).** Spec at
+  `specs/2026-10-18-ws3-shaping-ligatures-design.md`; decisions taken: grid-snap verification with per-cell
+  fallback (Approach 1 over a cluster-aware restructure), deterministic ligature toggle **default ON**
+  (`+liga,+calt` on / `-liga,-calt` off) because the device was disconnected and the platform default could
+  not be probed, device checks deferred to that spec's §7 (mirrored above), delivery straight onto `master`
+  with one commit per task. Not yet planned or implemented. Workstream 4 (graphics placement), workstream 6
+  (compat shims) and the xterm-conformance remainder stay unspecced.
 
 ## 8. Doc hygiene debt (this directory)
 
