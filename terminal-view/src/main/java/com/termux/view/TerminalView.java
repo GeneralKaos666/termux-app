@@ -97,6 +97,10 @@ public final class TerminalView extends View {
     private int mLastCursorRow = -1, mLastCursorCol = -1;
     /** Whether the last draw painted in reverse video; {@code CSI ? 5 h/l} changes no cell. */
     private boolean mLastReverseVideo;
+    /** Whether the last draw painted the cursor at all; {@code CSI ? 25 h/l} changes no cell. */
+    private boolean mLastCursorVisible;
+    /** Cursor shape painted by the last draw; {@code DECSCUSR} changes no cell. */
+    private int mLastCursorStyle = -1;
     /** Reused to avoid allocating a {@link Rect} on every {@link #onDraw(Canvas)}. */
     private final Rect mClipBounds = new Rect();
 
@@ -519,7 +523,9 @@ public final class TerminalView extends View {
         // cell, so neither would dirty a row or tick the change counter: compare against the last draw.
         boolean overlayChanged = mEmulator.getCursorRow() != mLastCursorRow
             || mEmulator.getCursorCol() != mLastCursorCol
-            || mEmulator.isReverseVideo() != mLastReverseVideo;
+            || mEmulator.isReverseVideo() != mLastReverseVideo
+            || mEmulator.shouldCursorBeVisible() != mLastCursorVisible
+            || mEmulator.getCursorStyle() != mLastCursorStyle;
 
         RowInvalidation.Decision decision = RowInvalidation.decide(mLastSeenChangeCounter,
             screen.getChangeCounter(), topRowChanged || overlayChanged,
@@ -1067,13 +1073,13 @@ public final class TerminalView extends View {
                 mTextSelectionCursorController.getSelectors(sel);
             }
 
-            // Restrict the render to the rows the canvas clip covers (the dirty band), with one row of
-            // slack on either side. An empty/unbounded clip falls back to the whole visible band.
-            canvas.getClipBounds(mClipBounds);
+            // Restrict the render to the rows the canvas clip actually covers (the dirty band), with one
+            // row of slack on either side. An empty/unbounded clip falls back to the whole visible band;
+            // the return value matters, because on a false return the Rect must not be trusted as current.
             int rowHeight = mRenderer.mFontLineSpacing;
             int visibleEnd = mTopRow + mEmulator.mRows;
             int firstScreenRow = mTopRow, lastScreenRowExclusive = visibleEnd;
-            if (!mClipBounds.isEmpty() && rowHeight > 0) {
+            if (canvas.getClipBounds(mClipBounds) && !mClipBounds.isEmpty() && rowHeight > 0) {
                 firstScreenRow = Math.max(mTopRow, mTopRow + Math.floorDiv(mClipBounds.top, rowHeight) - 1);
                 lastScreenRowExclusive = Math.min(visibleEnd,
                     mTopRow + ceilDivInt(mClipBounds.bottom, rowHeight) + 1);
@@ -1095,6 +1101,8 @@ public final class TerminalView extends View {
             mLastCursorRow = mEmulator.getCursorRow();
             mLastCursorCol = mEmulator.getCursorCol();
             mLastReverseVideo = mEmulator.isReverseVideo();
+            mLastCursorVisible = mEmulator.shouldCursorBeVisible();
+            mLastCursorStyle = mEmulator.getCursorStyle();
 
             // render the text selection handles
             renderTextSelection();
@@ -1115,6 +1123,8 @@ public final class TerminalView extends View {
         mLastCursorRow = -1;
         mLastCursorCol = -1;
         mLastReverseVideo = false;
+        mLastCursorVisible = true;
+        mLastCursorStyle = -1;
     }
 
     public TerminalSession getCurrentSession() {

@@ -67,12 +67,15 @@ The buffer owns truth; the view is the single consumer. Three moving parts:
    - otherwise, any visible screen row `0..mRows-1` with `isRowDirty(row) == true` → **targeted**
      `invalidate(0, top, getWidth(), bottom)` where the Y band is the dirty span mapped through the viewport
      (§4) and clamped to the view.
-   - the cursor cell (`getCursorRow()`/`getCursorCol()`) or the reverse-video flag differs from what the last
+   - the cursor cell (`getCursorRow()`/`getCursorCol()`), cursor visibility (`shouldCursorBeVisible()`), cursor
+     shape (`getCursorStyle()`), or the reverse-video flag differs from what the last
      draw painted → **full** `invalidate()`. **Added 2026-10-17 during execution** (the original text said a lone
      cursor move was a no-repaint case — that was wrong): the renderer draws the cursor *into* the row band, so a
-     cursor move that dirties no row would leave the old block cursor painted; and `CSI ? 5 h/l` (DECSCNM) flips
-     reverse video without marking rows dirty or ticking the counter. The view tracks
-     `mLastCursorRow`/`mLastCursorCol`/`mLastReverseVideo`, captured in `onDraw()`.
+     cursor move that dirties no row would leave the old block cursor painted; and `CSI ? 5 h/l` (DECSCNM),
+     `CSI ? 25 h/l` (DECTCEM) and `DECSCUSR` flip state without marking rows dirty or ticking the counter. The view
+     tracks `mLastCursorRow`/`mLastCursorCol`/`mLastCursorVisible`/`mLastCursorStyle`/`mLastReverseVideo`,
+     captured in `onDraw()` next to the counter capture. (Colour/palette changes need no signal here: the app's
+     `onColorsChanged` re-sets the decor background, which repaints the view in full.)
    - no dirty visible row and no cursor/reverse-video change → **no invalidation** (output that changed nothing
      drawn, e.g. an OSC 8 link registration or a mode bit no one renders).
 3. **Post-draw consumption in `onDraw()`:** after `render(...)` returns:
@@ -202,8 +205,9 @@ that pairs with click handling in WS5).
   4. Text selection start/extend **while** output runs — highlight and output both correct.
   5. One line each of `4:1`…`4:5` underlines — visibly distinct: solid, double, wave, dots, dashes.
   6. Font-size change and rotation/resize — full repaint, nothing stale.
-  7. Cursor moves with no output (`\033[10;20H` in `bash`), and reverse video toggled (`printf '\033[?5h'` /
-     `'\033[?5l'`) — no ghost cursor and the screen actually inverts.
+  7. Cursor state with no output: move (`\033[10;20H` in `bash`), reverse video (`printf '\033[?5h'` /
+     `'\033[?5l'`), hide/show (`printf '\033[?25l'` / `'\033[?25h'`), and a shape change (DECSCUSR, e.g.
+     `printf '\033[5 q'`) — no ghost cursor, no stale cursor shape or stale video state.
 
 ---
 
