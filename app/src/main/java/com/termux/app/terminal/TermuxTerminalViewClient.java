@@ -213,6 +213,14 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     }
 
     @Override
+    public void onLinkClicked(String uri) {
+        // The URI has already been sanitized by TerminalView (LinkUris) before it reaches the client.
+        // Use the app's standard URL opener: it handles a missing handler with the system chooser and
+        // logs failures.
+        ShareUtils.openUrl(mActivity, uri);
+    }
+
+    @Override
     public boolean shouldBackButtonBeMappedToEscape() {
         return mActivity.getProperties().isBackKeyTheEscapeKey();
     }
