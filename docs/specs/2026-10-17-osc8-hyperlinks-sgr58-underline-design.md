@@ -1,7 +1,7 @@
 # Design: WS5 — OSC 8 Hyperlinks End-to-End + SGR 58 Underline Color
 
 **Date:** 2026-10-17
-**Status:** Draft — awaiting user review (brainstorming path: architectural, pre-plan)
+**Status:** Approved — implemented (2026-10-17; spec corrected below where execution diverged)
 **Program:** `docs/ideas/2026-10-14-terminal-engine-upgrade-idea.md` (workstream 5)
 **Depends on:** WS1 (cell model: `docs/specs/2026-10-17-terminal-engine-cell-model-design.md`),
 WS2 (renderer dirty-region: `docs/specs/2026-10-17-renderer-dirty-region-design.md`)
@@ -49,34 +49,39 @@ that loop and, as a bundled small item, makes `SGR 58` (underline color) actuall
 
 A link hit-test is inserted **after** the selection check and focus request, **before** the
 `mClient.onSingleTapUp` forward. If the tap lands on a link, the tap is consumed (the
-`onSingleTapUp` client forward does not fire for that gesture). Selection and mouse-tracking
-behavior are unchanged: if `isSelectingText()` is true the existing early-return runs first; if
-mouse tracking is active, `onUp` already consumed the gesture for mouse events before
-`onSingleTapUp` runs, so links never hijack drag/selection.
+`onSingleTapUp` client forward does not fire for that gesture); if the resolver returns `null`
+(no link, or a link whose scheme was dropped) the tap falls through to `mClient.onSingleTapUp` as
+before. Selection and mouse-tracking behavior are unchanged: if `isSelectingText()` is true the
+existing early-return runs first; if mouse tracking is active, `onUp` already consumed the gesture
+for mouse events before `onSingleTapUp` runs, so links never hijack drag/selection.
 
 ### 4.2 Coordinate math
 
 ```
-column = (int)(event.getX() / mRenderer.getFontWidth())          // 0-based
-row    = (int)(event.getY() / mRenderer.mFontLineSpacing)        // 0-based visible-screen row
+int[] cell = getColumnAndRow(event, true);   // { column, row }
 ```
 
-This mirrors how the renderer positions runs (cell grid origin at the view's top-left, no extra
-top margin offset). Bounds are checked against `mEmulator.mColumns` / `mEmulator.mRows`; taps
-outside the grid are treated as non-links.
+`getColumnAndRow(event, true)` is the scroll-aware conversion `TerminalView` already uses for
+selection and mouse reporting: it subtracts the descent offset (`mFontLineSpacingAndAscent`) from
+`getY()`, divides by the font line spacing, and adds `mTopRow`, so the resolved row is the screen
+row under the finger even when the view is scrolled. (The first draft divided `getY()` directly,
+which ignored both the descent offset and the scroll offset.) `column` is still
+`(int)(getX() / mFontWidth)`. Bounds are checked against `mEmulator.mColumns` / `mEmulator.mRows`;
+taps outside the grid are treated as non-links.
 
 ### 4.3 Resolution
 
+The hit-test is a package-private static resolver, pure and unit-testable without a `MotionEvent`:
+
 ```java
-int linkId = mEmulator.getScreen().getLinkIdAt(row, column);
-if (linkId != 0) {
-    String uri = mEmulator.getScreen().getLink(linkId);   // WS1 registry lookup, null if unknown
-    if (uri != null) { sanitize → dispatch or drop }
+static String getLinkUriAt(TerminalEmulator emulator, int row, int column) {
+    // bounds → null; linkId 0 → null; registry lookup → sanitize → uri or null
 }
 ```
 
 `getLinkIdAt` never allocates (returns 0 for null rows), so a tap on scrollback/blank area costs
-nothing.
+nothing. The emulator is never null at the call site (`onSingleTapUp` returns early on a null
+emulator), so the resolver does not re-check it.
 
 ### 4.4 Sanitization (security boundary)
 
@@ -86,8 +91,10 @@ passthrough). It is treated as untrusted input at this boundary.
 - **Allow-list:** `http://`, `https://`, `ftp://`, `mailto:` — case-insensitive prefix match on
   the trimmed URI.
 - **Everything else** (`file:`, `intent:`, `javascript:`, `data:`, no-scheme relative strings,
-  anything with embedded control characters): dropped, with a `logWarn` on the client. Never
-  dispatched to `onLinkClicked`.
+  anything with embedded control characters): dropped, with a warning logged by `TerminalView`
+  (`Log.w(LOG_TAG, "Dropped OSC 8 hyperlink with disallowed scheme: …")`). Never dispatched to
+  `onLinkClicked`. (The draft said "logWarn on the client"; the drop happens inside `TerminalView`,
+  before the client is involved, so it logs there directly.)
 - Rationale: the callback's contract is "a URI this app may hand to an `ACTION_VIEW` intent".
   Keeping the allow-list *before* the callback (not in each consumer) means every implementor —
   app, plugins — gets the safe set by construction.
@@ -103,6 +110,23 @@ Sanitization is factored into a small, pure, static helper — a new `LinkUris` 
 default void onLinkClicked(String uri) {
 }
 ```
+
+**App-side dispatch (deviation 4, added during execution).** The app must actually open the link,
+so `TermuxTerminalViewClient` overrides the callback:
+
+```java
+@Override
+public void onLinkClicked(String uri) {
+    ShareUtils.openUrl(mActivity, uri);   // ACTION_VIEW; system chooser when nothing handles it
+}
+```
+
+`ShareUtils.openUrl` is the app's existing URL-opening path (already used by the word-URL tap
+feature): it builds `Intent(ACTION_VIEW, Uri.parse(url))`, falls back to the system chooser on
+`ActivityNotFoundException`, and logs other failures. Delegating to it keeps the override to a
+one-liner instead of duplicating error handling. **Open question (unresolved):** the existing
+word-URL tap is gated by the `open terminal transcript URL on click` property; OSC 8 links are
+dispatched unconditionally. The approved plan specified no gating, so that is what shipped.
 
 - `default` → every existing implementor (`TermuxTerminalViewClientBase` and subclasses, plugin
   apps) compiles unchanged (Java 8 default methods, already the project's source level).
@@ -183,10 +207,31 @@ In `TerminalRenderer`'s underline drawing (both the Paint-based single underline
 or the 24-bit value directly. Fall back to the run's foreground color when the cell has no
 stored underline color (the current behavior). Underline *style* selection is unchanged (WS2).
 
+**As implemented (execution detail):**
+
+- A link cell with no SGR underline of its own is drawn through the paint's built-in single
+  underline (`Paint.setUnderlineText(true)`), i.e. the same mechanism and position as an
+  `SGR 4` single underline — a link never routes through `drawUnderline`.
+- An underline whose color is set (`SGR 58` in effect) is always stroked manually by
+  `drawUnderline`, which gained an explicit `UNDERLINE_STYLE_SINGLE` case (a single
+  `canvas.drawLine`). This is what lets the colored line use its own `Paint` color.
+- `SGR 58` without an underline attribute paints nothing (the stored color only shows on an
+  actual underline) — matches xterm.
+- Run breaking in the renderer treats a link-id or underline-color change as a run boundary
+  (in addition to style/cursor/selection/font-width), so adjacent cells with different link ids
+  or underline colors are drawn as separate runs.
+
 ### 6.4 Reset semantics
 
 - `SGR 59` → stored value back to `COLOR_INDEX_FOREGROUND` (default → renderer falls back to
   foreground color).
+- **Full `SGR 0` reset also restores the underline color to the default.** The pre-existing
+  `SGR 58` parse was never cleared by a full reset (xterm resets the underline color; the reset
+  block already restored fg, bg and underline style).
+- **`reset()`** (emulator reset) initializes `mUnderlineColor` to `COLOR_INDEX_FOREGROUND`
+  alongside the other style state.
+- **DECSC/DECRC** save and restore it: `SavedScreenState` gained `mSavedUnderlineColor`, so
+  `CSI s` / `CSI u` round-trip it like the rest of the cell style.
 - Erase/scroll/copy operations treat "default" like any other value: the array slot is written
   through, no special-casing needed beyond the lazy-allocation rule (an all-default row keeps
   `null`).
@@ -201,19 +246,36 @@ stored underline color (the current behavior). Underline *style* selection is un
   sequences are dropped at parse time.
 - **Selection vs. link tap:** selection wins (checked first, unchanged).
 - **Mouse-tracking mode:** `onUp` consumes the gesture first (existing code) → links untouched.
-- **Wide characters:** hit-test uses column math; a link covering a double-width cell spans both
-  columns in WS1's stamping, so either column resolves the same id.
+- **Wide characters:** rendering is unaffected — the underline spans the run's full column width,
+  including the continuation column. The hit-test, however, reads the cell directly under the
+  finger, and WS1 stamps the link id on a wide char's **base column only** (the continuation column
+  keeps id 0 by design, so a later overwrite/combine cannot inherit a stale link). Tapping the
+  second half of a double-width linked glyph therefore resolves `null`; only the first half opens
+  the link. This is a known, minor limitation: it cannot affect ASCII links at all, and the
+  fallback (reuse the previous base column when the tapped cell is a continuation) is deliberately
+  not implemented — it would need a continuation test to avoid treating a genuinely unlinked
+  neighbour cell as a link. Candidate follow-up if users report it.
 
 ## 8. Testing
 
-| Area | Test | Type |
+| Area | Test | Type / outcome |
 |---|---|---|
-| Sanitization helper | allow-list accepts 4 schemes (any case), rejects `file:`/`intent:`/`javascript:`/`data:`/no-scheme variants, trims whitespace, null/empty safety | pure unit (`:terminal-view`, next to `LinkUris`) |
-| Side array | laziness (stays null until first write), overwrite, default row never allocates, copy/clear/resize carry values, GC of unreferenced ids (mirrors WS1's `TerminalRowTest` patterns) | unit (`:terminal-emulator`) |
-| SGR 58 parse → storage | `CSI 58;5;n m` and `CSI 58;2;r;g;b m` store index/24-bit; `CSI 59 m` resets to default | unit (`TerminalTestCase`) |
-| Hit-test math | column/row conversion + bounds for taps at grid edges | unit (Robolectric or pure helper) |
-| Renderer link underline | link cell without SGR underline → underline drawn; with SGR underline → no double-draw (as feasible in Robolectric) | Robolectric (`:app` or `:terminal-view` test) |
-| Full gate | `./gradlew test` green; `:terminal-view`/`:terminal-emulator` suites unchanged otherwise | CI-style run |
+| Sanitization helper | allow-list accepts the 4 schemes (any case), rejects `file:`/`intent:`/`javascript:`/`data:`/no-scheme variants, trims whitespace, null/empty safety | `LinkUrisTest` (7 tests), pure unit (`:terminal-view`) — landed |
+| Side array | laziness (stays null until first write), overwrite, default row never allocates, copy/clear/resize carry values, continuation-column handling | `TerminalRowTest` (36 tests), unit (`:terminal-emulator`) — landed |
+| SGR 58 parse → storage | `CSI 58;5;n m` and `CSI 58;2;r;g;b m` store index/24-bit; `CSI 59 m` resets; `SGR 0` resets; DECSC/DECRC save/restore; ED/EL fill; reflow | `:terminal-emulator` suite (222 tests) — landed |
+| Hit-test resolution | link cell resolves its URI; non-link, out-of-bounds, disallowed-scheme and post-OSC-8-reset cells resolve `null` | `TerminalViewLinkHitTest` (5 tests), unit (`:terminal-view`) — landed |
+| Renderer behavior | link cell gains an underline; `SGR 4` on a link is not doubled; `SGR 58` strokes the underline with the palette color | `TerminalRendererUnderlineTest` (5 tests), Robolectric (`:app`) — **landed via fallback** (below) |
+| App-side dispatch | `onLinkClicked` starts an `ACTION_VIEW` intent for the URI | `TermuxTerminalViewClientLinkTest` (1 test), Robolectric (`:app`) — landed |
+| Full gate | `./gradlew test` | 411 tests, 0 failures — green |
+
+**Renderer test fallback (execution outcome).** The planned pixel test is impossible on this build
+host: Robolectric 4.10's native graphics runtime reports *"not supported on Linux (aarch64)"*, and
+its legacy graphics mode rasterizes nothing (a control asserting that two different contents render
+differently failed — every `Bitmap` came back blank). The test class therefore observes the
+renderer's **draw calls** through a recording `Canvas` subclass — text runs (with the paint's
+underline flag and color), lines, paths and rects — and asserts call-sequence equality
+("no double underline") and the presence/color of the stroked underline instead of final pixels.
+Behavior is covered; pixel-exact appearance remains the manual device check.
 
 Device sanity (manual): tap a real `OSC 8` link from `curl`/`printf` output in a shell, confirm
 browser opens; confirm a `file:` link does nothing; confirm a colored-underline TUI renders

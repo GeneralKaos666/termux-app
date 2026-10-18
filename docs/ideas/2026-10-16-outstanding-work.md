@@ -122,6 +122,33 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
     full, but that early-returns in wallpaper/custom-image mode. Fixes: either compare a palette version per
     update, or make the wallpaper-mode path still invalidate. Rare in practice (a palette OSC is usually
     accompanied by text output, which dirties rows); needs a spec cycle if the robust signal is chosen.
+- **WS5 — OSC 8 hyperlinks end-to-end + `SGR 58` underline color: done.** Branch
+  `feature/ws5-hyperlinks-sgr58`; spec `specs/2026-10-17-osc8-hyperlinks-sgr58-underline-design.md`
+  (`Approved — implemented`), plan `plans/2026-10-17-osc8-hyperlinks-sgr58-underline.md`, one commit per
+  planned task, `./gradlew test` **411/411 green**. Five deviations, all now written into the spec:
+  1. hit-test uses `getColumnAndRow(event, true)` (descent + scroll aware, mirrors selection/mouse math)
+     instead of the draft's bare `y / mFontLineSpacing`;
+  2. `reset()` initialises the underline color;
+  3. `SavedScreenState.mSavedUnderlineColor` saves/restores it for DECSC/DECRC;
+  4. the app dispatches through `ShareUtils.openUrl` (the existing URL-opening path, with the system
+     chooser fallback) instead of a bespoke `ACTION_VIEW` + `ActivityNotFoundException` catch;
+  5. `SGR 0` also clears the underline color (the pre-existing `SGR 58` parse was never reset).
+  Leftovers / follow-ups:
+  - `[bounded]` the plan's renderer **pixel** test is impossible on this host: Robolectric's native graphics
+    runtime reports *"not supported on Linux (aarch64)"* and its legacy mode rasterizes nothing (proved with a
+    control asserting two different contents render differently — both came back blank). Replaced with a
+    recording-`Canvas` call-sequence test (draw calls + paint underline flag/color); pixel-exact appearance
+    remains the manual device check.
+  - `[open]` OSC 8 taps dispatch **unconditionally**, while the existing word-URL tap is gated by the
+    `open terminal transcript URL on click` property. No gating was specified in the approved plan; decide
+    whether that property should also gate hyperlinks.
+  - `[bounded]` a **wide linked glyph** (emoji, CJK) resolves only on its base column: WS1 stamps the link id
+    on the base cell and leaves the continuation column at `0`, and the hit-test reads the tapped cell. ASCII
+    links are unaffected. The "reuse the previous base column" fallback needs a continuation test before it is
+    safe to add.
+  - `[closed]` the plan's "24-bit white `0xffffffff` collides with the foreground sentinel" edge cannot occur:
+    a 24-bit ARGB value always has `0xff` in its high byte, so it never equals `COLOR_INDEX_FOREGROUND`
+    (`256`) — and `58;5;256` means "default foreground", i.e. unset.
 
 ## 10. Doc hygiene debt (this directory)
 
