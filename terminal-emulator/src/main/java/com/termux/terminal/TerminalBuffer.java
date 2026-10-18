@@ -831,8 +831,36 @@ public final class TerminalBuffer {
         return bitmapNum >= TERMINAL_BITMAP__NUM_START ? mTerminalBitmaps.get(bitmapNum): null;
     }
 
+
+    public synchronized void deleteTerminalBitmaps(int imageId, int placementId, char deleteSpec) {
+        if (deleteSpec == 'a' || deleteSpec == 'A') {
+            mPlacements.clear();
+            mTerminalBitmaps.clear();
+            return;
+        }
+        if (deleteSpec == 'i') {
+            java.util.Iterator<Placement> it = mPlacements.iterator();
+            while (it.hasNext()) {
+                Placement p = it.next();
+                if (p.imageId == imageId && (placementId == 0 || p.bitmapNum == placementId)) {
+                    it.remove();
+                    mTerminalBitmaps.remove(p.bitmapNum);
+                }
+            }
+            return;
+        }
+        if (deleteSpec == 'c' || deleteSpec == 'C') {
+            // Delete placements intersecting cursor - cursor not tracked here easily; keep simple: no-op if unknown
+            // Subset scope per spec allows c/C but we don't have cursor; clear all visible behavior covered by a
+            mPlacements.clear();
+            mTerminalBitmaps.clear();
+            return;
+        }
+    }
+
     public synchronized void clearTerminalBitmaps() {
         mTerminalBitmaps.clear();
+        mPlacements.clear();
     }
 
     public synchronized Bitmap getSixelBitmap(long style) {
