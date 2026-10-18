@@ -243,15 +243,9 @@ public final class TerminalRenderer {
         final boolean strikeThrough = (effect & TextStyle.CHARACTER_ATTRIBUTE_STRIKETHROUGH) != 0;
         final boolean dim = (effect & TextStyle.CHARACTER_ATTRIBUTE_DIM) != 0;
 
-        if ((foreColor & 0xff000000) != 0xff000000) {
-            // Let bold have bright colors if applicable (one of the first 8):
-            if (bold && foreColor >= 0 && foreColor < 8) foreColor += 8;
-            foreColor = palette[foreColor];
-        }
-
-        if ((backColor & 0xff000000) != 0xff000000) {
-            backColor = palette[backColor];
-        }
+        // Let bold have bright colors if applicable (one of the first 8):
+        foreColor = resolveColor(foreColor, bold, palette);
+        backColor = resolveColor(backColor, false, palette);
 
         // Reverse video here if _one and only one_ of the reverse flags are set:
         final boolean reverseVideoHere = reverseVideo ^ (effect & (TextStyle.CHARACTER_ATTRIBUTE_INVERSE)) != 0;
@@ -320,15 +314,12 @@ public final class TerminalRenderer {
                 // A hyperlink cell with no SGR underline of its own gets a plain single underline in its
                 // foreground color. When the cell carries an SGR 58 color, that color strokes the underline
                 // instead (a link underline is an underline of the cell like any other).
-                int underlineDrawColor = foreColor;
-                int underlineDrawStyle = underline ? underlineStyle : TextStyle.UNDERLINE_STYLE_SINGLE;
-                if (coloredUnderline) {
-                    underlineDrawColor = underlineColor;
-                    if ((underlineDrawColor & 0xff000000) != 0xff000000) {
-                        if (bold && underlineDrawColor >= 0 && underlineDrawColor < 8) underlineDrawColor += 8;
-                        underlineDrawColor = palette[underlineDrawColor];
-                    }
-                }
+                int underlineDrawColor = coloredUnderline ? resolveColor(underlineColor, bold, palette) : foreColor;
+                // Decorated styles are stroked as stored; everything else is a plain single underline. That
+                // covers a link's own underline, and styles that decode to UNDERLINE_STYLE_NONE or to an
+                // out-of-range value, which TextStyle defines as a plain underline as well — passing those
+                // through unchanged would draw nothing at all.
+                int underlineDrawStyle = underline && !singleUnderline ? underlineStyle : TextStyle.UNDERLINE_STYLE_SINGLE;
                 drawUnderline(canvas, left, runRight, y, underlineDrawColor, underlineDrawStyle);
             }
         }
@@ -337,8 +328,22 @@ public final class TerminalRenderer {
     }
 
     /**
-     * Strokes a decorated underline (double, curly, dotted or dashed) for one text run. The canvas already
-     * carries the run's horizontal scale, so {@code left}/{@code right} are run coordinates.
+     * Resolves a {@link TextStyle}-encoded color to an ARGB value: a 24-bit value passes through, a
+     * palette index is looked up (after being brightened by 8 when {@code brightenForBold} is set, the
+     * treatment bold text gives the low 8 indices).
+     */
+    private static int resolveColor(int color, boolean brightenForBold, int[] palette) {
+        if ((color & 0xff000000) == 0xff000000) return color;
+        if (brightenForBold && color >= 0 && color < 8) color += 8;
+        return palette[color];
+    }
+
+    /**
+     * Strokes an underline for one text run: the single underline, the decorated styles (double, curly,
+     * dotted or dashed) and single underlines that carry an explicit SGR 58 color (which the text paint's
+     * own underline cannot be given). The canvas already carries the run's horizontal scale, so
+     * {@code left}/{@code right} are run coordinates. An unrecognized style is stroked as a single
+     * underline rather than dropped.
      *
      * <p>Leaves {@link #mTextPaint} in the state the rest of the renderer assumes: the next run paints
      * backgrounds and cursor cells as filled rects with the same paint, so the fill style must come back.
@@ -364,8 +369,10 @@ public final class TerminalRenderer {
 
         switch (underlineStyle) {
             case TextStyle.UNDERLINE_STYLE_SINGLE:
-                // A single underline is normally drawn by the text paint; this case exists for the SGR 58
-                // colored variants, which must be stroked here to get their own color.
+            default:
+                // The plain single underline is normally drawn by the text paint; this case exists for the
+                // SGR 58 colored variants (and for a style the decoder did not recognize), which must be
+                // stroked here to get their own color instead of being silently dropped.
                 canvas.drawLine(left, underlineY, right, underlineY, mTextPaint);
                 break;
             case TextStyle.UNDERLINE_STYLE_DOUBLE:
@@ -393,8 +400,6 @@ public final class TerminalRenderer {
             case TextStyle.UNDERLINE_STYLE_DASHED:
                 mTextPaint.setPathEffect(mDashedUnderlineEffect);
                 canvas.drawLine(left, underlineY, right, underlineY, mTextPaint);
-                break;
-            default:
                 break;
         }
 

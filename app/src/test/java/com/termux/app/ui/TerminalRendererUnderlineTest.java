@@ -7,6 +7,7 @@ import android.graphics.Typeface;
 
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalOutput;
+import com.termux.terminal.TextStyle;
 import com.termux.view.TerminalRenderer;
 
 import org.junit.Test;
@@ -179,5 +180,42 @@ public class TerminalRendererUnderlineTest {
             hasLineWithColor(coloredUnderline, paletteIndexNine));
         assertEquals("the colored underline must not also be painted by the text paint",
             0, countUnderlinedTextRuns(coloredUnderline));
+    }
+
+    /**
+     * A link cell that carries an SGR 58 color but no SGR underline must still show its link underline,
+     * stroked in that color: the link underline is an underline of the cell like any other.
+     */
+    @Test
+    public void testLinkWithSgr58DrawsColoredUnderline() {
+        TerminalEmulator emulator = emulator("\033[58;5;9m" + LINK_OPEN + "Link" + LINK_CLOSE);
+        int paletteIndexNine = emulator.mColors.mCurrentColors[9];
+
+        List<String> coloredUnderline = render(emulator);
+
+        assertTrue("a link cell's underline must take the SGR 58 color",
+            hasLineWithColor(coloredUnderline, paletteIndexNine));
+        assertEquals("the colored link underline must not also be painted by the text paint",
+            0, countUnderlinedTextRuns(coloredUnderline));
+    }
+
+    /**
+     * The underline bit with no {@code SGR 4:n} style is a plain single underline
+     * ({@link TextStyle#UNDERLINE_STYLE_NONE} with the bit set). With an SGR 58 color it must still be
+     * stroked: it is a single underline like any other, just colored. (The emulator itself always stores
+     * a concrete style, but the renderer's contract covers the whole style encoding, and
+     * {@code TerminalBuffer.setChar} takes any style a library consumer builds.)
+     */
+    @Test
+    public void testUnderlineBitWithoutStyleDrawsColoredUnderline() {
+        TerminalEmulator emulator = emulator("Link");
+        int paletteIndexNine = emulator.mColors.mCurrentColors[9];
+        // The underline attribute bit with UNDERLINE_STYLE_NONE (0) in the style bits.
+        emulator.getScreen().setChar(0, 0, 'L', TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, 0, paletteIndexNine);
+
+        List<String> coloredUnderline = render(emulator);
+
+        assertTrue("an untyped underline with an SGR 58 color must be stroked as a line",
+            hasLineWithColor(coloredUnderline, paletteIndexNine));
     }
 }
