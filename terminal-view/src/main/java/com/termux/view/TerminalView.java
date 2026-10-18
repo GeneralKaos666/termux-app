@@ -607,17 +607,23 @@ public final class TerminalView extends View {
 
     /**
      * @return the sanitized link URI at the given screen cell, or {@code null} when there is no
-     * dispatchable link there (no link, out of bounds, or disallowed scheme). Pure, so the hit-test
-     * can be unit-tested without a {@link MotionEvent}.
+     * dispatchable link there (no link, out of bounds, or disallowed scheme). The row is relative to
+     * the scroll position, as {@link #getColumnAndRow(MotionEvent, boolean)} produces it, so rows above
+     * the visible screen resolve against scrollback. Pure, so the hit-test can be unit-tested without a
+     * {@link MotionEvent}.
      */
     static String getLinkUriAt(TerminalEmulator emulator, int row, int column) {
-        if (row < 0 || row >= emulator.mRows || column < 0 || column >= emulator.mColumns) return null;
-        int linkId = emulator.getScreen().getLinkIdAt(row, column);
+        TerminalBuffer screen = emulator.getScreen();
+        int oldestRow = -screen.getActiveTranscriptRows();
+        if (row < oldestRow || row >= emulator.mRows || column < 0 || column >= emulator.mColumns) return null;
+        int linkId = screen.getLinkIdAt(row, column);
         if (linkId == 0) return null;
-        String uri = emulator.getScreen().getLink(linkId);
+        String uri = screen.getLink(linkId);
         String sanitized = LinkUris.sanitize(uri);
         if (sanitized == null) {
-            Log.w(LOG_TAG, "Dropped OSC 8 hyperlink with disallowed scheme: " + uri);
+            // Only a URI the registry actually holds can be rejected by the allow-list; an unknown id
+            // (already garbage collected) is simply not a link any more.
+            if (uri != null) Log.w(LOG_TAG, "Dropped OSC 8 hyperlink with disallowed scheme: " + uri);
             return null;
         }
         return sanitized;

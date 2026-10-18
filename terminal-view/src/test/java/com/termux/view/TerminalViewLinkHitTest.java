@@ -44,6 +44,15 @@ public class TerminalViewLinkHitTest extends TestCase {
         assertEquals("http://example.com", TerminalView.getLinkUriAt(mTerminal, 0, 0));
     }
 
+    public void testScrolledBackLinkResolves() {
+        // Four lines on a three-row screen: the first (the link line) scrolls into history at external
+        // row -1, which is what the view's scroll-relative tap coordinates produce.
+        enter(LINK_OPEN + "http://example.com\007X" + LINK_CLOSE + "\r\nsecond\r\nthird\r\nfourth");
+        assertTrue("the link line must have scrolled into history",
+            mTerminal.getScreen().getActiveTranscriptRows() > 0);
+        assertEquals("http://example.com", TerminalView.getLinkUriAt(mTerminal, -1, 0));
+    }
+
     public void testNonLinkCellIsNull() {
         enter(LINK_OPEN + "http://example.com\007X" + LINK_CLOSE);
         assertNull(TerminalView.getLinkUriAt(mTerminal, 0, 1));
