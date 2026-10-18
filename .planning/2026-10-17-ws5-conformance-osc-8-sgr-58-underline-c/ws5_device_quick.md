@@ -1,0 +1,1 @@
+WS5 quick render tests done (OSC 8 and SGR 58 encoded; underline rendering handled by terminal-emulator+view). Device manual tap test for real links and file: scheme drop would need live testing in the actual build; evidence above shows the control sequences render.
