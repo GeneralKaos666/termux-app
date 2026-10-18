@@ -149,6 +149,22 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
   - `[closed]` the plan's "24-bit white `0xffffffff` collides with the foreground sentinel" edge cannot occur:
     a 24-bit ARGB value always has `0xff` in its high byte, so it never equals `COLOR_INDEX_FOREGROUND`
     (`256`) — and `58;5;256` means "default foreground", i.e. unset.
+  - **Review pass (two axes, `master..HEAD`):** no standards breach, no scope creep. Two real defects
+    found and fixed with RED-first tests (`414/414` green after):
+    - `[fixed]` an underline bit with no `SGR 4:n` style plus an `SGR 58` color drew **nothing**:
+      `drawUnderline` received `UNDERLINE_STYLE_NONE` and its `default:` broke instead of stroking.
+      Untyped and out-of-range styles now stroke a single line (the plan required this `default:`), and
+      an uncolored link still uses the text paint's own underline.
+    - `[closed]` the hit-test rejected `row < 0`, so a link scrolled into history never resolved even
+      though the tap coordinate is scroll-relative by design; the bound is now
+      `-getActiveTranscriptRows()`.
+  - `[closed]` the resolver no longer logs "disallowed scheme" when the id was garbage-collected before
+    the tap (nothing to sanitize).
+  - `[declined]` review judgement calls on the pre-existing cell model: a `CellAttributes` value type
+    for the travelling `style`/`linkId`/`underlineColor` triple, and moving the link lookup out of the
+    pure static resolver; both are wider refactors than WS5.
+  - `[open]` the erase/scroll/reflow plumbing for the underline-color array has no direct test (the
+    plan named none); see spec §8 "Not covered by tests".
 
 ## 10. Doc hygiene debt (this directory)
 

@@ -66,8 +66,14 @@ selection and mouse reporting: it subtracts the descent offset (`mFontLineSpacin
 `getY()`, divides by the font line spacing, and adds `mTopRow`, so the resolved row is the screen
 row under the finger even when the view is scrolled. (The first draft divided `getY()` directly,
 which ignored both the descent offset and the scroll offset.) `column` is still
-`(int)(getX() / mFontWidth)`. Bounds are checked against `mEmulator.mColumns` / `mEmulator.mRows`;
-taps outside the grid are treated as non-links.
+`(int)(getX() / mFontWidth)`.
+
+Bounds are `0 ≤ column < emulator.mColumns` and `-getActiveTranscriptRows() ≤ row < emulator.mRows`;
+anything outside is a non-link. Because the row is scroll-relative, `mTopRow` can be negative, so the
+lower bound is what lets a tap on a link scrolled into history resolve — the buffer maps negative
+external rows into its history (rows above the oldest retained one, and sideways taps, stay
+non-links). The first implementation rejected every `row < 0`, which silently made every
+scrolled-back link dead (found in review).
 
 ### 4.3 Resolution
 
@@ -207,16 +213,23 @@ In `TerminalRenderer`'s underline drawing (both the Paint-based single underline
 or the 24-bit value directly. Fall back to the run's foreground color when the cell has no
 stored underline color (the current behavior). Underline *style* selection is unchanged (WS2).
 
-**As implemented (execution detail):**
+**As implemented (execution detail, including the review pass):**
 
-- A link cell with no SGR underline of its own is drawn through the paint's built-in single
-  underline (`Paint.setUnderlineText(true)`), i.e. the same mechanism and position as an
-  `SGR 4` single underline — a link never routes through `drawUnderline`.
+- A link cell with no SGR underline of its own and no SGR 58 color is drawn through the paint's
+  built-in single underline (`Paint.setUnderlineText(true)`), i.e. the same mechanism and position
+  as an `SGR 4` single underline — an uncolored link never routes through `drawUnderline`.
 - An underline whose color is set (`SGR 58` in effect) is always stroked manually by
   `drawUnderline`, which gained an explicit `UNDERLINE_STYLE_SINGLE` case (a single
-  `canvas.drawLine`). This is what lets the colored line use its own `Paint` color.
-- `SGR 58` without an underline attribute paints nothing (the stored color only shows on an
-  actual underline) — matches xterm.
+  `canvas.drawLine`, with `default:` sharing its body). This is what lets the colored line use its
+  own `Paint` color, and it is also why a link cell *with* a color goes through `drawUnderline`.
+- The style handed to `drawUnderline` is the stored style only when it is a decorated one; every
+  other case — a link's own underline, `UNDERLINE_STYLE_NONE`, and an out-of-range value, all of
+  which `TextStyle` defines as a plain underline — maps to a single line. Passing those through
+  unchanged made the underline vanish whenever a color was present (found in review: an underline
+  bit with no style plus `SGR 58` drew nothing; the untyped styles now draw a colored single line).
+- On a **non-link** cell, `SGR 58` without an underline attribute paints nothing (the stored color
+  only shows on an actual underline) — matches xterm. A link cell always has an underline, so its
+  `SGR 58` color is used.
 - Run breaking in the renderer treats a link-id or underline-color change as a run boundary
   (in addition to style/cursor/selection/font-width), so adjacent cells with different link ids
   or underline colors are drawn as separate runs.
@@ -261,12 +274,18 @@ stored underline color (the current behavior). Underline *style* selection is un
 | Area | Test | Type / outcome |
 |---|---|---|
 | Sanitization helper | allow-list accepts the 4 schemes (any case), rejects `file:`/`intent:`/`javascript:`/`data:`/no-scheme variants, trims whitespace, null/empty safety | `LinkUrisTest` (7 tests), pure unit (`:terminal-view`) — landed |
-| Side array | laziness (stays null until first write), overwrite, default row never allocates, copy/clear/resize carry values, continuation-column handling | `TerminalRowTest` (36 tests), unit (`:terminal-emulator`) — landed |
-| SGR 58 parse → storage | `CSI 58;5;n m` and `CSI 58;2;r;g;b m` store index/24-bit; `CSI 59 m` resets; `SGR 0` resets; DECSC/DECRC save/restore; ED/EL fill; reflow | `:terminal-emulator` suite (222 tests) — landed |
-| Hit-test resolution | link cell resolves its URI; non-link, out-of-bounds, disallowed-scheme and post-OSC-8-reset cells resolve `null` | `TerminalViewLinkHitTest` (5 tests), unit (`:terminal-view`) — landed |
-| Renderer behavior | link cell gains an underline; `SGR 4` on a link is not doubled; `SGR 58` strokes the underline with the palette color | `TerminalRendererUnderlineTest` (5 tests), Robolectric (`:app`) — **landed via fallback** (below) |
+| Side array | laziness (stays null until first write), default row never allocates, overwrite with default, `setChar` stamping, continuation-column handling, copy interval, clear | `TerminalRowTest` (36 tests), unit (`:terminal-emulator`) — landed |
+| SGR 58 parse → storage | `CSI 58;5;n m` and `CSI 58;2;r;g;b m` store index/24-bit per cell; `CSI 59 m` resets; `SGR 0` and `reset()` restore the default; DECSC/DECRC save/restore; a default terminal never allocates the array | `:terminal-emulator` suite (222 tests) — landed |
+| Hit-test resolution | link cell resolves its URI, including one scrolled into history; non-link, out-of-bounds, disallowed-scheme and post-OSC-8-reset cells resolve `null` | `TerminalViewLinkHitTest` (6 tests), unit (`:terminal-view`) — landed |
+| Renderer behavior | link cell gains an underline; `SGR 4` on a link is not doubled; `SGR 58` strokes the underline with the palette color (SGR 4 typed, untyped, and link-only) | `TerminalRendererUnderlineTest` (7 tests), Robolectric (`:app`) — **landed via fallback** (below) |
 | App-side dispatch | `onLinkClicked` starts an `ACTION_VIEW` intent for the URI | `TermuxTerminalViewClientLinkTest` (1 test), Robolectric (`:app`) — landed |
-| Full gate | `./gradlew test` | 411 tests, 0 failures — green |
+| Full gate | `./gradlew test` | 414 tests, 0 failures — green |
+
+**Not covered by tests (recorded, not claimed).** The erase/scroll/reflow plumbing written through
+`TerminalBuffer` (ED/EL fill, reflow of the underline-color array) is exercised only indirectly by
+the SGR 58 write/reset tests above; the plan named no test for those paths, and the array's
+copy/clear behaviour is covered on `TerminalRow` but not for resize. A regression there would show
+as a stale underline color after an erase. Candidate follow-ups, not part of WS5.
 
 **Renderer test fallback (execution outcome).** The planned pixel test is impossible on this build
 host: Robolectric 4.10's native graphics runtime reports *"not supported on Linux (aarch64)"*, and
@@ -276,6 +295,15 @@ renderer's **draw calls** through a recording `Canvas` subclass — text runs (w
 underline flag and color), lines, paths and rects — and asserts call-sequence equality
 ("no double underline") and the presence/color of the stroked underline instead of final pixels.
 Behavior is covered; pixel-exact appearance remains the manual device check.
+
+**Review pass.** A two-axis review of `master..HEAD` (standards + spec) found no standards breach
+and no scope creep. It did catch the two defects fixed above — the dropped untyped/unknown colored
+underline (`drawUnderline`'s `default:`), and the scrollback hit-test rejecting every negative row —
+plus a misleading "disallowed scheme" warning logged for an id the link registry had already
+garbage-collected. The remaining findings on both axes were judgement calls about the pre-existing
+cell model (a `CellAttributes` value type to replace the travelling `style`/`linkId`/
+`underlineColor` triple; the static resolver reaching into `TerminalBuffer`) and were declined as
+out of WS5's scope.
 
 Device sanity (manual): tap a real `OSC 8` link from `curl`/`printf` output in a shell, confirm
 browser opens; confirm a `file:` link does nothing; confirm a colored-underline TUI renders
