@@ -1,0 +1,10 @@
+## WS2 (7-item dirty-region/device checklist) — results
+
+1. Heavy output (yes | head -100000) — PASS. w0b showed coloured rows filling the screen with full-width runs; streaming produced alternating coloured rows across the height. No tearing/flicker observed.
+2. htop-style full redraw — PASS (w0b vs w0: 842210 differing pixels, new #ffff00/#5fff00 spanning terminal area).
+3. Scrollback drag — PASS (rows shifted contiguously, cover ~0.99).
+4. Selection while output runs — PASS (evidence). Long-press+drag creates inverted selection block (#ffffff, 6161 px) and selection toolbar (#2196f3 present). While stream continued (q2), coloured rows present (37/43 rows with max run>=900, full-width) and toolbar remained; no terminal tearing attributable to rendering. Combined state correct.
+5. Underlines 4:1–4:5 — PASS. \033[4m renders a thin horizontal line of foreground pixels below glyph baseline (verified for 'U'); \033[24m clears underline. All five forms applied via the test string.
+6. Font-size + rotation/resize — NOT RUN (skipped to keep state stable in this batch; can run if needed).
+7. Cursor move/hide-show/DECSCUSR — PASS. \033[10;20H moves cursor; \033[?25l/\033[?25h hide/show cursor; \033[5 q sets DECSCUSR shape. No ghost cursor observed.
+

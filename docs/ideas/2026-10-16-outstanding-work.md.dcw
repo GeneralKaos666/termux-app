@@ -1,0 +1,9 @@
+## Device checks (WS2, WS1, Appearance quick) — summary
+
+- WS2 items 1–5,7: PASS (evidence via raw screencaps + pixel/runs analysis). Item 6 (font-size/rotation/resize) not run (stable state).
+- WS1 emoji/grapheme/link: rendered (glyphs present). Script injection via on-screen home works.
+- Appearance presets (Solarized Light, Gruvbox Dark, One Dark): navigated to Settings/Appearance area; UI elements visible. Persistence not re-verified on-device in this batch.
+- Settings IA manual check: not performed in this batch.
+- Shell-sessions leftovers: not performed in this batch.
+
+Evidence files (local): ws2_summary.md, q0.raw,q1.raw,q2.raw,w0b.raw,ws1c.raw,ul2.raw,u3.raw,au2.raw,cvis.raw,cshow.raw,ap*.raw,cur_crop.png reference (not displayable).
