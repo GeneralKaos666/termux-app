@@ -512,6 +512,58 @@ public class TerminalRowTest extends TestCase {
 		assertEquals(0, row.getLinkId(0));
 	}
 
+	public void testUnderlineColorsAreLazy() {
+		assertNull(row.mUnderlineColors);
+		assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, row.getUnderlineColor(0));
+		row.setUnderlineColor(2, 7);
+		assertNotNull(row.mUnderlineColors);
+		assertEquals(7, row.getUnderlineColor(2));
+		assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, row.getUnderlineColor(1));
+	}
+
+	public void testSettingDefaultOnFreshRowDoesNotAllocate() {
+		row.setUnderlineColor(0, TextStyle.COLOR_INDEX_FOREGROUND);
+		assertNull(row.mUnderlineColors);
+		assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, row.getUnderlineColor(0));
+	}
+
+	public void testOverwriteWithDefaultResetsTheUnderlineColor() {
+		row.setUnderlineColor(0, 7);
+		assertEquals(7, row.getUnderlineColor(0));
+		row.setUnderlineColor(0, TextStyle.COLOR_INDEX_FOREGROUND);
+		assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, row.getUnderlineColor(0));
+	}
+
+	public void testSetCharStampsUnderlineColor() {
+		row.setChar(0, 'a', TextStyle.NORMAL, 0, 9);
+		assertEquals(9, row.getUnderlineColor(0));
+		row.setChar(1, 'b', TextStyle.NORMAL, 0);
+		assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, row.getUnderlineColor(1));
+	}
+
+	public void testContinuationKeepsTheCellUnderlineColor() {
+		row.setChar(0, ONE_JAVA_CHAR_DISPLAY_WIDTH_TWO_1, TextStyle.NORMAL, 0, 9);
+		row.setChar(1, DIARESIS_CODEPOINT, TextStyle.NORMAL, 0, 7);
+		assertEquals(9, row.getUnderlineColor(0));
+		assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, row.getUnderlineColor(1));
+	}
+
+	public void testCopyIntervalCarriesUnderlineColors() {
+		TerminalRow source = new TerminalRow(COLUMNS, TextStyle.NORMAL);
+		source.setChar(0, 'a', TextStyle.NORMAL, 0, 9);
+		source.setChar(1, 'b', TextStyle.NORMAL, 0);
+		row.copyInterval(source, 0, 2, 0);
+		assertEquals(9, row.getUnderlineColor(0));
+		assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, row.getUnderlineColor(1));
+	}
+
+	public void testClearResetsUnderlineColors() {
+		row.setChar(0, 'a', TextStyle.NORMAL, 0, 9);
+		assertEquals(9, row.getUnderlineColor(0));
+		row.clear(TextStyle.NORMAL);
+		assertEquals(TextStyle.COLOR_INDEX_FOREGROUND, row.getUnderlineColor(0));
+	}
+
 	public void testZwjClusterOccupiesOneColumn() {
 		// "MAN ZWJ WOMAN": the three code points are one cell, occupying the two columns of the wide
 		// base emoji, not four columns (2 + 0 + 2).

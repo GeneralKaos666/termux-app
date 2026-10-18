@@ -52,6 +52,13 @@ public final class TerminalRow {
      * stored. A {@code 0} means "no hyperlink". See {@link TerminalBuffer#registerLink(String)}.
      */
     int[] mLinkIds;
+    /**
+     * The SGR 58 underline color of each cell in the row, or {@code null} until the first
+     * non-default color is stored (most rows never carry one). A stored
+     * {@link TextStyle#COLOR_INDEX_FOREGROUND} means "no underline color set" — the renderer falls
+     * back to the cell's foreground color.
+     */
+    int[] mUnderlineColors;
     /** If this row might contain chars with width != 1, used for deactivating fast path */
     boolean mHasNonOneWidthOrSurrogateChars;
     /** If this row has a {@link TerminalBitmap}. Used for performance only. */
@@ -86,16 +93,17 @@ public final class TerminalRow {
             final int clusterEnd = GraphemeClusters.clusterEnd(sourceChars, i, line.mSpaceUsed);
             final long style = line.getStyle(sourceColumn);
             final int linkId = line.getLinkId(sourceColumn);
+            final int underlineColor = line.getUnderlineColor(sourceColumn);
             int clusterWidth = GraphemeClusters.clusterWidth(sourceChars, i, line.mSpaceUsed);
             if (startingFromSecondHalfOfWideChar) {
                 // Just treat copying second half of wide char as copying whitespace.
-                setChar(destinationColumn, ' ', style, linkId);
+                setChar(destinationColumn, ' ', style, linkId, underlineColor);
                 startingFromSecondHalfOfWideChar = false;
                 clusterWidth = 1;
             } else {
                 for (int j = i; j < clusterEnd; ) {
                     final int codePoint = codePointAt(sourceChars, j);
-                    setChar(destinationColumn, codePoint, style, linkId);
+                    setChar(destinationColumn, codePoint, style, linkId, underlineColor);
                     j += Character.charCount(codePoint);
                 }
             }
@@ -188,6 +196,7 @@ public final class TerminalRow {
         Arrays.fill(mText, ' ');
         Arrays.fill(mStyle, style);
         clearLinkIds();
+        clearUnderlineColors();
         mSpaceUsed = mColumns;
         mHasNonOneWidthOrSurrogateChars = false;
         mHasTerminalBitmap = false;
@@ -200,6 +209,12 @@ public final class TerminalRow {
 
     // https://github.com/steven676/Android-Terminal-Emulator/commit/9a47042620bec87617f0b4f5d50568535668fe26
     public void setChar(int columnToSet, int codePoint, long style, int linkId) {
+        setChar(columnToSet, codePoint, style, linkId, TextStyle.COLOR_INDEX_FOREGROUND);
+    }
+
+    /** Writes a cell with an explicit hyperlink id (see {@link TerminalBuffer#registerLink(String)})
+     * and SGR 58 underline color ({@link TextStyle#COLOR_INDEX_FOREGROUND} for "unset"). */
+    public void setChar(int columnToSet, int codePoint, long style, int linkId, int underlineColor) {
         if (columnToSet  < 0 || columnToSet >= mStyle.length)
             throw new IllegalArgumentException("TerminalRow.setChar(): columnToSet=" + columnToSet + ", codePoint=" + codePoint + ", style=" + style);
 
@@ -220,7 +235,10 @@ public final class TerminalRow {
         final boolean newIsCombining = baseWidth <= 0 || newIsContinuation;
         // Only a genuine write stamps the link. A continuation is appended to an existing cell
         // and must keep the link that cell was created with.
-        if (!newIsCombining && baseWidth > 0) setLinkId(columnToSet, linkId);
+        if (!newIsCombining && baseWidth > 0) {
+            setLinkId(columnToSet, linkId);
+            setUnderlineColor(columnToSet, underlineColor);
+        }
 
         // Fast path when we don't have any chars with width != 1
         if (!mHasNonOneWidthOrSurrogateChars) {
@@ -369,6 +387,34 @@ public final class TerminalRow {
     /** Clears every hyperlink id in the row, keeping the backing array if it was allocated. */
     void clearLinkIds() {
         if (mLinkIds != null) Arrays.fill(mLinkIds, 0);
+    }
+
+    /** @return the SGR 58 underline color of the cell, or {@link TextStyle#COLOR_INDEX_FOREGROUND}
+     * if the cell has none. */
+    public int getUnderlineColor(int column) {
+        return (mUnderlineColors == null) ? TextStyle.COLOR_INDEX_FOREGROUND : mUnderlineColors[column];
+    }
+
+    /**
+     * Sets the underline color of a cell. The default value on a row that has never stored an
+     * underline color is a no-op, so the {@link #mUnderlineColors} array stays {@code null} until a
+     * non-default color is stored. The array is allocated filled with the default, so every other
+     * cell of a colored row reads "unset" until written.
+     */
+    void setUnderlineColor(int column, int underlineColor) {
+        if (column < 0 || column >= mStyle.length)
+            throw new IllegalArgumentException("TerminalRow.setUnderlineColor(): column=" + column + ", underlineColor=" + underlineColor);
+        if (mUnderlineColors == null) {
+            if (underlineColor == TextStyle.COLOR_INDEX_FOREGROUND) return;
+            mUnderlineColors = new int[mColumns];
+            Arrays.fill(mUnderlineColors, TextStyle.COLOR_INDEX_FOREGROUND);
+        }
+        mUnderlineColors[column] = underlineColor;
+    }
+
+    /** Resets every underline color in the row to the default, keeping the backing array if it was allocated. */
+    void clearUnderlineColors() {
+        if (mUnderlineColors != null) Arrays.fill(mUnderlineColors, TextStyle.COLOR_INDEX_FOREGROUND);
     }
 
     /** @return the {@link TextStyle#UNDERLINE_STYLE_NONE} or other underline style of the cell. */
