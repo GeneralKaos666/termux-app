@@ -172,6 +172,25 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
     `SGR 4:3` + `58;2;0;255;0` a 12-row wavy pure-green band, and an `OSC 8` link + `58;2;255;0;255`
     with no `SGR 4` a 2-row pure-magenta band, while `58;5;196` alone drew nothing (the control frame
     contains only the theme's red cursor). Method and measurements: spec §8.
+    A second pass (same session) closed what the first left implicit:
+    - `[done]` **scrolled-back hit-test**: 200 logical rows, each a full-width `OSC 8` link to
+      `https://example.com/probe/rowNNN` whose row number *also* selects the row's palette colour, so a
+      decoded raw screencap says which rows are visible and where their glyphs are. Dragging the
+      transcript back and tapping a decoded glyph resolved `row186` (1 page back), `row163` (3),
+      `row128` (6) and `row005` (~40, the top of the scrollback) — the row displayed at the tap point
+      every time, read out of Chrome's own UI hierarchy.
+    - `[done]` **link underline without `SGR 4`**: the same 12 full-width coloured rows printed twice,
+      once with `OSC 8` and once without. Per-scanline count of the row's own colour: the linked frame
+      shows full-width 1081-px runs (one underline per wrapped grid row), the control frame 112-429 px
+      glyph strokes and no run at all - the on-device form of the pixel test this host cannot rasterize.
+    - `[done]` **`file:` refusal with the link proven to exist**: the `file:` rows are underlined exactly
+      like the `https` rows (so the cells *are* links), yet the tap fell through to the client — the
+      soft keyboard came back after `BACK` had hidden it — and started nothing, while the identical tap
+      on the `https` rows opened Chrome with `example.com/probe/row04`.
+    - `[bounded]` the resolver's own warning is still unreadable here: the `shell` user gets no logcat
+      on this ROM, and `run-as com.termux logcat` returned an empty/unrelated buffer (a self-written
+      `log -t WS5TEST` line was invisible too). The underline plus the client-tap fall-through pin the
+      same behaviour down without it.
 
 ## 10. Doc hygiene debt (this directory)
 

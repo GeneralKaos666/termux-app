@@ -315,10 +315,18 @@ build on a physical NX769J, Android 14, via wireless adb):
 | `file:` link is refused | identical fill and **identical tap point** with `file:///data/data/com.termux/files/home/ws5-must-not-open.txt` | focus stayed on `com.termux`, no activity started |
 | `SGR 58` colour reaches the underline | one `clear`ed line per frame, `adb exec-out screencap` scanned pixel-by-pixel (each colour can only be the underline) | `SGR 4` + `58;5;196` → 2-row, 874-px-wide pure-red band; `SGR 4:3` + `58;2;0;255;0` → 12-row wavy pure-green band; `OSC 8` link + `58;2;255;0;255` with no `SGR 4` → 2-row pure-magenta band |
 | `SGR 58` alone draws nothing | `58;5;196` with no underline attribute and no link, against a control frame | no coloured band, exactly like the control |
+| the hit-test resolves the row actually displayed when scrolled back | 200 logical rows, each a full-width link to `https://example.com/probe/rowNNN` whose row number also selects the row's palette colour, so a screencap decoded per row says which rows are visible and where their glyphs are; drag the transcript back, decode, then tap a decoded glyph | rows 186, 163, 128 and 5 (the last at the top of the scrollback, ~40 pages back) were displayed at the tap point and each resolved to **its own** URI (`row186`, `row163`, `row128`, `row005`), read back from Chrome's UI |
+| a link cell is underlined without `SGR 4` or `SGR 58` | the same 12 full-width coloured rows printed twice — once with `OSC 8`, once without it — and counted per scanline in the row's own colour | linked frame: a full-width **1081-px run** of the row colour on the rows that were fully on screen (the underline runs under every linked cell of a wrapped grid row); control frame: 112–429 px glyph strokes and no run at all |
+| a `file:` cell is a real link that is dropped | the same 12 rows with `file:` URIs: the underline proves the cell carries a link id; tap a glyph with the soft keyboard hidden | underline present (same 1081-px runs); the tap *showed the soft keyboard* — i.e. the gesture fell through to the client instead of being consumed — and no activity started, whereas the identical tap on the `https` rows opened Chrome (`example.com/probe/row04`) |
 
-The `file:` refusal is evidenced by the absence of a start, not by the resolver's warning: `logcat`
-returns nothing to the `shell` user on this ROM. The only coloured pixels in a control frame are the
-theme's red block cursor, which appears identically in the test frames.
+The `file:` refusal is evidenced behaviourally, not by the resolver's warning: `logcat` returns
+nothing to the `shell` user on this ROM, and reading the buffer as the app's own UID
+(`run-as com.termux logcat`) showed only unrelated lines and not even a self-written marker
+(`log -t WS5TEST`), so the warning is unreadable here. The underline (link id exists) plus the
+client-tap fall-through (keyboard shown, no start) pin the same behaviour down without it. The only
+coloured pixels in a control frame are the theme's red block cursor, which appears identically in
+the test frames; the black of the terminal background collides with palette index 16, so row 0 is
+the one row the per-row screencap decode cannot identify.
 
 ## 9. Compatibility & non-goals
 
