@@ -70,7 +70,9 @@ final class RowInvalidation {
      * @param lastCounter    The change counter observed at the previous draw, or {@code -1} when
      *                       nothing has been drawn yet (session/emulator rebind).
      * @param currentCounter The change counter of the buffer that is about to be drawn.
-     * @param topRowChanged  Whether the viewport scrolled since the previous draw; the caller tracks it.
+     * @param forceFull      Whether the caller has already decided the whole view must be repainted (the
+     *                       viewport scrolled, or a view overlay such as the cursor cell or reverse video
+     *                       changed).
      * @param dirtyByIndex   Per-visible-row dirty flags, viewport-relative (index {@code 0} = top
      *                       visible row). {@code null} is treated as "nothing dirty".
      * @param rows           Number of visible rows; flags at index {@code >= rows} are ignored.
@@ -78,11 +80,12 @@ final class RowInvalidation {
      * @param fontLineSpacing The height of a single text row in pixels; {@code <= 0} yields {@link Result#FULL}.
      * @return {@link Decision#NONE}, {@link Decision#FULL}, or a {@link Result#RANGE} decision.
      */
-    static Decision decide(long lastCounter, long currentCounter, boolean topRowChanged,
+    static Decision decide(long lastCounter, long currentCounter, boolean forceFull,
                            boolean[] dirtyByIndex, int rows, int viewHeight, int fontLineSpacing) {
         // A counter change (including a decrease, which is defensive: a jump backwards is still a
-        // jump) means our picture of the screen is stale; a scroll moves every visible row.
-        if (topRowChanged || currentCounter != lastCounter) return Decision.FULL;
+        // jump) means our picture of the screen is stale; a scroll or an overlay change moves every
+        // visible row.
+        if (forceFull || currentCounter != lastCounter) return Decision.FULL;
         // Without a row height no band can be computed, whatever the dirty flags say.
         if (fontLineSpacing <= 0) return Decision.FULL;
 

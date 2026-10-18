@@ -7,6 +7,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Handler;
@@ -38,6 +39,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
 import com.termux.terminal.KeyHandler;
+import com.termux.terminal.TerminalBuffer;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
 import com.termux.view.textselection.TextSelectionCursorController;
@@ -85,6 +87,18 @@ public final class TerminalView extends View {
 
     /** If non-zero, this is the last unicode code point received if that was a combining character. */
     int mCombiningAccent;
+
+    /**
+     * The buffer's change counter as of the last completed draw, or {@code -1} when nothing has been
+     * drawn yet (session/emulator rebind). A mismatch with the current counter forces a full repaint.
+     */
+    private long mLastSeenChangeCounter = -1L;
+    /** The cursor cell painted by the last draw; the renderer paints the cursor into the row band. */
+    private int mLastCursorRow = -1, mLastCursorCol = -1;
+    /** Whether the last draw painted in reverse video; {@code CSI ? 5 h/l} changes no cell. */
+    private boolean mLastReverseVideo;
+    /** Reused to avoid allocating a {@link Rect} on every {@link #onDraw(Canvas)}. */
+    private final Rect mClipBounds = new Rect();
 
     /**
      * The current AutoFill type returned for {@link View#getAutofillType()} by {@link #getAutofillType()}.
@@ -293,6 +307,7 @@ public final class TerminalView extends View {
         mTermSession = session;
         mEmulator = null;
         mCombiningAccent = 0;
+        resetDirtyRepaintState();
 
         // The emulator's cached value will be read in `updateSize()` when emulator is set.
         setTopRow(0, false);
@@ -459,6 +474,9 @@ public final class TerminalView extends View {
     public void onScreenUpdated(boolean skipScrolling) {
         if (mEmulator == null) return;
 
+        // Captured before the clamp below, so a clamp-induced viewport move counts as a scroll.
+        final int topRowBefore = mTopRow;
+
         int rowsInHistory = mEmulator.getScreen().getActiveTranscriptRows();
         if (mTopRow < -rowsInHistory) setTopRow(-rowsInHistory);
 
@@ -495,7 +513,26 @@ public final class TerminalView extends View {
 
         mEmulator.clearScrollCounter();
 
-        invalidate();
+        TerminalBuffer screen = mEmulator.getScreen();
+        boolean topRowChanged = (mTopRow != topRowBefore);
+        // The renderer paints the cursor into the row band, and reverse video (CSI ? 5 h/l) changes no
+        // cell, so neither would dirty a row or tick the change counter: compare against the last draw.
+        boolean overlayChanged = mEmulator.getCursorRow() != mLastCursorRow
+            || mEmulator.getCursorCol() != mLastCursorCol
+            || mEmulator.isReverseVideo() != mLastReverseVideo;
+
+        RowInvalidation.Decision decision = RowInvalidation.decide(mLastSeenChangeCounter,
+            screen.getChangeCounter(), topRowChanged || overlayChanged,
+            RowInvalidation.dirtyByIndex(screen, mTopRow, mEmulator.mRows),
+            mEmulator.mRows, getHeight(), mRenderer.mFontLineSpacing);
+
+        if (decision.kind == RowInvalidation.Result.FULL) {
+            invalidate();
+        } else if (decision.kind == RowInvalidation.Result.RANGE) {
+            invalidate(0, decision.topPx, getWidth(), decision.bottomPx);
+        }
+        // Result.NONE: nothing visible changed, so deliberately do not invalidate.
+
         if (mAccessibilityEnabled) setContentDescription(getText());
     }
 
@@ -994,6 +1031,7 @@ public final class TerminalView extends View {
         if (mEmulator == null || (newColumns != mEmulator.mColumns || newRows != mEmulator.mRows)) {
             mTermSession.updateSize(newColumns, newRows, (int) mRenderer.getFontWidth(), mRenderer.getFontLineSpacing());
             mEmulator = mTermSession.getEmulator();
+            resetDirtyRepaintState();
             mClient.onEmulatorSet();
 
             // Update mTerminalCursorBlinkerRunnable inner class mEmulator on session change
@@ -1029,11 +1067,54 @@ public final class TerminalView extends View {
                 mTextSelectionCursorController.getSelectors(sel);
             }
 
-            mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3]);
+            // Restrict the render to the rows the canvas clip covers (the dirty band), with one row of
+            // slack on either side. An empty/unbounded clip falls back to the whole visible band.
+            canvas.getClipBounds(mClipBounds);
+            int rowHeight = mRenderer.mFontLineSpacing;
+            int visibleEnd = mTopRow + mEmulator.mRows;
+            int firstScreenRow = mTopRow, lastScreenRowExclusive = visibleEnd;
+            if (!mClipBounds.isEmpty() && rowHeight > 0) {
+                firstScreenRow = Math.max(mTopRow, mTopRow + Math.floorDiv(mClipBounds.top, rowHeight) - 1);
+                lastScreenRowExclusive = Math.min(visibleEnd,
+                    mTopRow + ceilDivInt(mClipBounds.bottom, rowHeight) + 1);
+            }
+            if (lastScreenRowExclusive <= firstScreenRow) {
+                // Never hand the renderer an empty band: fall back to the whole visible range.
+                firstScreenRow = mTopRow;
+                lastScreenRowExclusive = visibleEnd;
+            }
+
+            mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3],
+                firstScreenRow, lastScreenRowExclusive);
+
+            // Consume the dirty state only once the frame has been drawn: invalidates coalesce, so this
+            // cannot be done when the update arrives.
+            TerminalBuffer screen = mEmulator.getScreen();
+            mLastSeenChangeCounter = screen.getChangeCounter();
+            screen.clearDirtyState();
+            mLastCursorRow = mEmulator.getCursorRow();
+            mLastCursorCol = mEmulator.getCursorCol();
+            mLastReverseVideo = mEmulator.isReverseVideo();
 
             // render the text selection handles
             renderTextSelection();
         }
+    }
+
+    /** Integer ceiling division for non-negative values; Java 8 has no {@code Math.ceilDiv}. */
+    private static int ceilDivInt(int a, int b) {
+        return (a + b - 1) / b;
+    }
+
+    /**
+     * Forces the next draw to repaint in full. Called when the session/emulator is (re)bound, where the
+     * previous change counter and the previously painted cursor belong to a different buffer.
+     */
+    private void resetDirtyRepaintState() {
+        mLastSeenChangeCounter = -1L;
+        mLastCursorRow = -1;
+        mLastCursorCol = -1;
+        mLastReverseVideo = false;
     }
 
     public TerminalSession getCurrentSession() {
