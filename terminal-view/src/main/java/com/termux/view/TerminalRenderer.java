@@ -219,7 +219,9 @@ public final class TerminalRenderer {
         // the underline bit without a style (WS1 keeps those as UNDERLINE_STYLE_NONE). The decorated styles
         // are stroked by drawUnderline() below, after the glyphs.
         final boolean paintUnderline = underline && (underlineStyle == TextStyle.UNDERLINE_STYLE_NONE
-            || underlineStyle == TextStyle.UNDERLINE_STYLE_SINGLE);
+            || underlineStyle == TextStyle.UNDERLINE_STYLE_SINGLE
+            || underlineStyle < TextStyle.UNDERLINE_STYLE_NONE
+            || underlineStyle > TextStyle.UNDERLINE_STYLE_DASHED);
         final boolean customUnderline = underline && !paintUnderline;
         final boolean italic = (effect & TextStyle.CHARACTER_ATTRIBUTE_ITALIC) != 0;
         final boolean strikeThrough = (effect & TextStyle.CHARACTER_ATTRIBUTE_STRIKETHROUGH) != 0;
@@ -316,8 +318,12 @@ public final class TerminalRenderer {
     private void drawUnderline(Canvas canvas, float left, float right, float y, int color, int underlineStyle) {
         float strokeWidth = Math.max(1f, mFontLineSpacing / 14f);
         float baseline = y - mFontLineSpacingAndAscent;
-        // mFontAscent is negative, so this sits a third of an ascent below the baseline.
-        float underlineY = baseline - mFontAscent / 3f;
+        // Roughly where the font draws its own (single) underline: a tenth of an ascent below the baseline.
+        // Clamped to the cell, because the next row is drawn later and would paint its background over any
+        // decoration that spilled past the cell's bottom edge.
+        float decorationHeight = underlineStyle == TextStyle.UNDERLINE_STYLE_DOUBLE
+            ? strokeWidth * 2f : strokeWidth * 1.5f;
+        float underlineY = Math.min(baseline + mFontAscent * -0.12f, y - decorationHeight - 0.5f);
 
         mTextPaint.setUnderlineText(false);
         mTextPaint.setFakeBoldText(false);
@@ -340,7 +346,8 @@ public final class TerminalRenderer {
                 boolean up = true;
                 for (float x = left; x < right; x += step) {
                     float endX = Math.min(x + step, right);
-                    mUnderlinePath.quadTo(x + step / 2f, underlineY + (up ? -step : step), endX, underlineY);
+                    mUnderlinePath.quadTo(Math.min(x + step / 2f, right),
+                        underlineY + (up ? -step : step), endX, underlineY);
                     up = !up;
                 }
                 canvas.drawPath(mUnderlinePath, mTextPaint);
