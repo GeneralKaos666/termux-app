@@ -178,7 +178,7 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
       `log -t WS5TEST` line was invisible too). The underline plus the client-tap fall-through pin the
       same behaviour down without it.
 
-- **WS3 — run shaping + ligatures: spec written, awaiting review (2026-10-18).** Spec at
+- **WS3 — run shaping + ligatures: spec approved (2026-10-18), plan pending.** Spec at
   `specs/2026-10-18-ws3-shaping-ligatures-design.md`; decisions taken: grid-snap verification with per-cell
   fallback (Approach 1 over a cluster-aware restructure), deterministic ligature toggle **default ON**
   (`+liga,+calt` on / `-liga,-calt` off) because the device was disconnected and the platform default could
