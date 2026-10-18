@@ -40,7 +40,7 @@
 - **Two version ceilings, both verified from artifact metadata, both forced by the current toolchain:**
   1. **compileSdk/AGP:** Compose UI `1.12.0+` declares `minCompileSdk=37` and requires **AGP 9.1.0+**. So BOM `2026.08.00`+ (including the `2026.09.00` tried first) fails.
   2. **minSdk:** Compose `1.10.0+` declares **minSdk 23**, and `activity-compose 1.12.0+` declares minSdk 23. The app is minSdk 21, so the newest usable line is Compose `1.9.x` with `activity-compose 1.11.0`.
-  - Net: **BOM `2025.11.01` + activity-compose `1.11.0`** is the newest combination compatible with minSdk 21 / compileSdk 36 / AGP 8.13.2. Revisit both ceilings only in milestone D (toolchain + minSdk bump).
+  - Net: **BOM `2025.11.01` + activity-compose `1.11.0`** is the newest combination compatible with minSdk 21 / compileSdk 36 / AGP 8.13.2. Revisit both ceilings only as part of a toolchain + minSdk bump.
 
 **Verification:** `./gradlew :app:assembleDebug` green (with the host fix above). `git diff --stat` touches only the two Gradle files and `Probe.kt`.
 
@@ -130,7 +130,6 @@
 
 **Steps:**
 - [x] **Step 1** — Introduce `ShellHost` as the single Compose entry; `AndroidView` hosts `TerminalView`, with `Modifier.fillMaxSize()`.
-- [ ] **Step 2 — deliberately deferred to A3/A4, not "not yet started".** Route activity lifecycle and window-insets through the Compose host; apply IME inset to the terminal content only. Deferred deliberately so only one variable changes at a time (see Implementation notes). Still open as of 2026-10-16; tracked in `docs/superpowers/ideas/2026-10-16-outstanding-work.md` §3.
 - [x] **Step 3** — Keep the `ViewPager` extra-keys bar temporarily (still Java) so only one variable changes at a time.
 - [x] **Step 4** — Run the device checklist; record results in the task report.
 

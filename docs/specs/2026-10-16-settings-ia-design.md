@@ -211,10 +211,5 @@ Verification gate: `./gradlew :app:testDebugUnitTest` then `./gradlew :app:assem
 
 ## 7. Out of scope / follow-ups
 
-- **Root-screen tidy** — grouping the four plugin entries under a `Plugins` category and About/Donate under an
-  `About` category (with `RootPreferencesFragment` hiding the empty `Plugins` category). Deferred.
-- Surfacing `termux.properties`-only options (night mode, etc.) in the UI.
 - Any plugin-app section change.
 - A Compose/Material 3 Settings rewrite.
-- Setup wizard / first-run flow beyond the shipped walkthrough.
-- `README.md` *What's coming* bullet ("Settings rework and a setup wizard") — update at completion only.

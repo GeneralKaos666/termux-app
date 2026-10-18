@@ -396,7 +396,7 @@ already sanitized by Task 5, so no re-validation here.)
    - §6.4: add the `reset()` initialization and DECSC/DECRC save/restore bullets.
    - Header `Status:` → `Approved — implemented`; §8: note whether the Robolectric renderer test
      landed or the fallback (device sanity) applies.
-3. Ledger `docs/ideas/2026-10-16-outstanding-work.md` §9: WS5 → done, with a one-line note of the
+3. Ledger `docs/ideas/2026-10-16-outstanding-work.md` §7: WS5 → done, with a one-line note of the
    four deviations and any leftover (e.g. the white-ARGB sentinel edge).
 4. Update `.planning/` progress notes.
 

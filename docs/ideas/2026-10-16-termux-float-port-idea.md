@@ -10,8 +10,7 @@ written, no plan. Resume at §7.
 `:app` into a floating-window host). Per the brainstorming skill this needs: approach selection →
 sectioned design → written spec → written plan. Only the probe and framing below are done.
 
-**Related:** `ideas/2026-10-16-outstanding-work.md` (§8 root-screen tidy already plans to group the
-four plugin sections under `Plugins`; the `termux_float` entry is one of them).
+**Related:** `ideas/2026-10-16-outstanding-work.md`.
 
 ---
 
@@ -106,8 +105,8 @@ buttons), ~9 drawables, `values/{dimens,strings,styles}.xml`, 4 notification PNG
 - **B — fold the float into `:app` as a first-class floating terminal** over the *existing*
   `TermuxService` sessions. No second APK, no `sharedUserId`, no package-name constraints.
   Better long-term UX fit with this fork's Compose shell host, but real design work: overlay chrome
-  alongside `ui/ShellHost.kt`, which session the window shows, IME/insets (see ledger §3 — A3 Step 2
-  is still deferred), and it drifts away from upstream so float fixes stop cherry-picking.
+  alongside `ui/ShellHost.kt`, which session the window shows, IME/insets, and it drifts away from
+  upstream so float fixes stop cherry-picking.
 
 **Recommendation recorded at the time:** A if the goal is "have Termux:Float again without
 maintaining a separate repo"; B only if floating terminals should become part of *this fork's* UX.

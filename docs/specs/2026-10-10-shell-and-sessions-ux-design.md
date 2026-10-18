@@ -138,8 +138,7 @@ Each milestone is its own approval-gated cycle: in-chat design → explicit yes 
 |---|---|---|---|
 | A | **Shell & sessions UX** (this spec) | — | Build enablement + sessions surface + quick actions |
 | B | Sensible defaults | A | Default keys/font/prompt, package-install prompt |
-| C | Settings & first-run onboarding | A | Rework the preferences IA; setup wizard |
-| D | Android integration | later | targetSdk bump, edge-to-edge, notification permission, predictive back — explicitly deferred |
+| C | Settings & first-run onboarding | A | Rework the preferences IA |
 
 ## 8. Risks & mitigations
 

@@ -65,9 +65,6 @@ The fork keeps moving. These are the pieces in progress or next up.
 
 - **Appearance verification**: the three newer colour presets (Solarized Light, Gruvbox Dark, One
   Dark) still need a look on real devices. There is a short checklist in `docs/ideas/ideas.md`.
-- **Settings follow-ups.** The Termux preferences now group as Display, Keyboard and Advanced. Still
-  open: folding the four plugin sections under a single *Plugins* heading, and About/Donate under
-  *About*.
 - **Terminal engine upgrade** (exploratory): kitty graphics, OSC 8 hyperlinks, richer underline
   styles, ligatures and grapheme shaping, and a renderer that redraws only what changed. The
   approach is still open; the first step is a new cell model.
