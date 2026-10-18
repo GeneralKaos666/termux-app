@@ -74,6 +74,31 @@ public final class TerminalBuffer {
     /** The time since last garbage collection for all the {@link TerminalBitmap} that are loaded in the terminal. */
     private long mTerminalBitmapsLastGC;
 
+    static class Placement {
+        final int bitmapNum;
+        final int imageId;
+        final int col;
+        final int row;
+        final int originOffsetX;
+        final int originOffsetY;
+        final int coveredCols;
+        final int coveredRows;
+
+        Placement(int bitmapNum, int imageId, int col, int row, int originOffsetX, int originOffsetY, int coveredCols, int coveredRows) {
+            this.bitmapNum = bitmapNum;
+            this.imageId = imageId;
+            this.col = col;
+            this.row = row;
+            this.originOffsetX = originOffsetX;
+            this.originOffsetY = originOffsetY;
+            this.coveredCols = coveredCols;
+            this.coveredRows = coveredRows;
+        }
+    }
+
+
+    private final java.util.ArrayList<Placement> mPlacements = new java.util.ArrayList<Placement>(8);
+
     /**
      * The bitmap number start for {@link #mTerminalBitmaps} keys.
      *
