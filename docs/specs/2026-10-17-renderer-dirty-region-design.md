@@ -74,8 +74,12 @@ The buffer owns truth; the view is the single consumer. Three moving parts:
      cursor move that dirties no row would leave the old block cursor painted; and `CSI ? 5 h/l` (DECSCNM),
      `CSI ? 25 h/l` (DECTCEM) and `DECSCUSR` flip state without marking rows dirty or ticking the counter. The view
      tracks `mLastCursorRow`/`mLastCursorCol`/`mLastCursorVisible`/`mLastCursorStyle`/`mLastReverseVideo`,
-     captured in `onDraw()` next to the counter capture. (Colour/palette changes need no signal here: the app's
-     `onColorsChanged` re-sets the decor background, which repaints the view in full.)
+     captured in `onDraw()` next to the counter capture. **Known limitation:** an OSC 4/10/11/12 palette change
+     with no other output is *not* detected here. The app's `onColorsChanged` normally repaints the view in full
+     (it re-sets the decor background), but `updateBackgroundColor()` early-returns in wallpaper/custom-image
+     mode, so a pure palette OSC can stay stale until the next dirty repaint. Not fixed in WS2 because a robust
+     signal (a palette version) would either add a per-update palette comparison or touch `:app`; recorded in
+     `docs/ideas/2026-10-16-outstanding-work.md`.
    - no dirty visible row and no cursor/reverse-video change → **no invalidation** (output that changed nothing
      drawn, e.g. an OSC 8 link registration or a mode bit no one renders).
 3. **Post-draw consumption in `onDraw()`:** after `render(...)` returns:

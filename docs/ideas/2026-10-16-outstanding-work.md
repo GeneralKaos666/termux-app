@@ -112,6 +112,16 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
   of `SGR 4:n` (underline styles) and `OSC 8` (hyperlinks) so the new storage ships live rather than unused;
   workstream 5 keeps xterm conformance, link click handling and the remaining OSC 8 work. Workstreams 2–6 remain
   unspecced.
+  `[updated 2026-10-17]` Workstream 2 (renderer dirty-region drawing) is implemented on `master`
+  (`feature`-style commits `e8e165a8`..`67ec4de3` once the branch gate passes): renderer row-range entry point,
+  tested `RowInvalidation` decision logic + viewport mapping, and the view's counter/dirty/overlay protocol.
+  Its spec (`specs/2026-10-17-renderer-dirty-region-design.md`) records one limitation found during review:
+  - `[bounded]` **palette changes with no other output** — OSC 4/10/11/12 mutate the palette without marking a
+    row dirty or ticking the change counter, so the view's overlay comparison (cursor cell/visibility/shape and
+    reverse video) cannot see them. Normally `onColorsChanged` → `updateBackgroundColor()` repaints the view in
+    full, but that early-returns in wallpaper/custom-image mode. Fixes: either compare a palette version per
+    update, or make the wallpaper-mode path still invalidate. Rare in practice (a palette OSC is usually
+    accompanied by text output, which dirties rows); needs a spec cycle if the robust signal is chosen.
 
 ## 10. Doc hygiene debt (this directory)
 
