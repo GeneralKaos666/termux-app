@@ -2,7 +2,9 @@ package com.termux.view;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -37,6 +39,12 @@ public final class TerminalRenderer {
 
     private final float[] asciiMeasures = new float[127];
 
+    /** Reused by {@link #drawUnderline} so a decorated underline does not allocate a path per run. */
+    private final Path mUnderlinePath = new Path();
+    /** Dash patterns for the dotted/dashed underline styles; the intervals derive from the font size. */
+    private final DashPathEffect mDottedUnderlineEffect;
+    private final DashPathEffect mDashedUnderlineEffect;
+
     public TerminalRenderer(int textSize, Typeface typeface) {
         mTextSize = textSize;
         mTypeface = typeface;
@@ -49,6 +57,11 @@ public final class TerminalRenderer {
         mFontAscent = (int) Math.ceil(mTextPaint.ascent());
         mFontLineSpacingAndAscent = mFontLineSpacing + mFontAscent;
         mFontWidth = mTextPaint.measureText("X");
+
+        // Dash intervals are fixed once the font size is known, so the effects can be shared by every run.
+        float underlineStroke = Math.max(1f, mFontLineSpacing / 14f);
+        mDottedUnderlineEffect = new DashPathEffect(new float[]{underlineStroke, underlineStroke * 1.5f}, 0);
+        mDashedUnderlineEffect = new DashPathEffect(new float[]{underlineStroke * 3f, underlineStroke * 2f}, 0);
 
         StringBuilder sb = new StringBuilder(" ");
         for (int i = 0; i < asciiMeasures.length; i++) {
@@ -201,6 +214,13 @@ public final class TerminalRenderer {
         int backColor = TextStyle.decodeBackColor(textStyle);
         final boolean bold = (effect & (TextStyle.CHARACTER_ATTRIBUTE_BOLD | TextStyle.CHARACTER_ATTRIBUTE_BLINK)) != 0;
         final boolean underline = (effect & TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE) != 0;
+        final int underlineStyle = TextStyle.decodeUnderlineStyle(textStyle);
+        // The built-in paint underline is a plain solid line: use it for "single", and for callers that set
+        // the underline bit without a style (WS1 keeps those as UNDERLINE_STYLE_NONE). The decorated styles
+        // are stroked by drawUnderline() below, after the glyphs.
+        final boolean paintUnderline = underline && (underlineStyle == TextStyle.UNDERLINE_STYLE_NONE
+            || underlineStyle == TextStyle.UNDERLINE_STYLE_SINGLE);
+        final boolean customUnderline = underline && !paintUnderline;
         final boolean italic = (effect & TextStyle.CHARACTER_ATTRIBUTE_ITALIC) != 0;
         final boolean strikeThrough = (effect & TextStyle.CHARACTER_ATTRIBUTE_STRIKETHROUGH) != 0;
         final boolean dim = (effect & TextStyle.CHARACTER_ATTRIBUTE_DIM) != 0;
@@ -235,6 +255,8 @@ public final class TerminalRenderer {
             right *= mes / runWidthColumns;
             savedMatrix = true;
         }
+        // Kept before the cursor block below can shorten "right" (bar cursor): an underline spans the run.
+        final float runRight = right;
 
         if (backColor != palette[TextStyle.COLOR_INDEX_BACKGROUND]) {
             // Only draw non-default background.
@@ -264,7 +286,7 @@ public final class TerminalRenderer {
             }
 
             mTextPaint.setFakeBoldText(bold);
-            mTextPaint.setUnderlineText(underline);
+            mTextPaint.setUnderlineText(paintUnderline);
             mTextPaint.setTextSkewX(italic ? -0.35f : 0.f);
             mTextPaint.setStrikeThruText(strikeThrough);
             mTextPaint.setColor(foreColor);
@@ -275,9 +297,70 @@ public final class TerminalRenderer {
             } else {
                 canvas.drawText(text, startCharIndex, runWidthChars, left, y - mFontLineSpacingAndAscent, mTextPaint);
             }
+
+            if (customUnderline) {
+                drawUnderline(canvas, left, runRight, y, foreColor, underlineStyle);
+            }
         }
 
         if (savedMatrix) canvas.restore();
+    }
+
+    /**
+     * Strokes a decorated underline (double, curly, dotted or dashed) for one text run. The canvas already
+     * carries the run's horizontal scale, so {@code left}/{@code right} are run coordinates.
+     *
+     * <p>Leaves {@link #mTextPaint} in the state the rest of the renderer assumes: the next run paints
+     * backgrounds and cursor cells as filled rects with the same paint, so the fill style must come back.
+     */
+    private void drawUnderline(Canvas canvas, float left, float right, float y, int color, int underlineStyle) {
+        float strokeWidth = Math.max(1f, mFontLineSpacing / 14f);
+        float baseline = y - mFontLineSpacingAndAscent;
+        // mFontAscent is negative, so this sits a third of an ascent below the baseline.
+        float underlineY = baseline - mFontAscent / 3f;
+
+        mTextPaint.setUnderlineText(false);
+        mTextPaint.setFakeBoldText(false);
+        mTextPaint.setTextSkewX(0.f);
+        mTextPaint.setStrikeThruText(false);
+        mTextPaint.setColor(color);
+        mTextPaint.setStyle(Paint.Style.STROKE);
+        mTextPaint.setStrokeWidth(strokeWidth);
+        mTextPaint.setPathEffect(null);
+
+        switch (underlineStyle) {
+            case TextStyle.UNDERLINE_STYLE_DOUBLE:
+                canvas.drawLine(left, underlineY, right, underlineY, mTextPaint);
+                canvas.drawLine(left, underlineY + strokeWidth * 2f, right, underlineY + strokeWidth * 2f, mTextPaint);
+                break;
+            case TextStyle.UNDERLINE_STYLE_CURLY: {
+                mUnderlinePath.reset();
+                mUnderlinePath.moveTo(left, underlineY);
+                float step = strokeWidth * 3f;
+                boolean up = true;
+                for (float x = left; x < right; x += step) {
+                    float endX = Math.min(x + step, right);
+                    mUnderlinePath.quadTo(x + step / 2f, underlineY + (up ? -step : step), endX, underlineY);
+                    up = !up;
+                }
+                canvas.drawPath(mUnderlinePath, mTextPaint);
+                break;
+            }
+            case TextStyle.UNDERLINE_STYLE_DOTTED:
+                mTextPaint.setPathEffect(mDottedUnderlineEffect);
+                canvas.drawLine(left, underlineY, right, underlineY, mTextPaint);
+                break;
+            case TextStyle.UNDERLINE_STYLE_DASHED:
+                mTextPaint.setPathEffect(mDashedUnderlineEffect);
+                canvas.drawLine(left, underlineY, right, underlineY, mTextPaint);
+                break;
+            default:
+                break;
+        }
+
+        mTextPaint.setPathEffect(null);
+        mTextPaint.setStyle(Paint.Style.FILL);
+        mTextPaint.setStrokeWidth(0.f);
     }
 
     public float getFontWidth() {
