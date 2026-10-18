@@ -473,4 +473,34 @@ public class TerminalBitmap {
         }
     }
 
+    protected int mImageId;
+    protected int mOriginOffsetX;
+    protected int mOriginOffsetY;
+    protected int mColumn;
+    protected int mRow;
+
+    public int getImageId() {
+        return mImageId;
+    }
+
+    public void setImageId(int imageId) {
+        mImageId = imageId;
+    }
+
+    public int getOriginOffsetX() {
+        return mOriginOffsetX;
+    }
+
+    public int getOriginOffsetY() {
+        return mOriginOffsetY;
+    }
+
+    public int getColumn() {
+        return mColumn;
+    }
+
+    public int getRow() {
+        return mRow;
+    }
+
 }
