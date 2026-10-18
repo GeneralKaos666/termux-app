@@ -77,6 +77,7 @@ fun ExtraKeysBar(
     initialText: String?,
     animationsEnabled: Boolean,
     callbacks: ShellHostCallbacks,
+    backgroundAlpha: Float = 1f,
     modifier: Modifier = Modifier,
 ) {
     // Hoisted above the animated container so restored text is applied once, and not again every
@@ -107,7 +108,9 @@ fun ExtraKeysBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface),
+            // Only the bar's own background fades (quick actions, key grid and text-input row all
+            // live under it); the icon and key tints stay opaque for readability.
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha)),
     ) {
         AnimatedVisibility(
             visible = state.textInputVisible,

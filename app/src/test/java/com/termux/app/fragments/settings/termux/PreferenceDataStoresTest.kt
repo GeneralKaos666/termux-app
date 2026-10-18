@@ -47,6 +47,8 @@ class PreferenceDataStoresTest {
         assertEquals("wallpaper", store.getString("terminal_background", "solid"))
         store.putInt("terminal_background_dim", 42)
         assertEquals(42, store.getInt("terminal_background_dim", 60))
+        store.putInt("interface_transparency", 55)
+        assertEquals(55, store.getInt("interface_transparency", 30))
         assertEquals("fallback", store.getString("extra_keys_preset", "fallback"))
     }
 

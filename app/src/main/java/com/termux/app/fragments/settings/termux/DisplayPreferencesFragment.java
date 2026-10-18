@@ -222,6 +222,8 @@ class DisplayPreferencesDataStore extends PreferenceDataStore {
 
         if ("terminal_background_dim".equals(key))
             mPreferences.setTerminalBackgroundDim(value);
+        else if ("interface_transparency".equals(key))
+            mPreferences.setInterfaceTransparency(value);
     }
 
     @Override
@@ -230,6 +232,8 @@ class DisplayPreferencesDataStore extends PreferenceDataStore {
 
         if ("terminal_background_dim".equals(key))
             return mPreferences.getTerminalBackgroundDim();
+        if ("interface_transparency".equals(key))
+            return mPreferences.getInterfaceTransparency();
         return defValue;
     }
 

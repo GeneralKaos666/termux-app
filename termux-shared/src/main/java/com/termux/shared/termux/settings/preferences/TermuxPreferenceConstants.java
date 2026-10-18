@@ -126,6 +126,13 @@ public final class TermuxPreferenceConstants {
         public static final String KEY_TERMINAL_BACKGROUND_IMAGE = "terminal_background_image";
 
         /**
+         * Defines the transparency percentage applied to the shell chrome bars (sessions tab bar
+         * and extra-keys bar with its quick actions). 0 is fully opaque, 100 fully transparent.
+         */
+        public static final String KEY_INTERFACE_TRANSPARENCY = "interface_transparency";
+        public static final int DEFAULT_INTERFACE_TRANSPARENCY = 30;
+
+        /**
          * Defines the key for the extra-keys preset selected in Settings. Only applies while the
          * user has no custom `extra-keys` property in the properties file.
          */

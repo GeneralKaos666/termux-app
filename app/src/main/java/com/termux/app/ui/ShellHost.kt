@@ -101,6 +101,7 @@ fun installTerminalShellHost(
     extraKeysState: ExtraKeysState,
     snackbarState: SnackbarState,
     terminalBackgroundState: TerminalBackgroundState,
+    shellChromeState: ShellChromeState,
     firstRunState: FirstRunState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
@@ -112,6 +113,7 @@ fun installTerminalShellHost(
             extraKeysState,
             snackbarState,
             terminalBackgroundState,
+            shellChromeState,
             firstRunState,
             savedTextInput,
             callbacks,
@@ -126,6 +128,7 @@ private fun TerminalShellHost(
     extraKeysState: ExtraKeysState,
     snackbarState: SnackbarState,
     terminalBackgroundState: TerminalBackgroundState,
+    shellChromeState: ShellChromeState,
     firstRunState: FirstRunState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
@@ -143,7 +146,36 @@ private fun TerminalShellHost(
     // them rather than the system light/dark setting. Material You (dark variant) on API 31+,
     // Termux palette fallback elsewhere; see the theme module.
     TermuxShellTheme {
-        Box(modifier = Modifier.fillMaxSize()) {
+        // The terminal background picture (plus dim) covers the whole shell, not just the terminal
+        // area: the sessions tab bar above and the extra-keys bar below draw over it with a
+        // configurable alpha, so a transparent bar reveals the same picture the terminal shows.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    val picture = terminalBackgroundState.bitmap
+                    val dstW = size.width.toInt()
+                    val dstH = size.height.toInt()
+                    if (picture != null && dstW > 0 && dstH > 0) {
+                        val srcW = picture.width
+                        val srcH = picture.height
+                        // Centre-crop the picture to fill the shell area.
+                        val scale = maxOf(dstW.toFloat() / srcW, dstH.toFloat() / srcH)
+                        val cropW = (dstW / scale).toInt().coerceAtMost(srcW)
+                        val cropH = (dstH / scale).toInt().coerceAtMost(srcH)
+                        drawImage(
+                            image = picture.asImageBitmap(),
+                            srcOffset = IntOffset((srcW - cropW) / 2, (srcH - cropH) / 2),
+                            srcSize = IntSize(cropW, cropH),
+                            dstOffset = IntOffset.Zero,
+                            dstSize = IntSize(dstW, dstH),
+                        )
+
+                        val dim = terminalBackgroundState.dimPercent
+                        if (dim > 0) drawRect(Color.Black.copy(alpha = dim / 100f))
+                    }
+                },
+        ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (!firstRunOverlayVisible) {
                     SessionsBar(
@@ -153,39 +185,17 @@ private fun TerminalShellHost(
                         onClose = callbacks::onSessionClose,
                         onMove = callbacks::onSessionMoved,
                         onNewSession = callbacks::onNewSession,
+                        backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
                     )
                 }
 
                 // The terminal view is painted transparent (its default background is the window
-                // decor colour behind the Compose host), so the configured background picture and
-                // its dim overlay are drawn behind it here.
+                // decor colour behind the Compose host), so the background picture drawn behind
+                // the whole shell shows through it.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
-                        .drawBehind {
-                            val picture = terminalBackgroundState.bitmap
-                            val dstW = size.width.toInt()
-                            val dstH = size.height.toInt()
-                            if (picture != null && dstW > 0 && dstH > 0) {
-                                val srcW = picture.width
-                                val srcH = picture.height
-                                // Centre-crop the picture to fill the terminal area.
-                                val scale = maxOf(dstW.toFloat() / srcW, dstH.toFloat() / srcH)
-                                val cropW = (dstW / scale).toInt().coerceAtMost(srcW)
-                                val cropH = (dstH / scale).toInt().coerceAtMost(srcH)
-                                drawImage(
-                                    image = picture.asImageBitmap(),
-                                    srcOffset = IntOffset((srcW - cropW) / 2, (srcH - cropH) / 2),
-                                    srcSize = IntSize(cropW, cropH),
-                                    dstOffset = IntOffset.Zero,
-                                    dstSize = IntSize(dstW, dstH),
-                                )
-
-                                val dim = terminalBackgroundState.dimPercent
-                                if (dim > 0) drawRect(Color.Black.copy(alpha = dim / 100f))
-                            }
-                        },
+                        .weight(1f),
                 ) {
                     AndroidView(factory = { terminalView })
                 }
@@ -200,6 +210,7 @@ private fun TerminalShellHost(
                         initialText = savedTextInput,
                         animationsEnabled = animationsEnabled,
                         callbacks = callbacks,
+                        backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
                     )
                 }
             }

@@ -73,6 +73,7 @@ fun SessionsBar(
     onClose: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onNewSession: () -> Unit,
+    backgroundAlpha: Float = 1f,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -105,7 +106,8 @@ fun SessionsBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            // Only the bar's own background fades; tab labels, chips and indicators stay opaque.
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha))
             .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

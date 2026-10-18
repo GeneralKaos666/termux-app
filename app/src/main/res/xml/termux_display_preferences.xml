@@ -50,4 +50,20 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        app:key="bars"
+        app:title="@string/termux_display_bars_header">
+
+        <SeekBarPreference
+            app:key="interface_transparency"
+            app:title="@string/termux_display_interface_transparency_title"
+            app:summary="@string/termux_display_interface_transparency_summary"
+            app:defaultValue="30"
+            app:min="0"
+            android:max="100"
+            app:showSeekBarValue="true"
+            app:adjustable="true" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

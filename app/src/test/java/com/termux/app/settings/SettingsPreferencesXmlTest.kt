@@ -60,6 +60,7 @@ class SettingsPreferencesXmlTest {
                 "terminal_background_choose_image",
                 "terminal_background_dim",
                 "terminal_margin_adjustment",
+                "interface_transparency",
             ),
             leafKeysOf(R.xml.termux_display_preferences).toSet(),
         )
@@ -153,7 +154,8 @@ class SettingsPreferencesXmlTest {
         assertEquals(
             setOf(
                 "appearance", "terminal_background", "terminal_background_choose_image",
-                "terminal_background_dim", "terminal_margin_adjustment", "soft_keyboard_enabled",
+                "terminal_background_dim", "terminal_margin_adjustment", "interface_transparency",
+                "soft_keyboard_enabled",
                 "soft_keyboard_enabled_only_if_no_hardware", "extra_keys_preset", "extra_keys_preset_note",
                 "log_level", "terminal_view_key_logging_enabled", "plugin_error_notifications_enabled",
                 "crash_report_notifications_enabled",

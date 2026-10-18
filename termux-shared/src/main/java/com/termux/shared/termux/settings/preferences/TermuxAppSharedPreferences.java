@@ -141,6 +141,15 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_DIM, value, false);
     }
 
+    /** The transparency percentage of the shell chrome bars, 0-100, default 30. */
+    public int getInterfaceTransparency() {
+        return SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_INTERFACE_TRANSPARENCY, TERMUX_APP.DEFAULT_INTERFACE_TRANSPARENCY);
+    }
+
+    public void setInterfaceTransparency(int value) {
+        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_INTERFACE_TRANSPARENCY, value, false);
+    }
+
 
 
     public boolean isSoftKeyboardEnabled() {

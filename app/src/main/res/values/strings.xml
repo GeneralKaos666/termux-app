@@ -252,6 +252,11 @@
             <!-- Layout Category -->
             <string name="termux_display_layout_header">Layout</string>
 
+            <!-- Bars Category -->
+            <string name="termux_display_bars_header">Bars</string>
+            <string name="termux_display_interface_transparency_title">Interface transparency</string>
+            <string name="termux_display_interface_transparency_summary">Fade the session tabs and extra-keys bar over the terminal background. 0% is fully opaque.</string>
+
 
         <!-- Keyboard Preferences -->
         <string name="termux_keyboard_preferences_title">Keyboard</string>

@@ -34,6 +34,7 @@ import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
 import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
 import com.termux.app.ui.SnackbarState;
+import com.termux.app.ui.ShellChromeState;
 import com.termux.app.ui.background.TerminalBackgroundState;
 import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
@@ -179,6 +180,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Compose-observable terminal background picture (null = solid background colour).
      */
     private TerminalBackgroundState mTerminalBackgroundState;
+
+    /**
+     * Compose-observable transparency of the shell chrome bars (sessions tab bar, extra-keys bar).
+     */
+    private ShellChromeState mShellChromeState;
 
     /**
      * Whether a background wallpaper decode is currently running on the background thread.
@@ -488,6 +494,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // wallpaper changed while we were in the background).
         syncTerminalBackground(false);
 
+        // Pick up an interface-transparency change made in Settings.
+        syncInterfaceTransparency();
+
         // Apply an extra-keys preset change made in Settings. A custom extra-keys property in the
         // properties file keeps winning over presets (see TermuxTerminalExtraKeys.setExtraKeys()).
         String extraKeysPreset = mPreferences.getExtraKeysPreset();
@@ -722,6 +731,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         mSnackbarState = new SnackbarState();
         mTerminalBackgroundState = new TerminalBackgroundState();
+        mShellChromeState = new ShellChromeState();
+        syncInterfaceTransparency();
         mFirstRunState = new FirstRunState();
 
         String savedTextInput = null;
@@ -730,7 +741,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
         ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState,
-            mExtraKeysState, mSnackbarState, mTerminalBackgroundState, mFirstRunState, savedTextInput, mShellHostCallbacks);
+            mExtraKeysState, mSnackbarState, mTerminalBackgroundState, mShellChromeState, mFirstRunState, savedTextInput, mShellHostCallbacks);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
@@ -889,6 +900,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     mTerminalBackgroundState.update(backgroundBitmap, mPreferences.getTerminalBackgroundDim());
             });
         }, "terminal-background-loader").start();
+    }
+
+    /**
+     * Applies the configured interface transparency (0-100) to the Compose shell chrome state, so
+     * the sessions tab bar and the extra-keys bar fade over the terminal background.
+     */
+    public void syncInterfaceTransparency() {
+        if (mShellChromeState == null || mPreferences == null) return;
+        mShellChromeState.update(mPreferences.getInterfaceTransparency());
     }
 
     /** Whether the system wallpaper is configured as the terminal background. */
