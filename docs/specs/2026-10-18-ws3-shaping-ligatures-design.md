@@ -22,6 +22,10 @@ fallback) plus a user-facing ligature toggle. Workstream 4 (graphics placement) 
 - **The toggle is deterministic** — explicit `"+liga,+calt"` when on, `"-liga,-calt"` when off — decided when the
   test device turned out to be disconnected, so no on-device probe of the platform's default feature settings can
   gate the design. Under this rule the semantics of the toggle do not depend on any unverified platform default.
+- **Grid-snap verification is API 29+** (found during planning, 2026-10-18: `Paint.getTextRunAdvances` is API 29,
+  not 21 — §4). The user chose "verify on 29+, single span below": where shaped per-char advances are available the
+  policy and the per-cell fallback run; below 29 a run draws as one shaped span (today's glyph behaviour, ligatures
+  still form, `mes` is the shaped total). The ligature toggle itself applies on every API level.
 - **Device checks are deferred** while the device is disconnected (§7), recorded here and in
   `../../ideas/2026-10-16-outstanding-work.md` §3.
 - **Delivery: straight onto `master`**, feature-style, one commit per task, each gated on a green local
@@ -73,7 +77,7 @@ interfaces (`TerminalSessionClient`, `TerminalViewClient`) are untouched by this
 |---|---|---|
 | 1 | `ShapedRunPolicy` (new, pure, `:terminal-view`) | The grid-snap decision (contract below). No Android types. |
 | 2 | `TerminalRenderer` | Glyph stage of `drawTextRun`: measure shaped advances → policy → single call or prefix + per-cell calls. `mes` parameter removed; shaped totals feed the existing scale hack. Ligature flag set on the one paint at construction. |
-| 3 | `RunAdvancesSource` (new, package-private test seam, `:terminal-view`) | Injectable advances provider; production default delegates to `Paint.getTextRunAdvances`. |
+| 3 | `RunAdvancesSource` (new, package-private test seam, `:terminal-view`) | Injectable advances provider; `forPaint` delegates to `Paint.getTextRunAdvances` on API 29+ and returns `null` below (single-span draw, no policy). |
 | 4 | `TerminalView` | `setLigaturesEnabled(boolean)` mirroring `setTypeface`, carrying the flag through renderer reconstruction. |
 | 5 | `:app` — `AppearanceStore`, appearance screen, `checkForFontAndColors()` | `appearance_ligatures` boolean (default `true`), a toggle in the appearance screen's font section, applied through the existing reload hook. |
 
@@ -122,10 +126,12 @@ it in the font section (`AppearanceScreen.kt`'s `appearance_section_font` `Secti
 `mActivity.getTerminalView().setLigaturesEnabled(value)` next to the existing `setTypeface` call.
 
 **`RunAdvancesSource`:** package-private interface `int advances(char[] text, int start, int count, float[] out)`
-— returns the number of entries written and must overwrite `[0, n)` of `out`. Production implementation wraps
-`mTextPaint.getTextRunAdvances(...)`; tests inject scripted arrays (aligned or misaligned) so every policy path is
-reachable deterministically on this host, independent of what Robolectric's font stack returns. The renderer
-keeps a grow-only member buffer, resized only when a run exceeds it.
+— returns the number of entries written and must overwrite `[0, n)` of `out`. The production factory
+`forPaint(Paint)` is the API gate: on API 29+ it wraps `mTextPaint.getTextRunAdvances(...)`; below 29 that method
+does not exist, so it returns `null` and the glyph stage draws the run as one span (policy not consulted, ligatures
+still form — see §4). Tests inject scripted arrays (aligned or misaligned) so every policy path is reachable
+deterministically on this host, independent of what Robolectric's font stack returns. The renderer keeps a
+grow-only member buffer, resized only when a run exceeds it.
 
 ## 3. Data flow
 
@@ -161,9 +167,15 @@ WS2 row range → existing column loop builds runs (break rules unchanged)
   measurement/draw divergence possible.
 - `checkForFontAndColors()` is wrapped in its existing try/catch; a missing pref key reads as the default
   (`true`).
-- API levels: `Paint.getTextRunAdvances` exists since API 21 (our min); the `drawTextRun` vs `drawText` branch
-  (API 23) is untouched and the glyph stage works with either. If lint flags `getTextRunAdvances` as deprecated
-  on new SDKs, suppress with an explanatory comment rather than forking the path.
+- **API levels (corrected during planning, 2026-10-18):** `Paint.getTextRunAdvances(char[], int, int, int, int,
+  boolean, float[], int)` is **API 29**, not 21 (verified against
+  `platforms/android-36/data/api-versions.xml` — `since="29"` — and the platform docs; `javap` on the `android-34`
+  and `android-36` stubs shows no older overload). The `drawTextRun` vs `drawText` branch (API 23) is untouched and
+  the glyph stage works with either. Below API 29 the shaped per-char advance array does not exist, so
+  `RunAdvancesSource.forPaint` returns `null` and the glyph stage draws the whole run as one span (the policy is not
+  consulted; ligatures still form at draw time, and the scale branch's `mes` is the shaped total). Grid-snap
+  verification and the per-cell fallback are therefore **API 29+ capabilities** — the user's choice, 2026-10-18.
+  If lint flags `getTextRunAdvances` on newer SDKs, suppress with an explanatory comment rather than forking.
 
 ## 5. Testing
 
@@ -184,6 +196,9 @@ pixel assertions anywhere; pixel truth is deferred with the device checks (§7).
 - **Paint-state test:** renderer with ligatures on → `mTextPaint.getFontFeatureSettings()` equals `"+liga,+calt"`;
   off → `"-liga,-calt"`.
 - **`AppearanceStoreTest`:** `appearance_ligatures` round-trips; default is `true` when absent.
+- **No host test for the API gate:** `Build.VERSION.SDK_INT` is the `android.jar` stub constant (`0`) under
+  `:terminal-view`'s plain-JUnit suite, so `RunAdvancesSource.forPaint` cannot be exercised for both branches there;
+  the gate is a one-line build check and belongs to the §7 legacy note.
 - **Gates:** full `./gradlew test` green; zero test diffs in `:terminal-emulator` and `:termux-shared`.
 
 ## 6. Delivery sequence
@@ -214,12 +229,17 @@ so all on-device verification is deferred. Recorded here **and** appended to the
       measurement overhead bounded.
 - [ ] **Regression:** default monospace font renders byte-identically with the toggle both ways (feature strings
       are no-ops for fonts without those features — verify).
+- [ ] **Legacy path (API 21–28), inspection-only for now:** the available device is Android 14 (API 34), so the
+      below-29 branch (no shaped per-char advances → single-span draw) cannot be exercised here. It is a one-line
+      `Build.VERSION.SDK_INT >= 29` gate with no host coverage (§5); if an API 21–28 device becomes available,
+      confirm ligatures still form and the run total scale still applies.
 
 ## 8. Risks and things to verify during implementation
 
 - **`getTextRunAdvances` fill semantics** (per-glyph vs per-cluster, how many entries it writes) are pinned by
   the `RunAdvancesSource` contract (`n` written, `[0, n)` overwritten) and tested at the seam; the policy reads
-  only `[0, n)`.
+  only `[0, n)`. It is API 29+ only, so the seam also carries the API gate (§4): below 29 the source is `null` and
+  the glyph stage never consults the policy.
 - **Robolectric's font stack** may return zeroes or unaligned values — by design the suite does not depend on
   it: every policy path is reachable through injected advances. The one real-text integration point runs on the
   device (§7).
