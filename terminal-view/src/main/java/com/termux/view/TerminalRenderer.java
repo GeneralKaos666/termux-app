@@ -116,6 +116,8 @@ public final class TerminalRenderer {
             final int charsUsedInLine = lineObject.getSpaceUsed();
 
             long lastRunStyle = 0;
+            int lastRunLinkId = 0;
+            int lastRunUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND;
             boolean lastRunInsideCursor = false;
             boolean lastRunInsideSelection = false;
             int lastRunStartColumn = -1;
@@ -130,6 +132,8 @@ public final class TerminalRenderer {
                 final int charsForCodePoint = charIsHighsurrogate ? 2 : 1;
                 final int codePoint = charIsHighsurrogate ? Character.toCodePoint(charAtIndex, line[currentCharIndex + 1]) : charAtIndex;
                 final long style = lineObject.getStyle(column);
+                final int linkId = lineObject.getLinkId(column);
+                final int underlineColor = lineObject.getUnderlineColor(column);
                 if (TextStyle.isTerminalBitmap(style)) {
                     Bitmap bitmap = mEmulator.getScreen().getSixelBitmap(style);
                     if (bitmap != null) {
@@ -142,6 +146,8 @@ public final class TerminalRenderer {
                     column += 1;
                     measuredWidthForRun = 0.f;
                     lastRunStyle = 0;
+                    lastRunLinkId = 0;
+                    lastRunUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND;
                     lastRunInsideCursor = false;
                     lastRunStartColumn = column + 1;
                     lastRunStartIndex = currentCharIndex;
@@ -161,7 +167,7 @@ public final class TerminalRenderer {
                     currentCharIndex, charsForCodePoint);
                 final boolean fontWidthMismatch = Math.abs(measuredCodePointWidth / mFontWidth - codePointWcWidth) > 0.01;
 
-                if (style != lastRunStyle || insideCursor != lastRunInsideCursor || insideSelection != lastRunInsideSelection || fontWidthMismatch || lastRunFontWidthMismatch) {
+                if (style != lastRunStyle || insideCursor != lastRunInsideCursor || insideSelection != lastRunInsideSelection || fontWidthMismatch || lastRunFontWidthMismatch || linkId != lastRunLinkId || underlineColor != lastRunUnderlineColor) {
                     if (column == 0 || column == lastRunStartColumn) {
                         // Skip first column as there is nothing to draw, just record the current style.
                     } else {
@@ -174,10 +180,13 @@ public final class TerminalRenderer {
                         }
                         drawTextRun(canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun,
                             lastRunStartIndex, charsSinceLastRun, measuredWidthForRun,
-                            cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection);
+                            cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
+                            lastRunLinkId, lastRunUnderlineColor);
                     }
                     measuredWidthForRun = 0.f;
                     lastRunStyle = style;
+                    lastRunLinkId = linkId;
+                    lastRunUnderlineColor = underlineColor;
                     lastRunInsideCursor = insideCursor;
                     lastRunInsideSelection = insideSelection;
                     lastRunStartColumn = column;
@@ -202,27 +211,34 @@ public final class TerminalRenderer {
                 invertCursorTextColor = true;
             }
             drawTextRun(canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun, lastRunStartIndex, charsSinceLastRun,
-                measuredWidthForRun, cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection);
+                measuredWidthForRun, cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
+                lastRunLinkId, lastRunUnderlineColor);
         }
     }
 
     private void drawTextRun(Canvas canvas, char[] text, int[] palette, float y, int startColumn, int runWidthColumns,
                              int startCharIndex, int runWidthChars, float mes, int cursor, int cursorStyle,
-                             long textStyle, boolean reverseVideo) {
+                             long textStyle, boolean reverseVideo, int linkId, int underlineColor) {
         int foreColor = TextStyle.decodeForeColor(textStyle);
         final int effect = TextStyle.decodeEffect(textStyle);
         int backColor = TextStyle.decodeBackColor(textStyle);
         final boolean bold = (effect & (TextStyle.CHARACTER_ATTRIBUTE_BOLD | TextStyle.CHARACTER_ATTRIBUTE_BLINK)) != 0;
         final boolean underline = (effect & TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE) != 0;
         final int underlineStyle = TextStyle.decodeUnderlineStyle(textStyle);
+        final boolean coloredUnderline = underlineColor != TextStyle.COLOR_INDEX_FOREGROUND;
+        // A hyperlink cell with no SGR underline of its own is shown as a single underline in its
+        // foreground color; an SGR underline already set is kept as is, so a link never doubles it.
         // The built-in paint underline is a plain solid line: use it for "single", and for callers that set
         // the underline bit without a style (WS1 keeps those as UNDERLINE_STYLE_NONE). The decorated styles
-        // are stroked by drawUnderline() below, after the glyphs.
-        final boolean paintUnderline = underline && (underlineStyle == TextStyle.UNDERLINE_STYLE_NONE
-            || underlineStyle == TextStyle.UNDERLINE_STYLE_SINGLE
-            || underlineStyle < TextStyle.UNDERLINE_STYLE_NONE
-            || underlineStyle > TextStyle.UNDERLINE_STYLE_DASHED);
-        final boolean customUnderline = underline && !paintUnderline;
+        // are stroked by drawUnderline() below, after the glyphs (and so is any colored underline).
+        final boolean linkUnderline = linkId != 0 && !underline;
+        final boolean singleUnderline = underline
+            && (underlineStyle == TextStyle.UNDERLINE_STYLE_NONE
+                || underlineStyle == TextStyle.UNDERLINE_STYLE_SINGLE
+                || underlineStyle < TextStyle.UNDERLINE_STYLE_NONE
+                || underlineStyle > TextStyle.UNDERLINE_STYLE_DASHED);
+        final boolean paintUnderline = (singleUnderline || linkUnderline) && !coloredUnderline;
+        final boolean customUnderline = (underline || linkUnderline) && !paintUnderline;
         final boolean italic = (effect & TextStyle.CHARACTER_ATTRIBUTE_ITALIC) != 0;
         final boolean strikeThrough = (effect & TextStyle.CHARACTER_ATTRIBUTE_STRIKETHROUGH) != 0;
         final boolean dim = (effect & TextStyle.CHARACTER_ATTRIBUTE_DIM) != 0;
@@ -301,7 +317,19 @@ public final class TerminalRenderer {
             }
 
             if (customUnderline) {
-                drawUnderline(canvas, left, runRight, y, foreColor, underlineStyle);
+                // A hyperlink cell with no SGR underline of its own gets a plain single underline in its
+                // foreground color. When the cell carries an SGR 58 color, that color strokes the underline
+                // instead (a link underline is an underline of the cell like any other).
+                int underlineDrawColor = foreColor;
+                int underlineDrawStyle = underline ? underlineStyle : TextStyle.UNDERLINE_STYLE_SINGLE;
+                if (coloredUnderline) {
+                    underlineDrawColor = underlineColor;
+                    if ((underlineDrawColor & 0xff000000) != 0xff000000) {
+                        if (bold && underlineDrawColor >= 0 && underlineDrawColor < 8) underlineDrawColor += 8;
+                        underlineDrawColor = palette[underlineDrawColor];
+                    }
+                }
+                drawUnderline(canvas, left, runRight, y, underlineDrawColor, underlineDrawStyle);
             }
         }
 
@@ -335,6 +363,11 @@ public final class TerminalRenderer {
         mTextPaint.setPathEffect(null);
 
         switch (underlineStyle) {
+            case TextStyle.UNDERLINE_STYLE_SINGLE:
+                // A single underline is normally drawn by the text paint; this case exists for the SGR 58
+                // colored variants, which must be stroked here to get their own color.
+                canvas.drawLine(left, underlineY, right, underlineY, mTextPaint);
+                break;
             case TextStyle.UNDERLINE_STYLE_DOUBLE:
                 canvas.drawLine(left, underlineY, right, underlineY, mTextPaint);
                 canvas.drawLine(left, underlineY + strokeWidth * 2f, right, underlineY + strokeWidth * 2f, mTextPaint);
