@@ -21,6 +21,7 @@ import android.view.ActionMode;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MotionEvent;
@@ -180,6 +181,14 @@ public final class TerminalView extends View {
                     return true;
                 }
                 requestFocus();
+                int[] columnAndRow = getColumnAndRow(event, true);
+                String linkUri = getLinkUriAt(mEmulator, columnAndRow[1], columnAndRow[0]);
+                if (linkUri != null) {
+                    // A hyperlink hit consumes the gesture: the tap opened the link, it is not also a
+                    // client tap (which would toggle the soft keyboard, etc.).
+                    mClient.onLinkClicked(linkUri);
+                    return true;
+                }
                 mClient.onSingleTapUp(event);
                 return true;
             }
@@ -594,6 +603,24 @@ public final class TerminalView extends View {
             row += mTopRow;
         }
         return new int[] { column, row };
+    }
+
+    /**
+     * @return the sanitized link URI at the given screen cell, or {@code null} when there is no
+     * dispatchable link there (no link, out of bounds, or disallowed scheme). Pure, so the hit-test
+     * can be unit-tested without a {@link MotionEvent}.
+     */
+    static String getLinkUriAt(TerminalEmulator emulator, int row, int column) {
+        if (row < 0 || row >= emulator.mRows || column < 0 || column >= emulator.mColumns) return null;
+        int linkId = emulator.getScreen().getLinkIdAt(row, column);
+        if (linkId == 0) return null;
+        String uri = emulator.getScreen().getLink(linkId);
+        String sanitized = LinkUris.sanitize(uri);
+        if (sanitized == null) {
+            Log.w(LOG_TAG, "Dropped OSC 8 hyperlink with disallowed scheme: " + uri);
+            return null;
+        }
+        return sanitized;
     }
 
     /** Send a single mouse event code to the terminal. */

@@ -28,6 +28,15 @@ public interface TerminalViewClient {
      */
     void onSingleTapUp(MotionEvent e);
 
+    /**
+     * Called when the user taps an OSC 8 hyperlink whose scheme is in the allowed set. The URI has
+     * already been sanitized ({@link LinkUris}) before it reaches this method, so implementors may
+     * dispatch it directly. The default implementation does nothing; an implementor that opens links
+     * overrides it.
+     */
+    default void onLinkClicked(String uri) {
+    }
+
     boolean shouldBackButtonBeMappedToEscape();
 
     boolean shouldEnforceCharBasedInput();
