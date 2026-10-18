@@ -178,14 +178,16 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
       `log -t WS5TEST` line was invisible too). The underline plus the client-tap fall-through pin the
       same behaviour down without it.
 
-- **WS3 — run shaping + ligatures: spec approved (2026-10-18), plan pending.** Spec at
+- **WS3 — run shaping + ligatures: implemented (2026-10-18).** Spec at
   `specs/2026-10-18-ws3-shaping-ligatures-design.md`; decisions taken: grid-snap verification with per-cell
   fallback (Approach 1 over a cluster-aware restructure), **grid-snap verification is API 29+**
   (`Paint.getTextRunAdvances` is API 29, not 21 — found during planning; below 29 a run draws as one shaped span
   and ligatures still form), deterministic ligature toggle **default ON**
   (`+liga,+calt` on / `-liga,-calt` off) because the device was disconnected and the platform default could
   not be probed, device checks deferred to that spec's §7 (mirrored above), delivery straight onto `master`
-  with one commit per task. Not yet planned or implemented. Workstream 4 (graphics placement), workstream 6
+  with one commit per task. Implemented in three commits (`d5bb6baa`, `94d29f2c`, `30d9a9e6`): the grid-snap
+  policy and advance seam, the per-span glyph stage, and the ligature toggle (appearance screen, default on).
+  The §3 device checklist is still outstanding. Workstream 4 (graphics placement), workstream 6
   (compat shims) and the xterm-conformance remainder stay unspecced.
 
 ## 8. Doc hygiene debt (this directory)

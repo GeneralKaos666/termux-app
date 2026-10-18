@@ -1,8 +1,8 @@
 # Terminal engine upgrade — workstream 3: run shaping and ligatures (design spec)
 
 **Date:** 2026-10-18
-**Status:** approved 2026-10-18. Implementation plan:
-[`../plans/2026-10-18-ws3-shaping-ligatures.md`](../plans/2026-10-18-ws3-shaping-ligatures.md) (to be written).
+**Status:** implemented (commits `d5bb6baa`, `94d29f2c`, `30d9a9e6`); the §7 device checks are outstanding.
+Implementation plan: [`../plans/2026-10-18-ws3-shaping-ligatures.md`](../plans/2026-10-18-ws3-shaping-ligatures.md).
 **Premise note:** `AGENTS.md` states this app is standalone — never merging back to upstream `termux/termux-app` — so
 the binding constraints are companion-app interoperability (package identity, `TermuxConstants`, the client
 extension points), `minSdk 21`, Java 1.8, and no new third-party dependency (the workstream-1 precedent).
