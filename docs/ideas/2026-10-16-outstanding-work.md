@@ -194,7 +194,12 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
   `plans/2026-10-18-ws4-kitty-decode-render.md`): `a=t`/`a=T` decode, store and place, `a=p`/`a=d`
   resolve against the placement registry, `a=q` honours the quiet levels, and chunked transmissions
   are reassembled. The earlier ack-only state (which acknowledged images it never drew) is gone; its
-  §8 device checks — starting with `kitten icat` — remain outstanding. Workstream 6 (compat shims)
+  §8 device checks (D-2) were **completed 2026-10-19** on the NX769J target — see
+  `specs/2026-10-18-ws4-graphics-placement-design.md` §8 (all six items ticked, with the measured run
+  record). They found and fixed one real defect: a transfer accepted only two chunks, so any image whose
+  transmission needed a third chunk silently rendered nothing. `KittyGraphicsTransfer.accept()` now
+  accepts `m=1` continuations, verified on device at 2, 3, 14 and 53 chunks (tests
+  `threeChunksConcatenatePayload`, `middleChunkOverBudgetErrors`). Workstream 6 (compat shims)
   and the xterm-conformance remainder stay unspecced.
 
 ## 8. Doc hygiene debt (this directory)

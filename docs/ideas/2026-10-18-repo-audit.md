@@ -88,7 +88,7 @@ long tail of `// Ignore.` branches on purpose-skipped controls. All predate the 
 | # | Check | Source |
 |---|---|---|
 | D-1 | WS3 §7: Minikin-default probe, ligature ON/OFF, cursor+selection over ligatures, Arabic drift, perf smoke, default-font regression, API 21–28 legacy path | `docs/specs/2026-10-18-ws3-shaping-ligatures-design.md:221-235` |
-| D-2 | WS4 §8: kitty render via `kitten icat`, `a=q` detection, `a=d` deletion, sixel/iTerm2 parity, scroll+GC, chunked images | `docs/specs/2026-10-18-ws4-graphics-placement-design.md:172-179` |
+| D-2 | WS4 §8: kitty render, sub-cell offsets, `a=q`/`a=d` (incl. id-scoped), sixel/iTerm2 parity, scroll+GC, chunked (2/14/53 chunks) | `docs/specs/2026-10-18-ws4-graphics-placement-design.md:172-179` |
 | D-3 | WS2 7-item visual checklist: heavy output, htop-style redraw, scrollback drag, selection during output, 4:1–4:5 underline distinction, font-size/resize/rotation, cursor + reverse video | `docs/specs/2026-10-17-renderer-dirty-region-design.md:205-214` |
 | D-4 | WS1 engine sanity on a real emoji/link session | `docs/plans/2026-10-17-terminal-engine-cell-model.md:534-536` |
 | D-5 | Appearance presets: Solarized Light, Gruvbox Dark, One Dark readability | `docs/ideas/ideas.md:3-27` |
@@ -98,10 +98,9 @@ long tail of `// Ignore.` branches on purpose-skipped controls. All predate the 
 | D-9 | A2 multi-window split-pane stability (one manual check recommended) | `docs/plans/2026-10-10-shell-sessions.md:127` |
 | D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` (verify, do not "fix" blind) | `docs/ideas/2026-10-16-termux-float-port-idea.md:123-126` |
 
-WS5's device check passed on 2026-10-18 and is not pending. D-2 was unblocked on 2026-10-18 when
-§1.1 was resolved. Two items have no
-host test by design and are covered only by inspection plus a device run: the WS3 API-29 gate
-(`SDK_INT` stubbed to 0) and the WS2/TerminalView overlay protocol.
+WS5's device check passed on 2026-10-18 and is not pending. D-2 (WS4 §8) is **done** on 2026-10-19.
+Two items have no host test by design and are covered only by inspection plus a device run: the WS3
+API-29 gate (`SDK_INT` stubbed to 0) and the WS2/TerminalView overlay protocol.
 
 ---
 

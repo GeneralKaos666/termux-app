@@ -171,12 +171,40 @@ Gates: `./gradlew test` green, no changes to existing sixel/iTerm2 tests.
 
 ## 8. Deferred device checks
 
-- [ ] Kitty graphics render with `kitten icat` or a small test script using `a=T` with sub-cell offsets.
-- [ ] `a=q` detection works (tool waits for OK before proceeding).
-- [ ] `a=d` deletion clears images correctly and leaves no '+' placeholders.
-- [ ] Sixel and iTerm2 still behave identically to pre-WS4.
-- [ ] Scrolling: images scroll with text and are GC'd when scrolled out.
-- [ ] Chunked large images transmit correctly.
+- [x] Kitty graphics render with a small test script using `a=T` with sub-cell offsets (tested with patterned two-tone images; sub-cell X/Y applied).
+- [x] `a=q` detection works (OK/EINVAL/ENOENT replies emitted per spec; replies suppressed only when `imageId==0` as designed).
+- [x] `a=d` deletion clears images correctly and leaves no '+' placeholders (id‑scoped `a=d,d=i` verified; `a=d,d=A` clears all).
+- [x] Sixel and iTerm2 still behave identically to pre-WS4 (render at natural size).
+- [x] Scrolling: images scroll with text and are GC'd when scrolled out.
+- [x] Chunked large images transmit correctly (device-verified with 2, 3, 14 and 53 chunks; see the run record below).
+
+Run record — 2026-10-19, pinned target (NX769J, API 34, arm64, serial `10.0.0.169:41203`), this branch's
+debug APK. Scripted escape-sequence runs, every result measured by counting exact RGB pixels in a raw
+`screencap` rather than by eye. Grid: 48×21 cells at 23×43 px, row 0 top at y=251.
+
+- Kitty render: `a=T,f=100` PNG → 5934 px (3×2 cells = 69×86); `a=t` + `a=p,i=2,c=3,r=2` RGBA → 5934 px;
+  `a=T,f=24` RGB → 5934 px; a 2-chunk `m=1`/`m=0` transfer → 5934 px.
+- Chunking: the same 48×48 image in 3 chunks → 5934 px, 100×100 in 14 chunks → 14 835 px, 200×200 in
+  53 chunks → 44 505 px — the last two exactly the predicted 5×3 and 9×5 cell coverage.
+- Sub-cell offsets: with a two-tone image the magenta→spring boundary shifts by exactly +12 px for
+  `X=12`; for `Y=20` the vertical boundary shifts +21 px measured against each image's own top (+20 by
+  spec, +1 from the clamped resample of the last cell).
+- Replies: `a=q,i=42` → `OK`; a missing placement → `ENOENT`; `s`/`v` versus payload mismatch → `EINVAL`;
+  replies are suppressed only when the command carries no image id (`imageId==0`), as designed.
+- Deletion: `a=d,d=A` clears everything with no leftover placeholders; `a=d,d=i,i=11` removes only that
+  image's placements (the second image keeps its exact bbox).
+- Scrolling: an image placed at row 5 moved up exactly 129 px (3 rows) after 3 scrolled lines and was
+  gone after 200.
+- Parity: iTerm2 `OSC 1337;File=…` → 2304 px and sixel DCS → 2304 px, both at natural 48×48 size.
+- Sixel colour conversion is integer percent math (`TerminalSixel`), so the `#0;2;100;100;4` fixture
+  renders (255,255,10) — measured at 2304 px — not (255,255,0).
+- A single APC whose arguments exceed the 16384-char control-args buffer is dropped whole
+  (`TerminalEmulator.collectTerminalControlArgs`), so a 213 KB single-shot image renders nothing:
+  clients must chunk. Expected behaviour, not a defect.
+
+The check found one real defect, now fixed: `KittyGraphicsTransfer.accept()` rejected any `m=1`
+continuation chunk, so a transfer was capped at two chunks and larger images silently rendered nothing.
+Fixed in the same pass (§10); the device then rendered the same fixtures at 2, 3, 14 and 53 chunks.
 
 ## 9. Non-goals
 
@@ -217,6 +245,14 @@ Recorded while completing tasks 3–5; each is a deliberate departure from the t
 - **Payload length is enforced uniformly for `q`, `t` and `T`.** The completion plan's `a=q` fixture
   payload `AAAA` (3 bytes) is not a legal length for `s=1,v=1,f=32` (4 bytes); the tests use
   `AAAAAA==` (4 bytes) instead.
+- **Chunked transfer accepted only two chunks until the §8 device check (fixed 2026-10-19).** The original
+  `KittyGraphicsTransfer.accept()` rejected any `m=1` after the first chunk, capping a transfer at two
+  chunks — a 100×100 RGBA image needs 14 — and contradicting §4.2, which allows continuation chunks that
+  carry only `m`/`q`. `accept()` now appends every `m=1` chunk, re-checks the accumulated payload cap on
+  each one and completes on `m=0`. Non-meta keys in any continuation still fail, so
+  `laterChunkWithKeysOtherThanMOrQErrors`, `secondStartChunkWhileActiveErrorsAndResets` and
+  `laterChunkWithDifferentImageIdErrors` are unchanged; `threeChunksConcatenatePayload` and
+  `middleChunkOverBudgetErrors` cover the new path.
 - **The original plan's task 3 (renderer change) was unnecessary.** `getSixelRect` lives in
   `:terminal-emulator`'s `TerminalBuffer` and is consumed unchanged by `TerminalRenderer`, so it was
   made offset-aware and clamped there; `:terminal-view` is untouched.
