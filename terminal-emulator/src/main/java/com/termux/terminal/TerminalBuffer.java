@@ -1033,15 +1033,16 @@ public final class TerminalBuffer {
      * {@code (col, row)} with local cell indices and registers it under {@code imageId}.
      *
      * @return {@code {bitmapNum, scrolledLineCount}} where {@code scrolledLineCount} is the number
-     *     of lines the buffer scrolled up while stamping, or {@code {0, 0}} when the bitmap could
-     *     not be created or no free bitmap number was available.
+     *     of lines the buffer scrolled up while stamping, or {@code {-1, -1}} when the bitmap could
+     *     not be created or no free bitmap number was available. Note that {@code bitmapNum} may
+     *     legitimately be {@code 0}, so callers must test the sign of the first element.
      */
     public synchronized int[] placeTerminalBitmap(Bitmap bitmap, int imageId, int col, int row,
                                                   int cellW, int cellH, int originOffsetX, int originOffsetY) {
         int bitmapNum = getFreeTerminalBitmapNum();
         if (bitmapNum < TERMINAL_BITMAP__NUM_START) {
             Logger.logError(mClient, LOG_TAG, "Cannot create more than " + TERMINAL_BITMAP__NUM_END + " bitmaps");
-            return new int[] {0, 0};
+            return new int[] {-1, -1};
         }
 
         TerminalBitmap terminalBitmap;
@@ -1052,10 +1053,10 @@ public final class TerminalBuffer {
             if (t instanceof OutOfMemoryError) System.gc();
             Logger.logError(mClient, LOG_TAG,
                 "Create terminal bitmap " + bitmapNum + " from bitmap failed: " + t.getMessage());
-            return new int[] {0, 0};
+            return new int[] {-1, -1};
         }
         if (terminalBitmap == null || terminalBitmap.getBitmap() == null) {
-            return new int[] {0, 0};
+            return new int[] {-1, -1};
         }
         mTerminalBitmaps.put(bitmapNum, terminalBitmap);
         Set<Integer> bitmapNums = mImagePlacements.get(imageId);

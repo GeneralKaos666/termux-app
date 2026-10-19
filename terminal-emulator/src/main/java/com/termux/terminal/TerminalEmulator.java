@@ -1,12 +1,19 @@
 package com.termux.terminal;
 
+import com.termux.terminal.kitty.AndroidKittyGraphicsImageDecoder;
+import com.termux.terminal.kitty.KittyBase64;
 import com.termux.terminal.kitty.KittyGraphicsCommand;
+import com.termux.terminal.kitty.KittyGraphicsImageDecoder;
 import com.termux.terminal.kitty.KittyGraphicsParser;
+import com.termux.terminal.kitty.KittyGraphicsTransfer;
+import com.termux.terminal.kitty.KittyImageSizing;
 
+import android.graphics.Bitmap;
 import android.util.Base64;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Stack;
@@ -353,6 +360,26 @@ public final class TerminalEmulator {
 
     /** The {@link ITermImage} if an iTerm image command is being processed. */
     private ITermImage mITermImage;
+
+
+
+    /**
+     * Accumulates the payload of a kitty graphics command that is transmitted across multiple
+     * {@link #ESC_APC} sequences (the {@code m=1}/{@code m=0} chunking form).
+     */
+    private final KittyGraphicsTransfer mKittyGraphicsTransfer = new KittyGraphicsTransfer();
+
+    /**
+     * Decodes kitty graphics payloads. Replaced in tests via
+     * {@link #setKittyGraphicsImageDecoder(KittyGraphicsImageDecoder)}.
+     */
+    private KittyGraphicsImageDecoder mKittyGraphicsImageDecoder = new AndroidKittyGraphicsImageDecoder();
+
+    /**
+     * Kitty images stored with {@code a=t} or {@code a=T}, keyed by image id, so that a later
+     * {@code a=p} can place the same image again without retransmitting it.
+     */
+    private final HashMap<Integer, Bitmap> mKittyImages = new HashMap<>();
 
 
 
@@ -2657,30 +2684,235 @@ public final class TerminalEmulator {
 
     /**
      * Do {@link #ESC_APC}. Check its docs for more info.
+     *
+     * <p>Kitty graphics commands start with a {@code G} prefix. They are fed through
+     * {@link #mKittyGraphicsTransfer} so that a payload split across several APC sequences is
+     * reassembled before it is handled. Any other APC content is ignored, exactly as before.
      */
     private void doApc() {
         String content = mTerminalControlArgs.toString();
         if (content == null || content.isEmpty()) {
             return;
         }
-        if (content.startsWith("G")) {
-            KittyGraphicsCommand cmd = KittyGraphicsParser.parse(content, null);
-            if (cmd.isOk() && cmd.imageId != 0 && mSession != null) {
-                boolean ok = true;
-                String code = null;
-                String msg = null;
-                if (cmd.quiet == 0 || (cmd.quiet == 1 && !ok)) {
-                    String reply = KittyGraphicsParser.formatReply(cmd.imageId, cmd.placementId, ok, code, msg);
-                    mSession.write(reply);
-                }
-            } else if (!cmd.isOk() && cmd.imageId != 0 && mSession != null) {
-                if (cmd.quiet == 0) {
-                    String reply = KittyGraphicsParser.formatReply(cmd.imageId, cmd.placementId, false, cmd.errorCode, cmd.errorMessage);
-                    mSession.write(reply);
-                }
+        if (!content.startsWith("G")) {
+            // Not a kitty graphics command; ignore.
+            return;
+        }
+
+        KittyGraphicsCommand parsed = KittyGraphicsParser.parse(content, null);
+        KittyGraphicsTransfer.Result result = mKittyGraphicsTransfer.accept(parsed);
+        if (!result.complete) {
+            // A parse/continuation error terminates any in-flight transfer.
+            if (result.errorCode != null) {
+                replyKittyError(parsed, result.errorCode,
+                    result.errorMessage != null ? result.errorMessage : parsed.errorMessage);
+            }
+            return;
+        }
+        handleKittyGraphicsCommand(result.command);
+    }
+
+    /** Package-private test seam for the image decoder. */
+    void setKittyGraphicsImageDecoder(KittyGraphicsImageDecoder decoder) {
+        mKittyGraphicsImageDecoder = decoder;
+    }
+
+    private void handleKittyGraphicsCommand(KittyGraphicsCommand cmd) {
+        if (cmd == null) {
+            return;
+        }
+        switch (cmd.action) {
+            case 'q':
+                doKittyQuery(cmd);
+                break;
+            case 't':
+                doKittyStore(cmd, false);
+                break;
+            case 'T':
+                doKittyStore(cmd, true);
+                break;
+            case 'p':
+                doKittyPlace(cmd);
+                break;
+            case 'd':
+                doKittyDelete(cmd);
+                break;
+            default:
+                replyKittyError(cmd, "EINVAL", "Unsupported action");
+                break;
+        }
+    }
+
+    /**
+     * {@code a=q}: report whether the payload would decode, without storing or displaying it.
+     */
+    private void doKittyQuery(KittyGraphicsCommand cmd) {
+        byte[] data = decodeKittyPayload(cmd);
+        if (data == null) {
+            return;
+        }
+        Bitmap bitmap = mKittyGraphicsImageDecoder.decode(cmd.format, cmd.width, cmd.height, data);
+        if (bitmap == null) {
+            replyKittyError(cmd, "EINVAL", "failed to decode image");
+            return;
+        }
+        replyKittyOk(cmd);
+    }
+
+    private void doKittyStore(KittyGraphicsCommand cmd, boolean place) {
+        if (cmd.imageId == 0) {
+            replyKittyError(cmd, "EINVAL", "An image id is required");
+            return;
+        }
+        byte[] data = decodeKittyPayload(cmd);
+        if (data == null) {
+            return;
+        }
+        Bitmap bitmap = mKittyGraphicsImageDecoder.decode(cmd.format, cmd.width, cmd.height, data);
+        if (bitmap == null) {
+            replyKittyError(cmd, "EINVAL", "failed to decode image");
+            return;
+        }
+        if (isKittyBitmapTooLarge(bitmap.getWidth(), bitmap.getHeight())) {
+            replyKittyError(cmd, "ENOSPC", "decoded image too large");
+            return;
+        }
+        // Retransmitting an id replaces the previous image and its placements.
+        getScreen().deleteTerminalBitmaps(cmd.imageId, 0, 'i', mCursorCol, mCursorRow);
+        mKittyImages.put(cmd.imageId, bitmap);
+        if (place && !placeKittyBitmap(cmd, bitmap)) {
+            replyKittyError(cmd, "ENOSPC", "cannot place image");
+            return;
+        }
+        replyKittyOk(cmd);
+    }
+
+    private void doKittyPlace(KittyGraphicsCommand cmd) {
+        if (cmd.imageId == 0) {
+            replyKittyError(cmd, "EINVAL", "image id required");
+            return;
+        }
+        Bitmap bitmap = mKittyImages.get(cmd.imageId);
+        if (bitmap == null) {
+            replyKittyError(cmd, "ENOENT", "image not found");
+            return;
+        }
+        if (!placeKittyBitmap(cmd, bitmap)) {
+            replyKittyError(cmd, "ENOSPC", "cannot place image");
+            return;
+        }
+        replyKittyOk(cmd);
+    }
+
+    private void doKittyDelete(KittyGraphicsCommand cmd) {
+        char spec = cmd.deleteSpec;
+        int imageId = cmd.imageId;
+        boolean matched;
+        if (spec == 'a' || spec == 'A') {
+            getScreen().deleteTerminalBitmaps(0, 0, spec, mCursorCol, mCursorRow);
+            mKittyImages.clear();
+            matched = true;
+        } else {
+            boolean hadImage = imageId != 0 && mKittyImages.containsKey(imageId);
+            boolean hadPlacement = imageId != 0
+                && getScreen().getImagePlacements(imageId).length > 0;
+            getScreen().deleteTerminalBitmaps(imageId, cmd.placementId, spec, mCursorCol, mCursorRow);
+            if (spec == 'i' && imageId != 0) {
+                mKittyImages.remove(imageId);
+            }
+            matched = hadImage || hadPlacement;
+        }
+        if (matched) {
+            replyKittyOk(cmd);
+        } else {
+            replyKittyError(cmd, "ENOENT", "image not found");
+        }
+    }
+
+    /**
+     * Decodes the base64 payload for {@code cmd}, enforcing the declared size limits. On failure a
+     * reply is already emitted and {@code null} is returned.
+     */
+    private byte[] decodeKittyPayload(KittyGraphicsCommand cmd) {
+        long expected = cmd.expectedPayloadBytes();
+        if (expected > TerminalBitmap.MAX_BITMAP_SIZE
+                || (cmd.width > 0 && cmd.height > 0
+                    && isKittyBitmapTooLarge(cmd.width, cmd.height))) {
+            replyKittyError(cmd, "ENOSPC", "declared image too large");
+            return null;
+        }
+        byte[] data = KittyBase64.decode(cmd.payload);
+        if (data == null) {
+            replyKittyError(cmd, "EINVAL", "invalid base64 payload");
+            return null;
+        }
+        if (expected >= 0 && data.length != expected) {
+            replyKittyError(cmd, "EINVAL", "payload length does not match s/v");
+            return null;
+        }
+        return data;
+    }
+
+    private boolean isKittyBitmapTooLarge(int width, int height) {
+        return (long) width * (long) height * 4L > TerminalBitmap.MAX_BITMAP_SIZE;
+    }
+
+    /**
+     * Scales {@code bitmap} to the size requested by {@code cmd} and stamps it at the cursor.
+     * Applies the kitty cursor policy ({@code C}) on success.
+     *
+     * @return {@code true} when a placement was registered.
+     */
+    private boolean placeKittyBitmap(KittyGraphicsCommand cmd, Bitmap bitmap) {
+        int[] target = KittyImageSizing.targetPixels(cmd, mCellWidthPixels, mCellHeightPixels,
+            bitmap.getWidth(), bitmap.getHeight());
+        if (target[0] <= 0 || target[1] <= 0 || isKittyBitmapTooLarge(target[0], target[1])) {
+            return false;
+        }
+        Bitmap toPlace = bitmap;
+        if (target[0] != bitmap.getWidth() || target[1] != bitmap.getHeight()) {
+            try {
+                toPlace = Bitmap.createScaledBitmap(bitmap, target[0], target[1], true);
+            } catch (OutOfMemoryError e) {
+                System.gc();
+                return false;
+            } catch (Throwable t) {
+                return false;
             }
         }
-        // Otherwise ignore
+
+        int startRow = mCursorRow;
+        int[] placed = getScreen().placeTerminalBitmap(toPlace, cmd.imageId, mCursorCol, startRow,
+            mCellWidthPixels, mCellHeightPixels, cmd.offsetX, cmd.offsetY);
+        if (placed == null || placed[0] < 0) {
+            return false;
+        }
+        if (cmd.cursorPolicy == 0) {
+            int coveredRows = (toPlace.getHeight() + mCellHeightPixels - 1) / mCellHeightPixels;
+            // `placed[1]` is the number of lines the buffer scrolled while stamping; the row below
+            // the placement is therefore `coveredRows - scrolledLines` linefeeds from the start.
+            int advance = coveredRows - placed[1];
+            setCursorCol(0);
+            for (int i = 0; i < advance; i++) {
+                doLinefeed();
+            }
+        }
+        return true;
+    }
+
+    private void replyKittyOk(KittyGraphicsCommand cmd) {
+        if (cmd == null || cmd.imageId == 0 || cmd.quiet != 0 || mSession == null) {
+            return;
+        }
+        mSession.write(KittyGraphicsParser.formatReply(cmd.imageId, cmd.placementId, true, null, null));
+    }
+
+    private void replyKittyError(KittyGraphicsCommand cmd, String code, String message) {
+        // A malformed command that never carried an image id has no-one to answer.
+        if (cmd == null || cmd.imageId == 0 || cmd.quiet == 2 || mSession == null) {
+            return;
+        }
+        mSession.write(KittyGraphicsParser.formatReply(cmd.imageId, cmd.placementId, false, code, message));
     }
 
 
@@ -3589,6 +3821,8 @@ public final class TerminalEmulator {
         clearTerminalControlArgs();
         clearOscTypeVariables();
         mITermImage = null;
+        mKittyGraphicsTransfer.reset();
+        mKittyImages.clear();
     }
 
     public String getSelectedText(int x1, int y1, int x2, int y2) {
