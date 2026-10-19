@@ -92,6 +92,26 @@ public final class KittyGraphicsCommand {
         return errorCode == null;
     }
 
+    public long expectedPayloadBytes() {
+        if (!isOk()) {
+            return -1L;
+        }
+        int w = width;
+        int h = height;
+        if (w <= 0 || h <= 0) {
+            return -1L;
+        }
+        if (format == 24) {
+            return (long) w * (long) h * 3L;
+        } else if (format == 32) {
+            return (long) w * (long) h * 4L;
+        } else if (format == 100) {
+            return -1L;
+        } else {
+            return -1L;
+        }
+    }
+
     private static int getInt(Map<String, String> keys, String key, int def) {
         String v = keys.get(key);
         if (v == null || v.isEmpty()) return def;
