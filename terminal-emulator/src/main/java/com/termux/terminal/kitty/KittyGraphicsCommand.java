@@ -3,6 +3,7 @@ package com.termux.terminal.kitty;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public final class KittyGraphicsCommand {
     public final char action; // t,T,p,q,d
@@ -27,13 +28,15 @@ public final class KittyGraphicsCommand {
     public final String payload; // base64 chunk payload
     public final String errorCode; // null if ok
     public final String errorMessage; // null if ok
+    final Set<String> keys;
 
-    private KittyGraphicsCommand(char action, int quiet, int format, char transmission,
-                                 int width, int height, int imageId, int placementId,
-                                 int offsetX, int offsetY, int columns, int rows,
-                                 int sourceX, int sourceY, int sourceWidth, int sourceHeight,
-                                 int cursorPolicy, int moreChunks, char deleteSpec,
-                                 String payload, String errorCode, String errorMessage) {
+    KittyGraphicsCommand(char action, int quiet, int format, char transmission,
+                          int width, int height, int imageId, int placementId,
+                          int offsetX, int offsetY, int columns, int rows,
+                          int sourceX, int sourceY, int sourceWidth, int sourceHeight,
+                          int cursorPolicy, int moreChunks, char deleteSpec,
+                          String payload, String errorCode, String errorMessage,
+                          Set<String> keys) {
         this.action = action;
         this.quiet = quiet;
         this.format = format;
@@ -56,13 +59,15 @@ public final class KittyGraphicsCommand {
         this.payload = payload;
         this.errorCode = errorCode;
         this.errorMessage = errorMessage;
+        this.keys = keys == null ? Collections.<String>emptySet() : keys;
     }
 
     static KittyGraphicsCommand error(String code, String message) {
-        return new KittyGraphicsCommand((char) 0, 0, 0, 'd', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (char) 0, null, code, message);
+        return new KittyGraphicsCommand((char) 0, 0, 0, 'd', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (char) 0, null, code, message, Collections.<String>emptySet());
     }
 
     static KittyGraphicsCommand ok(Map<String, String> keys, String payload) {
+        Set<String> keySet = keys.keySet();
         return new KittyGraphicsCommand(
                 getChar(keys, "a", 't'),
                 getInt(keys, "q", 0),
@@ -85,7 +90,8 @@ public final class KittyGraphicsCommand {
                 getChar(keys, "d", 'a'),
                 payload,
                 null,
-                null);
+                null,
+                keySet);
     }
 
     public boolean isOk() {

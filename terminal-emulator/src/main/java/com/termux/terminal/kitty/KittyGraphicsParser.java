@@ -44,14 +44,15 @@ public class KittyGraphicsParser {
             }
         }
         if (keys.containsKey("i") && keys.containsKey("I")) {
-            return KittyGraphicsCommand.error("EINVAL", "Both i and I specified");
+            return KittyGraphicsCommand.error("EINVAL", "Cannot specify both I and i");
         }
-        Map<String,String> effKeys = new HashMap<String,String>(keys);
-        if (!effKeys.containsKey("a") && !control.isEmpty()) {
-            char first = control.charAt(0);
-            if (first == 't' || first == 'T' || first == 'p' || first == 'q' || first == 'd') {
-                effKeys.put("a", String.valueOf(first));
-                // if rest of control is just the char or char+comma, it's fine
+        Map<String, String> effKeys = keys;
+        if (!effKeys.containsKey("a")) {
+            String first = control.isEmpty() ? "" : control.substring(0, 1);
+            if ("t".equals(first) || "T".equals(first) || "p".equals(first)
+                    || "q".equals(first) || "d".equals(first)) {
+                effKeys = new HashMap<String, String>(keys);
+                effKeys.put("a", first);
             }
         }
         KittyGraphicsCommand cmd = KittyGraphicsCommand.ok(effKeys, dataPayload);
@@ -82,6 +83,40 @@ public class KittyGraphicsParser {
             return KittyGraphicsCommand.error("EINVAL", "Invalid quiet level");
         }
         return cmd;
+    }
+
+    /**
+     * Rebuilds a command from an earlier chunk with the full accumulated payload. Used by
+     * {@link KittyGraphicsTransfer} once the terminating chunk has arrived.
+     */
+    public static KittyGraphicsCommand cloneWithPayload(KittyGraphicsCommand src, String payload) {
+        if (src == null) {
+            return null;
+        }
+        return new KittyGraphicsCommand(
+                src.action,
+                src.quiet,
+                src.format,
+                src.transmission,
+                src.width,
+                src.height,
+                src.imageId,
+                src.placementId,
+                src.offsetX,
+                src.offsetY,
+                src.columns,
+                src.rows,
+                src.sourceX,
+                src.sourceY,
+                src.sourceWidth,
+                src.sourceHeight,
+                src.cursorPolicy,
+                0,
+                src.deleteSpec,
+                payload,
+                null,
+                null,
+                src.keys);
     }
 
     private static Map<String, String> parseKeys(String control) {
