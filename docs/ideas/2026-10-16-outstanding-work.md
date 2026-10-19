@@ -218,3 +218,29 @@ change to the package or applicationId; no `:termux-shared` public API change; `
 From the appearance plan (Non-goals): no `:terminal-emulator` / `:terminal-view` changes; no
 `:termux-shared` diff; no live-apply (explicit Apply was chosen); no new Gradle module and no new
 third-party dependency (the font picker is hand-written).
+
+## 10. Scrollback depth — diagnosed 2026-10-19, config-level, no code change
+
+- **Report:** "terminal doesn't scroll back far enough."
+- **Diagnosis (host-side, complete):** the depth is the `terminal-transcript-rows` property, clamped by
+  `TerminalEmulator.java:238–240` (min 100, **max 50000**, **default 2000**), read once per new session at
+  `TermuxService.java:586` and sized into the `TerminalBuffer` ring (capacity = screen rows + transcript
+  rows; rows allocate lazily at ~0.5 KB each, so a full 50k transcript ≈ 25 MB). No runtime trim exists
+  and `TerminalView` scrolls to `getActiveTranscriptRows()`, so nothing else caps the depth.
+- **Why it felt broken:** the device's `~/.termux/termux.properties` already sets
+  `terminal-transcript-rows = 50000` (the max), but that file was **created after the app process had
+  started** — properties load at startup, so every live session was created with the 2000-line default.
+  `termux-reload-settings` reloads the shared properties singleton but does not touch sessions that
+  already exist (the ring is fixed at emulator creation): only a **new session** (Ctrl+Alt+C) or an app
+  restart picks up the configured value.
+- `[decided 2026-10-19]` 50000 is enough — no change to `DEFAULT_TERMINAL_TRANSCRIPT_ROWS`,
+  `TERMINAL_TRANSCRIPT_ROWS_MAX` or the reload semantics (user decision; the property is the fix).
+- `[check]` The on-device before/after measurement is written but was **not run**: the target left the
+  `10.0.0.x` LAN mid-check (this host ended up on `172.20.20.20/24`, no other host exposes an adb port,
+  no mDNS advertisement appears, and the old address times out). The probe — 3000 marker lines with
+  full-width colour bars at lines 1/500/1000/1500/2000, drag-to-top until the screencap stops changing,
+  then exact-RGB bar counting, which pins the retained depth to the row — lives in local scratch
+  (`~/.tmp/opencode/ws4/mk.sh`, `~/.tmp/opencode/ws4/scroll_depth.py`): phase `a` measures the current
+  session (expect bar C on the last screen row = depth 2000) and phase `c` reloads the settings broadcast,
+  opens a new session with Ctrl+Alt+C and re-measures (expect bar A at the top = content exhausted,
+  depth ≥ ~2980). Run both when the phone is reachable again.
