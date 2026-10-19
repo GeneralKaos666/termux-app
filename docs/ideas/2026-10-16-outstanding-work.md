@@ -13,7 +13,8 @@ sessions reorder and the appearance screen.
 **Related:** `specs/2026-10-10-shell-and-sessions-ux-design.md` (§7 milestones),
 `plans/2026-10-10-shell-sessions.md`, `plans/2026-10-14-in-app-terminal-appearance.md`,
 `ideas/2026-10-14-terminal-engine-upgrade-idea.md`,
-`ideas/2026-10-16-termux-float-port-idea.md`.
+`ideas/2026-10-16-termux-float-port-idea.md`, `ideas/2026-10-18-repo-audit.md` (snapshot of the code
+and docs; this ledger still owns the decisions).
 
 **Legend:** `[bounded]` small and self-contained · `[needs spec]` architectural, needs its own cycle ·
 `[deferred]` postponed on purpose · `[check]` built but not verified on device ·
