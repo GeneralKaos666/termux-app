@@ -20,4 +20,16 @@ object SessionIcons {
         "MoreVert",
         "M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
     )
+
+    /** The Material "expand_less" glyph used by the bar's collapse button. */
+    val ChevronUp: ImageVector = materialIcon(
+        "ChevronUp",
+        "M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z",
+    )
+
+    /** The Material "expand_more" glyph used by the floating handle that restores the bar. */
+    val ChevronDown: ImageVector = materialIcon(
+        "ChevronDown",
+        "M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z",
+    )
 }

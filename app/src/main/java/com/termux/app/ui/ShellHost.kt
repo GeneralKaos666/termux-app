@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -20,7 +21,11 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -30,6 +35,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.app.ui.background.TerminalBackgroundState
 import com.termux.app.ui.firstrun.FirstRunOverlay
@@ -38,6 +44,7 @@ import com.termux.app.ui.keys.ExtraKeysBar
 import com.termux.app.ui.keys.ExtraKeysState
 import com.termux.app.ui.keys.QuickAction
 import com.termux.app.ui.sessions.SessionsBar
+import com.termux.app.ui.sessions.SessionsRestoreHandle
 import com.termux.app.ui.sessions.SessionsState
 import com.termux.app.ui.theme.TermuxShellTheme
 import com.termux.app.ui.theme.shellAnimationsEnabled
@@ -142,6 +149,10 @@ private fun TerminalShellHost(
     // an unreachable, focusable duplicate).
     val firstRunOverlayVisible = firstRunState.visible && sessionsState.sessions.isEmpty()
 
+    // Whether the sessions bar is expanded. Persisted across rotation; when collapsed, only the
+    // floating restore handle stays on screen.
+    var sessionsBarExpanded by rememberSaveable { mutableStateOf(true) }
+
     // Dark-first chrome: the terminal and the extra-keys grid are always dark, so the shell follows
     // them rather than the system light/dark setting. Material You (dark variant) on API 31+,
     // Termux palette fallback elsewhere; see the theme module.
@@ -178,15 +189,22 @@ private fun TerminalShellHost(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (!firstRunOverlayVisible) {
-                    SessionsBar(
-                        sessions = sessionsState.sessions,
-                        onSelect = callbacks::onSessionSelected,
-                        onRename = callbacks::onSessionRename,
-                        onClose = callbacks::onSessionClose,
-                        onMove = callbacks::onSessionMoved,
-                        onNewSession = callbacks::onNewSession,
-                        backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
-                    )
+                    AnimatedVisibility(
+                        visible = sessionsBarExpanded,
+                        enter = if (animationsEnabled) expandVertically() + fadeIn() else EnterTransition.None,
+                        exit = if (animationsEnabled) shrinkVertically() + fadeOut() else ExitTransition.None,
+                    ) {
+                        SessionsBar(
+                            sessions = sessionsState.sessions,
+                            onSelect = callbacks::onSessionSelected,
+                            onRename = callbacks::onSessionRename,
+                            onClose = callbacks::onSessionClose,
+                            onMove = callbacks::onSessionMoved,
+                            onNewSession = callbacks::onNewSession,
+                            onCollapse = { sessionsBarExpanded = false },
+                            backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
+                        )
+                    }
                 }
 
                 // The terminal view is painted transparent (its default background is the window
@@ -210,9 +228,25 @@ private fun TerminalShellHost(
                         initialText = savedTextInput,
                         animationsEnabled = animationsEnabled,
                         callbacks = callbacks,
+                        // The pager adopted a page change that is not the writing field (a swipe
+                        // or collapse, mirroring setExtraKeysTextInputVisible(false) in
+                        // TermuxActivity): the keyboard should now follow the terminal again.
+                        onLeaveWritingPage = { terminalView.requestFocus() },
                         backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
                     )
                 }
+            }
+
+            // While the sessions bar is collapsed, a small floating handle at the top corner
+            // restores it. Hidden with the bar under the first-run overlay.
+            if (!firstRunOverlayVisible && !sessionsBarExpanded) {
+                SessionsRestoreHandle(
+                    onExpand = { sessionsBarExpanded = true },
+                    backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp),
+                )
             }
 
             SnackbarHost(

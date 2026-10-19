@@ -1,5 +1,6 @@
 package com.termux.app.ui.sessions
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,6 +42,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -55,13 +57,14 @@ import com.termux.app.ui.theme.TermuxShellTheme
 import kotlin.math.roundToInt
 
 /**
- * Always-visible, adaptive top strip of terminal sessions.
+ * Top strip of terminal sessions.
  *
  * Renders one tab per [SessionItem]: the title plus a status indicator (running / exited
  * successfully / exited with an error). Tapping a tab switches to that session; long-pressing one
  * and dragging reorders it. Every tab carries a menu button for rename / close / move, so those
- * actions reach background sessions too. A trailing "+" starts a new session. With many sessions
- * the row scrolls, and the active tab is always scrolled into view.
+ * actions reach background sessions too. A trailing "+" starts a new session, and a trailing
+ * chevron collapses the whole bar (a floating [SessionsRestoreHandle] brings it back). With many
+ * sessions the row scrolls, and the active tab is always scrolled into view.
  *
  * This replaces the old navigation drawer session list.
  */
@@ -73,14 +76,17 @@ fun SessionsBar(
     onClose: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onNewSession: () -> Unit,
+    onCollapse: () -> Unit,
     backgroundAlpha: Float = 1f,
     modifier: Modifier = Modifier,
 ) {
+    val view = LocalView.current
     val listState = rememberLazyListState()
     val activeIndex = sessions.indexOfFirst { it.active }
 
     val startSessionLabel = stringResource(R.string.action_start_session)
     val newSessionLabel = stringResource(R.string.action_new_session)
+    val collapseLabel = stringResource(R.string.action_hide_sessions_bar)
 
     // Horizontal extent of each tab in the root coordinate space, keyed by session id, recorded by
     // the tab itself once it has been laid out. Only read from gesture callbacks, never during
@@ -150,6 +156,53 @@ fun SessionsBar(
                 )
             }
         }
+
+        IconButton(
+            onClick = {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                onCollapse()
+            },
+            modifier = Modifier.semantics { contentDescription = collapseLabel },
+        ) {
+            Icon(
+                imageVector = SessionIcons.ChevronUp,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * Floating handle shown while the sessions bar is collapsed: a circular button tucked into the
+ * top corner of the shell that expands the bar again. Its surface background (faded with the
+ * same transparency as the chrome bars) keeps it readable over the terminal.
+ */
+@Composable
+internal fun SessionsRestoreHandle(
+    onExpand: () -> Unit,
+    backgroundAlpha: Float = 1f,
+    modifier: Modifier = Modifier,
+) {
+    val view = LocalView.current
+    val expandLabel = stringResource(R.string.action_show_sessions_bar)
+    IconButton(
+        onClick = {
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            onExpand()
+        },
+        modifier = modifier
+            .background(
+                MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha),
+                CircleShape,
+            )
+            .semantics { contentDescription = expandLabel },
+    ) {
+        Icon(
+            imageVector = SessionIcons.ChevronDown,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
@@ -409,6 +462,7 @@ private fun SessionsBarPreview() {
             onClose = {},
             onMove = { _, _ -> },
             onNewSession = {},
+            onCollapse = {},
         )
     }
 }
@@ -424,6 +478,7 @@ private fun SessionsBarEmptyPreview() {
             onClose = {},
             onMove = { _, _ -> },
             onNewSession = {},
+            onCollapse = {},
         )
     }
 }
