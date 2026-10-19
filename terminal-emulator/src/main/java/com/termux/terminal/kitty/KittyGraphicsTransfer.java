@@ -66,10 +66,6 @@ public final class KittyGraphicsTransfer {
             reset();
             return Result.complete(cmd);
         }
-        if (cmd.moreChunks != 0) {
-            reset();
-            return Result.error("EINVAL", "only m=0 allowed after start");
-        }
         if (!isOnlyMeta(cmd)) {
             reset();
             return Result.error("EINVAL", "chunk may only carry m/q");
@@ -82,6 +78,9 @@ public final class KittyGraphicsTransfer {
         if (maxChars >= 0 && merged.length() > maxChars) {
             reset();
             return Result.error("EINVAL", "payload too large");
+        }
+        if (cmd.moreChunks == 1) {
+            return Result.pending();
         }
         KittyGraphicsCommand completeCmd = KittyGraphicsParser.cloneWithPayload(firstCommand, merged);
         reset();

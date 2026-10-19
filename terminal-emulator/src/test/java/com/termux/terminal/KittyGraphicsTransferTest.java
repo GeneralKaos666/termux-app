@@ -43,6 +43,44 @@ public class KittyGraphicsTransferTest {
     }
 
     @Test
+    public void threeChunksConcatenatePayload() {
+        KittyGraphicsCommand c1 = KittyGraphicsParser.parse("Ga=T,i=1,s=1,v=1,f=32,m=1;", "AA");
+        KittyGraphicsTransfer transfer = new KittyGraphicsTransfer();
+        KittyGraphicsTransfer.Result r1 = transfer.accept(c1);
+        assertFalse(r1.complete);
+        assertNull(r1.errorCode);
+        assertTrue(transfer.isActive());
+        KittyGraphicsCommand c2 = KittyGraphicsParser.parse("Gm=1;", "AA");
+        KittyGraphicsTransfer.Result r2 = transfer.accept(c2);
+        assertFalse(r2.complete);
+        assertNull(r2.errorCode);
+        assertTrue(transfer.isActive());
+        KittyGraphicsCommand c3 = KittyGraphicsParser.parse("Gm=0;", "AA");
+        KittyGraphicsTransfer.Result r3 = transfer.accept(c3);
+        assertTrue(r3.complete);
+        assertNotNull(r3.command);
+        assertEquals("AAAAAA", r3.command.payload);
+        assertEquals(1, r3.command.imageId);
+        assertEquals('T', r3.command.action);
+        assertFalse(transfer.isActive());
+    }
+
+    @Test
+    public void middleChunkOverBudgetErrors() {
+        // f=32, s=1, v=1 expects 4 bytes = 8 base64 chars; the first chunk is already at the cap,
+        // so a further m=1 continuation must be refused without waiting for the final chunk.
+        KittyGraphicsCommand c1 = KittyGraphicsParser.parse("Ga=T,f=32,s=1,v=1,m=1;", "AAAAAAAA");
+        KittyGraphicsTransfer transfer = new KittyGraphicsTransfer();
+        transfer.accept(c1);
+        assertTrue(transfer.isActive());
+        KittyGraphicsCommand c2 = KittyGraphicsParser.parse("Gm=1;", "AAAA");
+        KittyGraphicsTransfer.Result r2 = transfer.accept(c2);
+        assertFalse(r2.complete);
+        assertEquals("EINVAL", r2.errorCode);
+        assertFalse(transfer.isActive());
+    }
+
+    @Test
     public void laterChunkWithKeysOtherThanMOrQErrors() {
         KittyGraphicsCommand c1 = KittyGraphicsParser.parse("Ga=T,i=1,s=1,v=1,f=32,m=1;", "AA");
         KittyGraphicsCommand c2 = KittyGraphicsParser.parse("Ga=T,i=1,m=0;", "AA");
