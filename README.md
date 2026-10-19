@@ -20,8 +20,13 @@ Kotlin and Jetpack Compose.
 - **Wallpaper backgrounds**: point the terminal at your system wallpaper or an image of your
   own.
 - **First-run walkthrough** and roomier touch targets across the shell chrome.
+- **Engine upgrades** in the terminal itself: tap-to-open `OSC 8` hyperlinks, per-cell coloured
+  underlines (`SGR 58`), richer underline styles, ligatures and grapheme shaping (on by default,
+  toggle in Appearance), a first cut of the kitty graphics protocol, and a renderer that redraws
+  only what changed.
 
-Emulation stays upstream's; changes concentrate in the `:app` module.
+Most work concentrates in the `:app` module, but the engine-upgrade workstreams also change
+`:terminal-emulator` and `:terminal-view`.
 
 ## Install
 
@@ -65,9 +70,12 @@ The fork keeps moving. These are the pieces in progress or next up.
 
 - **Appearance verification**: the three newer colour presets (Solarized Light, Gruvbox Dark, One
   Dark) still need a look on real devices. There is a short checklist in `docs/ideas/ideas.md`.
-- **Terminal engine upgrade** (exploratory): kitty graphics, OSC 8 hyperlinks, richer underline
-  styles, ligatures and grapheme shaping, and a renderer that redraws only what changed. The
-  approach is still open; the first step is a new cell model.
+- **Terminal engine upgrade — delivered, finishing touches left**: the new cell model, the
+  dirty-region renderer, run shaping with ligatures, the kitty graphics subset, and `OSC 8`
+  hyperlinks with `SGR 58` coloured underlines all ship on `master` (the hyperlink work has had
+  its on-device checks). What remains: the on-device checklists for shaping and graphics (both
+  deferred, written into their specs), and the two unspecced pieces — compatibility shims and the
+  rest of xterm conformance.
 - **Termux:Float** (recorded only, nothing started): the floating window is absent from the fork
   even though its constants, properties file and a hidden settings entry still ship here. Two ways
   to close that gap — build the plugin again as a `:float` module beside the app, or make the
