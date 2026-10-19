@@ -189,8 +189,13 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
   not be probed, device checks deferred to that spec's §7 (mirrored above), delivery straight onto `master`
   with one commit per task. Implemented in three commits (`d5bb6baa`, `94d29f2c`, `30d9a9e6`): the grid-snap
   policy and advance seam, the per-span glyph stage, and the ligature toggle (appearance screen, default on).
-  The §3 device checklist is still outstanding. Workstream 4 (graphics placement), workstream 6
-  (compat shims) and the xterm-conformance remainder stay unspecced.
+  The §3 device checklist is still outstanding. Workstream 4 (graphics placement) is now implemented
+  and host-verified (spec `specs/2026-10-18-ws4-graphics-placement-design.md`, completion plan
+  `plans/2026-10-18-ws4-kitty-decode-render.md`): `a=t`/`a=T` decode, store and place, `a=p`/`a=d`
+  resolve against the placement registry, `a=q` honours the quiet levels, and chunked transmissions
+  are reassembled. The earlier ack-only state (which acknowledged images it never drew) is gone; its
+  §8 device checks — starting with `kitten icat` — remain outstanding. Workstream 6 (compat shims)
+  and the xterm-conformance remainder stay unspecced.
 
 ## 8. Doc hygiene debt (this directory)
 

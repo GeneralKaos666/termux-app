@@ -12,6 +12,10 @@
 
 **Context:** the previous plan ([`2026-10-18-ws4-graphics-placement-plan.md`](2026-10-18-ws4-graphics-placement-plan.md)) landed its Tasks 1–2 (parser, scaffolding) and stopped. Tasks 3–5 never shipped; this plan is those tasks.
 
+**Status:** executed 2026-10-18 — `1fdcb66e` (T1), `cdb86841` (T2), `fcb244c7` (T3), `0709dd2f`
+(T4), docs close-out (T5). Full `./gradlew test` green; the §8 device checks remain open. Per-task
+progress and deviations are in the (gitignored) SDD ledger.
+
 ## Global Constraints
 
 - Java 1.8 source/target, `minSdk 21`. No `java.util.Base64` (API 26) — use `android.util.Base64`.

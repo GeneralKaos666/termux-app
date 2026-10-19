@@ -1,7 +1,13 @@
 # Terminal engine upgrade — workstream 4: graphics placement (design spec)
 
 **Date:** 2026-10-18
-**Status:** implemented (commits b6f33685, 82b54a25, 05cbf9c6, 01269d32, aa07194f); §8 deferred device checks remain. Implementation plan: [`../plans/2026-10-18-ws4-graphics-placement-plan.md`](../plans/2026-10-18-ws4-graphics-placement-plan.md).
+**Status:** implemented. Parser and ack scaffolding `b6f33685`, `82b54a25`, `05cbf9c6`, `01269d32`,
+`aa07194f`; payload decode, chunking, real placement and the `a=t|T|p|q|d` dispatch in `1fdcb66e`,
+`cdb86841`, `fcb244c7`, `0709dd2f`. §8 deferred device checks remain. Implementation plans:
+[`../plans/2026-10-18-ws4-graphics-placement-plan.md`](../plans/2026-10-18-ws4-graphics-placement-plan.md)
+(tasks 1–2) and the completion plan
+[`../plans/2026-10-18-ws4-kitty-decode-render.md`](../plans/2026-10-18-ws4-kitty-decode-render.md)
+(tasks 3–5).
 **Premise note:** `AGENTS.md` states this app is standalone — never merging back to upstream `termux/termux-app` — so
 the binding constraints are companion-app interoperability (package identity, `TermuxConstants`), `minSdk 21`,
 Java 1.8, and no new third-party dependency.
@@ -178,3 +184,39 @@ Gates: `./gradlew test` green, no changes to existing sixel/iTerm2 tests.
   (`I`), compression (`o=z`), placement groups/relative placements (`P,Q,H,V`).
 - Changes to the existing selection/copy semantics (remain placeholder-based).
 - New public APIs beyond the internal plumbing.
+
+## 10. Deviations
+
+Recorded while completing tasks 3–5; each is a deliberate departure from the text above.
+
+- **No separate placement record (§3.1).** `TerminalBitmap` already carried `mImageId`, `mColumn`,
+  `mRow` and the sub-cell origin offsets, so the image and its placement collapsed into one object and
+  the registry grew a second index `mImagePlacements` (`imageId` → set of `bitmapNum`s). The planned
+  `Placement` list / `mPlacements` was removed. `a=p` and `a=d` are answered from the index, and
+  cells remain stamped with `encodeTerminalBitmap(bitmapNum, x, y)` exactly as before.
+- **`C=0` cursor interpretation.** After a placement the cursor is put at column 0 and advanced
+  `coveredRows - scrolledLines` lines (the sixel idiom), so it lands on the first empty row below the
+  image. `C=1` leaves the cursor untouched. The spec only said "respect `C`"; a client may disagree
+  about the exact landing cell.
+- **`ENOSPC` is also a pre-decode limit.** A declared `s*v` whose pixel byte count exceeds
+  `MAX_BITMAP_SIZE` is refused with `ENOSPC` *before* base64 decode (review focus 3), and the chunked
+  accumulator refuses to merge a payload past the same cap. The spec only tied `ENOSPC` to allocation.
+- **`KittyBase64` is in-repo rather than `android.util.Base64`.** Spec §4.2 wants the parser host
+  testable with no Android headers; `android.util.Base64` would drag the stub jar into the pure path.
+  (`TerminalEmulator` still imports `android.util.Base64` for unrelated input handling.)
+- **Robolectric is a `:terminal-emulator` test-only dependency.** The bitmap-placement and
+  `TerminalEmulator` kitty tests need a real `Bitmap`, so `:terminal-emulator` gained
+  `testImplementation robolectric` plus `includeAndroidResources = true`. The tests also carry
+  `@ConscryptMode(ConscryptMode.Mode.OFF)`: native Conscrypt is absent on the aarch64 host and its
+  failure surfaces misleadingly as `ShadowActivityThread.reset: ActivityThread not set`.
+- **`placeTerminalBitmap` failure sentinel is `{-1, -1}`, not `{0, 0}`.** Bitmap number `0` is a valid
+  first allocation, so the old sentinel made success and failure indistinguishable.
+- **Sizing reads `w`/`h`.** `KittyImageSizing.targetPixels` uses `sourceWidth`/`sourceHeight` (the
+  `w`/`h` keys, explicit pixel size); the command's `width`/`height` fields are `s`/`v`, the transmitted
+  pixel dimensions used for the payload-length check.
+- **Payload length is enforced uniformly for `q`, `t` and `T`.** The completion plan's `a=q` fixture
+  payload `AAAA` (3 bytes) is not a legal length for `s=1,v=1,f=32` (4 bytes); the tests use
+  `AAAAAA==` (4 bytes) instead.
+- **The original plan's task 3 (renderer change) was unnecessary.** `getSixelRect` lives in
+  `:terminal-emulator`'s `TerminalBuffer` and is consumed unchanged by `TerminalRenderer`, so it was
+  made offset-aware and clamped there; `:terminal-view` is untouched.

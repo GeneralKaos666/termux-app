@@ -15,31 +15,20 @@ were re-checked by hand at the cited line; the rest come from the sweep and carr
 
 ## 1. Code gaps
 
-### 1.1 WS4 kitty graphics is ack-only — it never draws an image **[verified]** — highest priority
+### 1.1 WS4 kitty graphics was ack-only — it never drew an image **[resolved 2026-10-18]**
 
-WS4 is recorded as implemented (`docs/specs/2026-10-18-ws4-graphics-placement-design.md:4`), but the
-only kitty code that landed is the parser plus a reply. Direct inspection:
+WS4 was recorded as implemented while the only kitty code that had landed was the parser plus a
+reply: `doApc()` parsed with `KittyGraphicsParser.parse(content, null)` (payload dropped) and answered
+`OK` without decoding, storing, placing or drawing; `deleteTerminalBitmaps(...)` had no call site;
+chunk accumulation (`m=1` … `m=0`) did not exist.
 
-- `terminal-emulator/.../TerminalEmulator.java:2661` `doApc()` parses with
-  `KittyGraphicsParser.parse(content, null)` (payload dropped) and only writes a reply, then
-  `// Otherwise ignore`. No decode, no store, no placement, no draw call.
-- `terminal-emulator/.../TerminalBuffer.java:835` `deleteTerminalBitmaps(...)` has **no call site
-  anywhere in the repo** — the `d=a|A|i|c|C` deletion path is unreachable dead code.
-- `terminal-emulator/.../TerminalBuffer.java:975` `addTerminalBitmapForImage(...)` is called only by
-  the iTerm2 path (`TerminalEmulator.java:3046`); kitty never calls it.
-- Chunk accumulation (`m=1` … `m=0`) is not implemented; each APC chunk is processed standalone.
-- `terminal-emulator/.../kitty/KittyGraphicsCommand.java:12-27` parses width/height/format/
-  offsets/columns/rows/source rect/cursor policy/delete spec/payload, and nothing consumes them.
-
-Consequences: a kitty-speaking program receives `OK` and sees nothing; the §8 device check
-"kitty graphics render with `kitten icat`" (`docs/specs/2026-10-18-ws4-graphics-placement-design.md:168`)
-cannot pass; sixel/iTerm2 rendering is unaffected. The plan's Task 4 (decode seam, `a=t` store,
-`a=T` place, retransmit/delete) was never executed — only its `aa07194f` "Wire APC … with ack" step
-landed.
-
-**Two honest ways out:** implement the missing decode/store/place/delete, or correct the WS4 spec and
-plan to "ack-only subset, no rendering" and drop/restate the rendering device check. Leaving the docs
-as they are is the one option that is not honest.
+**Resolved** by the WS4 completion plan (`docs/plans/2026-10-18-ws4-kitty-decode-render.md`), landing
+as `1fdcb66e` (base64 + size arithmetic), `cdb86841` (chunked transfer), `fcb244c7` (real placement
+and deletion, offset-aware clamped `getSixelRect`) and `0709dd2f` (decoder seam and the
+`a=t|T|p|q|d` dispatch). `TerminalEmulatorKittyTest` (17 tests) and `KittyImageSizingTest` (4) now
+exercise the path, and `deleteTerminalBitmaps` has live call sites. The spec status is corrected and
+its deviations recorded (`docs/specs/2026-10-18-ws4-graphics-placement-design.md:4,188`). Device check
+D-2 is now runnable.
 
 ### 1.2 Focus events are stored but never emitted **[verified, upstream-inherited]**
 
@@ -76,10 +65,10 @@ long tail of `// Ignore.` branches on purpose-skipped controls. All predate the 
   boilerplate, and `testImplementation junit` declared but unused. Worse,
   `termux-shared/src/main/java/com/termux/shared/file/tests/FileUtilsTests.java` (18 KB of assertions)
   ships in the **main** source set and is invoked from app startup.
-- **WS4's own named tests do not exist** — `TerminalEmulatorKittyTest` and
-  `TerminalBufferPlacementTest` were named in
-  `docs/plans/2026-10-18-ws4-graphics-placement-plan.md:78,44`. Nothing exercises `doApc`, the
-  placement lifecycle, or the (dead) deletion path, which is exactly how §1.1 went unnoticed.
+- **[resolved 2026-10-18]** WS4's named tests now exist: `TerminalEmulatorKittyTest` (17 tests)
+  exercises `doApc`, quiet levels, chunking and the delete path, `KittyImageSizingTest` (4) the
+  sizing helper, and `TerminalBufferPlacementTest` the registry. Their earlier absence is exactly
+  how §1.1 went unnoticed.
 - WS5: the underline-colour array's erase/scroll/reflow plumbing has no direct test (documented,
   `docs/specs/2026-10-17-osc8-hyperlinks-sgr58-underline-design.md:287-291`).
 - No test at all for: `:terminal-emulator` `TerminalBitmap`, `TerminalSixel`, `ITermImage`,
@@ -99,7 +88,7 @@ long tail of `// Ignore.` branches on purpose-skipped controls. All predate the 
 | # | Check | Source |
 |---|---|---|
 | D-1 | WS3 §7: Minikin-default probe, ligature ON/OFF, cursor+selection over ligatures, Arabic drift, perf smoke, default-font regression, API 21–28 legacy path | `docs/specs/2026-10-18-ws3-shaping-ligatures-design.md:221-235` |
-| D-2 | WS4 §8: kitty render via `kitten icat`, `a=q` detection, `a=d` deletion, sixel/iTerm2 parity, scroll+GC, chunked images | `docs/specs/2026-10-18-ws4-graphics-placement-design.md:166-173` |
+| D-2 | WS4 §8: kitty render via `kitten icat`, `a=q` detection, `a=d` deletion, sixel/iTerm2 parity, scroll+GC, chunked images | `docs/specs/2026-10-18-ws4-graphics-placement-design.md:172-179` |
 | D-3 | WS2 7-item visual checklist: heavy output, htop-style redraw, scrollback drag, selection during output, 4:1–4:5 underline distinction, font-size/resize/rotation, cursor + reverse video | `docs/specs/2026-10-17-renderer-dirty-region-design.md:205-214` |
 | D-4 | WS1 engine sanity on a real emoji/link session | `docs/plans/2026-10-17-terminal-engine-cell-model.md:534-536` |
 | D-5 | Appearance presets: Solarized Light, Gruvbox Dark, One Dark readability | `docs/ideas/ideas.md:3-27` |
@@ -109,7 +98,8 @@ long tail of `// Ignore.` branches on purpose-skipped controls. All predate the 
 | D-9 | A2 multi-window split-pane stability (one manual check recommended) | `docs/plans/2026-10-10-shell-sessions.md:127` |
 | D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` (verify, do not "fix" blind) | `docs/ideas/2026-10-16-termux-float-port-idea.md:123-126` |
 
-WS5's device check passed on 2026-10-18 and is not pending. D-2 is blocked by §1.1. Two items have no
+WS5's device check passed on 2026-10-18 and is not pending. D-2 was unblocked on 2026-10-18 when
+§1.1 was resolved. Two items have no
 host test by design and are covered only by inspection plus a device run: the WS3 API-29 gate
 (`SDK_INT` stubbed to 0) and the WS2/TerminalView overlay protocol.
 
@@ -172,12 +162,13 @@ review"; the appearance plan points at a gitignored `docs/superpowers/` path
 
 ## 7. Suggested order
 
-1. **Resolve §1.1** — implement the kitty decode/store/place/delete path, or re-scope WS4's spec and
+1. ~~**Resolve §1.1** — implement the kitty decode/store/place/delete path, or re-scope WS4's spec and
    plan to "ack-only". It is the only place where the recorded status overstates the code, and it
-   blocks device check D-2.
+   blocks device check D-2.~~ **Done 2026-10-18** (`1fdcb66e`, `cdb86841`, `fcb244c7`, `0709dd2f`);
+   the spec and plan are corrected and D-2 is runnable.
 2. **Doc hygiene (§5)** — one mechanical commit; removes four false "awaiting review" statuses and
    five all-unchecked plans.
-3. **Device batch (§3)** — WS3, WS4 (after step 1), WS2, the appearance presets and the
+3. **Device batch (§3)** — WS3, WS4 (now runnable), WS2, the appearance presets and the
    settings-IA check, whenever a phone is available.
 4. **WS6 audit** — cheapest of the unspecced epics, and it doubles as a compatibility regression
    check on the published `:termux-shared` surface.
