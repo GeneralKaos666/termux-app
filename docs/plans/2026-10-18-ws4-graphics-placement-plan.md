@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-18
 **Spec:** [`../specs/2026-10-18-ws4-graphics-placement-design.md`](../specs/2026-10-18-ws4-graphics-placement-design.md)
-**Status:** draft (not implemented). Will be executed directly on `master`, one commit per task, each gated on green `./gradlew test`. No PR.
+**Status:** implemented (spec status `implemented`, commits `b6f33685`, `82b54a25`, `05cbf9c6`, `01269d32`, `aa07194f`; §8 device checks deferred). Executed directly on `master`, one commit per task, each gated on green `./gradlew test`. No PR.
 **Premise:** follow the same process as WS3 (self-review, then implementation). Sixel/iTerm2 behaviour preserved; kitty subset + full ack/a=q.
 
 ## 1. Task 1 — Kitty graphics parser (pure, host-testable)

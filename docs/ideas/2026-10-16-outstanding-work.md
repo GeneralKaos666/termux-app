@@ -125,9 +125,10 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
     control asserting two different contents render differently — both came back blank). Replaced with a
     recording-`Canvas` call-sequence test (draw calls + paint underline flag/color); pixel-exact appearance
     remains the manual device check.
-  - `[open]` OSC 8 taps dispatch **unconditionally**, while the existing word-URL tap is gated by the
-    `open terminal transcript URL on click` property. No gating was specified in the approved plan; decide
-    whether that property should also gate hyperlinks.
+  - `[decided 2026-10-18]` OSC 8 taps dispatch **unconditionally**, while the existing word-URL tap
+    is gated by the `open terminal transcript URL on click` property — confirmed as final by user
+    decision: an explicit program-stamped link is not a transcript URL guess, so the property does
+    not gate it. No code change pending; recorded in spec §4.5.
   - `[bounded]` a **wide linked glyph** (emoji, CJK) resolves only on its base column: WS1 stamps the link id
     on the base cell and leaves the continuation column at `0`, and the hit-test reads the tapped cell. ASCII
     links are unaffected. The "reuse the previous base column" fallback needs a continuation test before it is

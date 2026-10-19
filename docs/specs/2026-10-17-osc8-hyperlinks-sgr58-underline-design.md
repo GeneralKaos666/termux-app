@@ -130,9 +130,12 @@ public void onLinkClicked(String uri) {
 `ShareUtils.openUrl` is the app's existing URL-opening path (already used by the word-URL tap
 feature): it builds `Intent(ACTION_VIEW, Uri.parse(url))`, falls back to the system chooser on
 `ActivityNotFoundException`, and logs other failures. Delegating to it keeps the override to a
-one-liner instead of duplicating error handling. **Open question (unresolved):** the existing
-word-URL tap is gated by the `open terminal transcript URL on click` property; OSC 8 links are
-dispatched unconditionally. The approved plan specified no gating, so that is what shipped.
+one-liner instead of duplicating error handling. **Gating — decided (2026-10-18):** the
+existing word-URL tap is gated by the `open terminal transcript URL on click` property; OSC 8 links
+are dispatched **unconditionally**, and that is the final decision, not an oversight. An OSC 8 link is
+an explicit target stamped by the program, not a URL guessed from transcript text, so the
+transcript-URL property does not apply to it. The approved plan specified no gating, which is what
+shipped; no code change is pending on this item.
 
 - `default` → every existing implementor (`TermuxTerminalViewClientBase` and subclasses, plugin
   apps) compiles unchanged (Java 8 default methods, already the project's source level).
