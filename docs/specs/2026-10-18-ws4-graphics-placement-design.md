@@ -1,7 +1,7 @@
 # Terminal engine upgrade — workstream 4: graphics placement (design spec)
 
 **Date:** 2026-10-18
-**Status:** draft (not implemented). Implementation plan: to be written after this spec is approved.
+**Status:** implemented (commits b6f33685, 82b54a25, 05cbf9c6, 01269d32, aa07194f); §8 deferred device checks remain. Implementation plan: [`../plans/2026-10-18-ws4-graphics-placement-plan.md`](../plans/2026-10-18-ws4-graphics-placement-plan.md).
 **Premise note:** `AGENTS.md` states this app is standalone — never merging back to upstream `termux/termux-app` — so
 the binding constraints are companion-app interoperability (package identity, `TermuxConstants`), `minSdk 21`,
 Java 1.8, and no new third-party dependency.
