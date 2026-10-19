@@ -354,6 +354,17 @@ public class TerminalBitmap {
     /** Build a {@link TerminalBitmap} from a {@link Bitmap}. */
     public static TerminalBitmap buildOrThrow(TerminalBuffer terminalBuffer, int bitmapNum, Bitmap bitmap,
                                               int x, int y, int cellWidth, int cellHeight) throws Throwable {
+        return buildOrThrow(terminalBuffer, bitmapNum, bitmap, x, y, cellWidth, cellHeight, 0, 0, 0);
+    }
+
+    /**
+     * Build a {@link TerminalBitmap} from a {@link Bitmap}, recording the owning image id and the
+     * sub-cell origin offsets of the placement. The offsets shift the source rectangle that each
+     * stamped cell samples from (see {@link TerminalBuffer#getSixelRect(long)}).
+     */
+    static TerminalBitmap buildOrThrow(TerminalBuffer terminalBuffer, int bitmapNum, Bitmap bitmap,
+                                       int x, int y, int cellWidth, int cellHeight,
+                                       int imageId, int originOffsetX, int originOffsetY) throws Throwable {
         if (bitmap == null) {
             throw new IllegalArgumentException("Cannot create terminal bitmap from an unset bitmap");
         }
@@ -380,8 +391,15 @@ public class TerminalBitmap {
 
         int scrollLines =  height - s;
 
-        return new TerminalBitmap(terminalBuffer.getClient(), bitmapNum, bitmap,
+        TerminalBitmap terminalBitmap = new TerminalBitmap(terminalBuffer.getClient(), bitmapNum, bitmap,
             cellWidth, cellHeight, scrollLines, null);
+        terminalBitmap.mImageId = imageId;
+        terminalBitmap.mOriginOffsetX = originOffsetX;
+        terminalBitmap.mOriginOffsetY = originOffsetY;
+        terminalBitmap.mColumn = x;
+        terminalBitmap.mRow = y;
+        terminalBitmap.mScrollCount = s;
+        return terminalBitmap;
     }
 
 
@@ -479,12 +497,24 @@ public class TerminalBitmap {
     protected int mColumn;
     protected int mRow;
 
+    /**
+     * The number of lines the buffer scrolled up while stamping this placement (as opposed to
+     * {@link #mScrollLines}, which is the number of rows the caller should advance the cursor by).
+     */
+    protected int mScrollCount;
+
     public int getImageId() {
         return mImageId;
     }
 
     public void setImageId(int imageId) {
         mImageId = imageId;
+    }
+
+    /** Sets the sub-cell pixel origin of the placement, used by {@link TerminalBuffer#getSixelRect(long)}. */
+    public void setOriginOffsets(int originOffsetX, int originOffsetY) {
+        mOriginOffsetX = originOffsetX;
+        mOriginOffsetY = originOffsetY;
     }
 
     public int getOriginOffsetX() {

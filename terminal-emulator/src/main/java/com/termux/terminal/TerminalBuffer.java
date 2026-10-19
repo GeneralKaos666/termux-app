@@ -74,30 +74,13 @@ public final class TerminalBuffer {
     /** The time since last garbage collection for all the {@link TerminalBitmap} that are loaded in the terminal. */
     private long mTerminalBitmapsLastGC;
 
-    static class Placement {
-        final int bitmapNum;
-        final int imageId;
-        final int col;
-        final int row;
-        final int originOffsetX;
-        final int originOffsetY;
-        final int coveredCols;
-        final int coveredRows;
-
-        Placement(int bitmapNum, int imageId, int col, int row, int originOffsetX, int originOffsetY, int coveredCols, int coveredRows) {
-            this.bitmapNum = bitmapNum;
-            this.imageId = imageId;
-            this.col = col;
-            this.row = row;
-            this.originOffsetX = originOffsetX;
-            this.originOffsetY = originOffsetY;
-            this.coveredCols = coveredCols;
-            this.coveredRows = coveredRows;
-        }
-    }
-
-
-    private final java.util.ArrayList<Placement> mPlacements = new java.util.ArrayList<Placement>(8);
+    /**
+     * The map from an image id (kitty {@code i}, {@code 0} for sixel/iTerm2) to the set of
+     * {@link #mTerminalBitmaps} bitmap numbers that belong to it. Kept in sync by
+     * {@link #placeTerminalBitmap}, {@link #deleteTerminalBitmaps}, {@link #clearTerminalBitmaps}
+     * and {@link #removeScrolledOutTerminalBitmaps}.
+     */
+    private final HashMap<Integer, Set<Integer>> mImagePlacements = new HashMap<>();
 
     /**
      * The bitmap number start for {@link #mTerminalBitmaps} keys.
@@ -832,35 +815,98 @@ public final class TerminalBuffer {
     }
 
 
-    public synchronized void deleteTerminalBitmaps(int imageId, int placementId, char deleteSpec) {
+    /**
+     * Deletes images and/or placements from the registry.
+     *
+     * @param imageId     the kitty image id to match; {@code 0} matches every image.
+     * @param placementId the bitmap number to match, or {@code 0} for any.
+     * @param deleteSpec  one of {@code a}, {@code A}, {@code i}, {@code c}, {@code C}.
+     * @param cursorCol   the cursor column, used by {@code c}/{@code C}.
+     * @param cursorRow   the cursor row, used by {@code c}/{@code C}.
+     */
+    public synchronized void deleteTerminalBitmaps(int imageId, int placementId, char deleteSpec,
+                                                   int cursorCol, int cursorRow) {
+        Set<Integer> toRemove = new HashSet<>();
+
         if (deleteSpec == 'a' || deleteSpec == 'A') {
-            mPlacements.clear();
-            mTerminalBitmaps.clear();
-            return;
-        }
-        if (deleteSpec == 'i') {
-            java.util.Iterator<Placement> it = mPlacements.iterator();
-            while (it.hasNext()) {
-                Placement p = it.next();
-                if (p.imageId == imageId && (placementId == 0 || p.bitmapNum == placementId)) {
-                    it.remove();
-                    mTerminalBitmaps.remove(p.bitmapNum);
-                }
+            toRemove.addAll(mTerminalBitmaps.keySet());
+        } else if (deleteSpec == 'i' || deleteSpec == 'c' || deleteSpec == 'C') {
+            for (HashMap.Entry<Integer, TerminalBitmap> entry : mTerminalBitmaps.entrySet()) {
+                int bitmapNum = entry.getKey();
+                TerminalBitmap terminalBitmap = entry.getValue();
+                if (imageId != 0 && terminalBitmap.mImageId != imageId) continue;
+                if (placementId != 0 && bitmapNum != placementId) continue;
+                if ((deleteSpec == 'c' || deleteSpec == 'C')
+                        && !intersectsCursor(terminalBitmap, cursorCol, cursorRow)) continue;
+                toRemove.add(bitmapNum);
             }
+        } else {
             return;
         }
-        if (deleteSpec == 'c' || deleteSpec == 'C') {
-            // Delete placements intersecting cursor - cursor not tracked here easily; keep simple: no-op if unknown
-            // Subset scope per spec allows c/C but we don't have cursor; clear all visible behavior covered by a
-            mPlacements.clear();
-            mTerminalBitmaps.clear();
+
+        if (toRemove.isEmpty()) {
             return;
         }
+
+        blankStampedCells(toRemove);
+        for (Integer bitmapNum : toRemove) {
+            mTerminalBitmaps.remove(bitmapNum);
+            removeImagePlacement(bitmapNum);
+        }
+    }
+
+    /** @return the bitmap numbers of the images stored under {@code imageId}, empty when absent. */
+    public synchronized int[] getImagePlacements(int imageId) {
+        Set<Integer> bitmapNums = mImagePlacements.get(imageId);
+        if (bitmapNums == null || bitmapNums.isEmpty()) {
+            return new int[0];
+        }
+        int[] result = new int[bitmapNums.size()];
+        int i = 0;
+        for (Integer bitmapNum : bitmapNums) {
+            result[i++] = bitmapNum;
+        }
+        return result;
     }
 
     public synchronized void clearTerminalBitmaps() {
         mTerminalBitmaps.clear();
-        mPlacements.clear();
+        mImagePlacements.clear();
+    }
+
+    private static boolean intersectsCursor(TerminalBitmap terminalBitmap, int cursorCol, int cursorRow) {
+        if (terminalBitmap.mBitmap == null || terminalBitmap.mCellWidth <= 0 || terminalBitmap.mCellHeight <= 0) {
+            return false;
+        }
+        int coveredCols = (terminalBitmap.mBitmap.getWidth() + terminalBitmap.mCellWidth - 1) / terminalBitmap.mCellWidth;
+        int coveredRows = (terminalBitmap.mBitmap.getHeight() + terminalBitmap.mCellHeight - 1) / terminalBitmap.mCellHeight;
+        return cursorCol >= terminalBitmap.mColumn && cursorCol < terminalBitmap.mColumn + coveredCols
+            && cursorRow >= terminalBitmap.mRow && cursorRow < terminalBitmap.mRow + coveredRows;
+    }
+
+    private void blankStampedCells(Set<Integer> bitmapNums) {
+        for (int row = 0; row < mLines.length; row++) {
+            TerminalRow line = mLines[row];
+            if (line == null || !line.mHasTerminalBitmap) continue;
+            for (int column = 0; column < mColumns; column++) {
+                long style = line.getStyle(column);
+                if (TextStyle.isTerminalBitmap(style)
+                        && bitmapNums.contains(TextStyle.getTerminalBitmapNum(style))) {
+                    line.setChar(column, ' ', TextStyle.NORMAL, 0, 0);
+                }
+            }
+        }
+    }
+
+    private void removeImagePlacement(int bitmapNum) {
+        java.util.Iterator<HashMap.Entry<Integer, Set<Integer>>> it = mImagePlacements.entrySet().iterator();
+        while (it.hasNext()) {
+            Set<Integer> bitmapNums = it.next().getValue();
+            bitmapNums.remove(bitmapNum);
+            if (bitmapNums.isEmpty()) {
+                it.remove();
+            }
+        }
     }
 
     public synchronized Bitmap getSixelBitmap(long style) {
@@ -871,17 +917,27 @@ public final class TerminalBuffer {
 
     public synchronized Rect getSixelRect(long style) {
         TerminalBitmap terminalBitmap = getTerminalBitmap(style);
-        if (terminalBitmap == null) {
+        if (terminalBitmap == null || terminalBitmap.mBitmap == null) {
             return null;
         }
 
         int x = TextStyle.getTerminalBitmapX(style);
         int y = TextStyle.getTerminalBitmapY(style);
-        return new Rect(
-            x * terminalBitmap.mCellWidth,
-            y * terminalBitmap.mCellHeight,
-            (x + 1) * terminalBitmap.mCellWidth,
-            (y + 1) * terminalBitmap.mCellHeight);
+        int left = x * terminalBitmap.mCellWidth - terminalBitmap.mOriginOffsetX;
+        int top = y * terminalBitmap.mCellHeight - terminalBitmap.mOriginOffsetY;
+        int right = (x + 1) * terminalBitmap.mCellWidth - terminalBitmap.mOriginOffsetX;
+        int bottom = (y + 1) * terminalBitmap.mCellHeight - terminalBitmap.mOriginOffsetY;
+
+        int bitmapWidth = terminalBitmap.mBitmap.getWidth();
+        int bitmapHeight = terminalBitmap.mBitmap.getHeight();
+        if (left < 0) left = 0;
+        if (top < 0) top = 0;
+        if (right > bitmapWidth) right = bitmapWidth;
+        if (bottom > bitmapHeight) bottom = bitmapHeight;
+        if (left >= right || top >= bottom) {
+            return null;
+        }
+        return new Rect(left, top, right, bottom);
     }
 
 
@@ -972,6 +1028,48 @@ public final class TerminalBuffer {
     }
 
 
+    /**
+     * Creates a {@link TerminalBitmap} for {@code bitmap}, stamps its cells starting at
+     * {@code (col, row)} with local cell indices and registers it under {@code imageId}.
+     *
+     * @return {@code {bitmapNum, scrolledLineCount}} where {@code scrolledLineCount} is the number
+     *     of lines the buffer scrolled up while stamping, or {@code {0, 0}} when the bitmap could
+     *     not be created or no free bitmap number was available.
+     */
+    public synchronized int[] placeTerminalBitmap(Bitmap bitmap, int imageId, int col, int row,
+                                                  int cellW, int cellH, int originOffsetX, int originOffsetY) {
+        int bitmapNum = getFreeTerminalBitmapNum();
+        if (bitmapNum < TERMINAL_BITMAP__NUM_START) {
+            Logger.logError(mClient, LOG_TAG, "Cannot create more than " + TERMINAL_BITMAP__NUM_END + " bitmaps");
+            return new int[] {0, 0};
+        }
+
+        TerminalBitmap terminalBitmap;
+        try {
+            terminalBitmap = TerminalBitmap.buildOrThrow(this, bitmapNum, bitmap, col, row, cellW, cellH,
+                imageId, originOffsetX, originOffsetY);
+        } catch (Throwable t) {
+            if (t instanceof OutOfMemoryError) System.gc();
+            Logger.logError(mClient, LOG_TAG,
+                "Create terminal bitmap " + bitmapNum + " from bitmap failed: " + t.getMessage());
+            return new int[] {0, 0};
+        }
+        if (terminalBitmap == null || terminalBitmap.getBitmap() == null) {
+            return new int[] {0, 0};
+        }
+        mTerminalBitmaps.put(bitmapNum, terminalBitmap);
+        Set<Integer> bitmapNums = mImagePlacements.get(imageId);
+        if (bitmapNums == null) {
+            bitmapNums = new HashSet<>();
+            mImagePlacements.put(imageId, bitmapNums);
+        }
+        bitmapNums.add(bitmapNum);
+
+        doTerminalBitmapsGC(30000);
+        return new int[] {bitmapNum, terminalBitmap.mScrollCount};
+    }
+
+
     public synchronized int[] addTerminalBitmapForImage(byte[] image, int x, int y, int cellW, int cellH, int width, int height, boolean shouldPreserveAspectRatio) {
         int bitmapNum = getFreeTerminalBitmapNum();
         if (bitmapNum < TERMINAL_BITMAP__NUM_START) {
@@ -1018,6 +1116,7 @@ public final class TerminalBuffer {
 
         for(Integer bitmapStyle : bitmapsToRemove) {
             mTerminalBitmaps.remove(bitmapStyle);
+            removeImagePlacement(bitmapStyle);
         }
     }
 
@@ -1044,6 +1143,7 @@ public final class TerminalBuffer {
         for (Integer bitmapNum: bitmapNums) {
             if (!bitmapsToKeep.contains(bitmapNum)) {
                 mTerminalBitmaps.remove(bitmapNum);
+                removeImagePlacement(bitmapNum);
             }
         }
 
