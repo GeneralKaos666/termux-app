@@ -18,6 +18,7 @@ and docs; this ledger still owns the decisions).
 
 **Legend:** `[bounded]` small and self-contained · `[needs spec]` architectural, needs its own cycle ·
 `[deferred]` postponed on purpose · `[check]` built but not verified on device ·
+`[probed]` verification attempted on device, with the outcome recorded ·
 `[limitation]` accepted as-is for now · `[non-goal]` decided against.
 
 ---
@@ -219,7 +220,7 @@ From the appearance plan (Non-goals): no `:terminal-emulator` / `:terminal-view`
 `:termux-shared` diff; no live-apply (explicit Apply was chosen); no new Gradle module and no new
 third-party dependency (the font picker is hand-written).
 
-## 10. Scrollback depth — diagnosed 2026-10-19, config-level, no code change
+## 10. Scrollback depth — diagnosed 2026-10-19, probe run 2026-10-20, config-level, no code change
 
 - **Report:** "terminal doesn't scroll back far enough."
 - **Diagnosis (host-side, complete):** the depth is the `terminal-transcript-rows` property, clamped by
@@ -235,12 +236,34 @@ third-party dependency (the font picker is hand-written).
   restart picks up the configured value.
 - `[decided 2026-10-19]` 50000 is enough — no change to `DEFAULT_TERMINAL_TRANSCRIPT_ROWS`,
   `TERMINAL_TRANSCRIPT_ROWS_MAX` or the reload semantics (user decision; the property is the fix).
-- `[check]` The on-device before/after measurement is written but was **not run**: the target left the
-  `10.0.0.x` LAN mid-check (this host ended up on `172.20.20.20/24`, no other host exposes an adb port,
-  no mDNS advertisement appears, and the old address times out). The probe — 3000 marker lines with
-  full-width colour bars at lines 1/500/1000/1500/2000, drag-to-top until the screencap stops changing,
-  then exact-RGB bar counting, which pins the retained depth to the row — lives in local scratch
-  (`~/.tmp/opencode/ws4/mk.sh`, `~/.tmp/opencode/ws4/scroll_depth.py`): phase `a` measures the current
-  session (expect bar C on the last screen row = depth 2000) and phase `c` reloads the settings broadcast,
-  opens a new session with Ctrl+Alt+C and re-measures (expect bar A at the top = content exhausted,
-  depth ≥ ~2980). Run both when the phone is reachable again.
+- `[probed 2026-10-20]` The deferred on-device probe **was run** (target NX769J/API 34, reached at a new
+  wireless-debugging port `10.0.0.169:33723`). Result: the config-level diagnosis is **confirmed**; the
+  numeric pixel measurement is **not reproducible enough on this device to quote as a fact**.
+  - **Confirmed by source (deterministic).** `TerminalEmulator.getTerminalTranscriptRows()`
+    (`terminal-emulator/.../TerminalEmulator.java:578–583`) passes any value in
+    `[100, 50000]` straight through and falls back to `DEFAULT_TERMINAL_TRANSCRIPT_ROWS = 2000`
+    only for `null`/out-of-range, so `terminal-transcript-rows = 50000` really does yield 50000 and
+    `= 2000` really does yield 2000. `TermuxService.java:586` copies `mProperties.getTerminalTranscriptRows()`
+    into the session at creation, and `mProperties` is loaded once at process start — which is exactly the
+    load-timing explanation above: a session that predates the property keeps 2000, and only a **new
+    session (Ctrl+Alt+C) or an app restart** picks up the configured value.
+  - **Why the pixel walk failed on this device** (all reproducible, all worth knowing):
+    - The cell geometry in the old probe was stale. Measured precisely from three independent
+      full-width colour bars emitting at known lines: **cell height = 34 px exactly** and the terminal
+      view top **y = 250** (the old `CELL_H = 43`, `TERM_TOP_Y = 251` implied ~27 rows for a 28-row view).
+    - "Drag until the screencap stops changing" cannot detect the scroll end: the **blinking cursor alone
+      produces ~350–480 k pixel diff between two captures**, which is *larger* than the diff a real scroll
+      produces. A "stable screencap" therefore measured the cursor, not the buffer top.
+    - `adb shell input swipe` has **non-deterministic fling momentum** (`TerminalView` scrolls via
+      `Scroller.fling`, `terminal-view/.../TerminalView.java:237`). Repeated runs with identical drags
+      reported oldest-retained lines scattered between ~400 and ~3000, so the method cannot pin a number.
+    - Passing the shell command needs `input text` with `%s` for a space (`%20`/`%7E` silently type
+      nothing), and `input text` only reaches the terminal when the terminal — not the writing page — holds
+      the IME (`dumpsys input_method` → `mServedView`).
+  - **No user-visible change follows.** 50000 was already decided as sufficient, and the code path is
+    already correct; the device's `~/.termux/termux.properties` is back at
+    `terminal-transcript-rows = 50000` (it was temporarily set to 2000 for the A/B and restored from
+    `termux.properties.probe-bak`). The corrected bar probe (`probe2.sh`, colour-encodes its own line
+    index; `probe3.py`, exact-RGB reader) lives in local scratch `~/.tmp/opencode/` if the measurement is
+    ever worth redoing with a deterministic scroll primitive — e.g. driving
+    `TerminalView.setTopRow()` directly through an instrumentation test instead of synthetic swipes.
