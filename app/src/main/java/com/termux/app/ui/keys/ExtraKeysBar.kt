@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -48,8 +50,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.invisibleToUser
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -152,23 +157,35 @@ fun ExtraKeysBar(
 
     // The pager is the source of truth while the user drives it: adopt the settled page into the
     // state so text-input visibility and the IME input-mode logic in TermuxActivity follow.
-    // Arriving on the writing page focuses the field and shows the IME; leaving it hands focus
-    // back to the terminal (mirroring setExtraKeysTextInputVisible(false), which handles the
-    // Java-initiated direction).
+    // Arriving on a *visible* writing page focuses the field and shows the IME; leaving it hands
+    // focus back to the terminal (mirroring setExtraKeysTextInputVisible(false), which handles the
+    // Java-initiated direction). Visibility is part of the key: a dot tapped while the keys are
+    // collapsed re-expands the bar onto the writing page the pager never left, so the page index
+    // alone does not change and the field would stay unfocused behind the keyboard binding to the
+    // terminal.
     LaunchedEffect(pagerState) {
-        var previousPage = pagerState.settledPage
-        snapshotFlow { pagerState.settledPage }.collect { page ->
+        var previousWriting = false
+        snapshotFlow {
+            pagerState.settledPage == ExtraKeysState.PAGE_WRITING && keysVisible
+        }.collect { writing ->
+            val page = pagerState.settledPage
             if (state.page != page) state.page = page
-            if (previousPage == ExtraKeysState.PAGE_WRITING && page != ExtraKeysState.PAGE_WRITING) {
+            if (previousWriting && !writing && page != ExtraKeysState.PAGE_WRITING) {
                 onLeaveWritingPage()
             }
-            if (page == ExtraKeysState.PAGE_WRITING) {
+            if (writing) {
                 editTextRef.value?.let { editText ->
-                    editText.requestFocus()
-                    KeyboardUtils.showSoftKeyboard(editText.context, editText)
+                    // Posted, not called directly: the pages stay composed beyond the viewport, so
+                    // the writing page's AndroidView can still be unattached when the pager settles
+                    // here. A focus request made then is dropped and the IME stays bound to the
+                    // terminal; posted, it runs once the view is in the window.
+                    editText.post {
+                        editText.requestFocus()
+                        KeyboardUtils.showSoftKeyboard(editText.context, editText)
+                    }
                 }
             }
-            previousPage = page
+            previousWriting = writing
         }
     }
 
@@ -377,7 +394,8 @@ private fun BarStrip(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 4.dp)
+            .selectableGroup(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         pageLabels.forEachIndexed { index, label ->
@@ -386,13 +404,23 @@ private fun BarStrip(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(width = 40.dp, height = 48.dp)
-                    .semantics {
+                    // selectable, not clickable+semantics: it supplies the click action, the touch
+                    // target and the ripple. Its semantics are then replaced wholesale, so the dot
+                    // publishes exactly one node carrying label, tab role and selected state —
+                    // stacking a semantics{} block next to it leaves a second, non-clickable node
+                    // that a screen reader announces instead of the actionable one.
+                    .selectable(
+                        selected = isActive,
+                        role = Role.Tab,
+                        onClick = {
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            onSelectPage(index)
+                        },
+                    )
+                    .clearAndSetSemantics {
                         contentDescription = label
                         selected = isActive
-                    }
-                    .clickable {
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                        onSelectPage(index)
+                        role = Role.Tab
                     },
             ) {
                 Box(
