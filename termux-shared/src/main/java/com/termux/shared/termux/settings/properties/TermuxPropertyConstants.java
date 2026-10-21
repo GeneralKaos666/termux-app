@@ -328,6 +328,10 @@ public final class TermuxPropertyConstants {
     //public static final String DEFAULT_IVALUE_EXTRA_KEYS = "[[ESC, TAB, CTRL, ALT, {key: '-', popup: '|'}, DOWN, UP]]"; // Single row
     public static final String DEFAULT_IVALUE_EXTRA_KEYS = "[['ESC','/',{key: '-', popup: '|'},'HOME','UP','END','PGUP'], ['TAB','CTRL','ALT','LEFT','DOWN','RIGHT','PGDN']]"; // Double row
 
+    /** Defines the key for the second page of extra keys */
+    public static final String KEY_EXTRA_KEYS_PAGE2 =  "extra-keys-page2"; // Default: "extra-keys-page2"
+    public static final String DEFAULT_IVALUE_EXTRA_KEYS_PAGE2 = "[['ESC','TAB','CTRL','ALT','LEFT','DOWN','UP','RIGHT'], ['HOME','END','PGUP','PGDN','PASTE','KEYBOARD','SCROLL','SETTINGS']]"; // Double row
+
     /** Defines the key for extra keys style */
     public static final String KEY_EXTRA_KEYS_STYLE =  "extra-keys-style"; // Default: "extra-keys-style"
     public static final String DEFAULT_IVALUE_EXTRA_KEYS_STYLE = "default";
@@ -427,6 +431,7 @@ public final class TermuxPropertyConstants {
         KEY_BACK_KEY_BEHAVIOUR,
         KEY_DEFAULT_WORKING_DIRECTORY,
         KEY_EXTRA_KEYS,
+        KEY_EXTRA_KEYS_PAGE2,
         KEY_EXTRA_KEYS_STYLE,
         KEY_NIGHT_MODE,
         KEY_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR,
