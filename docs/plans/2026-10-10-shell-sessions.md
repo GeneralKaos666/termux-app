@@ -493,8 +493,13 @@ Revised 2026-10-21: the halved tabs proved too small to tap, so the chip minimum
 Also fixed 2026-10-21: `terminal-margin-vertical` was applied to the whole shell, so any non-zero
 margin drew a line of the terminal background colour (the decor background) above the sessions bar.
 The margins now pad the terminal area inside the shell instead, leaving the bars flush with the screen
-edges. The separate 1dp `activity_termux_bottom_space_view` still shows the same colour below the
-extra-keys bar.
+edges.
+
+The 1dp `activity_termux_bottom_space_view` had the same problem below the extra-keys bar. It is not a
+spacer but the keyboard-overlap probe (`TermuxActivityRootView.onGlobalLayout` compares its window rect
+with the visible window), so it was kept and moved inside the shell layout as an overlay on the bottom
+edge instead of a layout sibling: it no longer takes 1dp of space, and it still hides behind the IME,
+so the margin logic is unchanged.
 
 - Page 2 is a real second `ExtraKeysView` (not a Compose imitation), so custom layouts, modifiers,
   popups and long-press repeat work there exactly as on page 1.

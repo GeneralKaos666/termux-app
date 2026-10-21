@@ -10,8 +10,7 @@
     <RelativeLayout
         android:id="@+id/activity_termux_root_relative_layout"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="match_parent"
         android:layout_marginHorizontal="0dp"
         android:layout_marginVertical="0dp"
         android:orientation="vertical">
@@ -21,12 +20,19 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-    </RelativeLayout>
+        <!-- Keyboard-overlap probe, not a spacer: TermuxActivityRootView.onGlobalLayout() compares
+             this view's window rect with the visible window and adds a bottom margin when the
+             keyboard hides it (see the class comment). It overlays the shell's bottom edge instead
+             of taking layout space, so it no longer shows a 1dp strip of the decor background (the
+             terminal background colour) below the extra-keys bar. -->
+        <View
+            android:id="@+id/activity_termux_bottom_space_view"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_alignParentBottom="true"
+            android:background="@android:color/transparent"
+            android:importantForAccessibility="no" />
 
-    <View
-        android:id="@+id/activity_termux_bottom_space_view"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@android:color/transparent" />
+    </RelativeLayout>
 
 </com.termux.app.terminal.TermuxActivityRootView>
