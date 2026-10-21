@@ -61,8 +61,8 @@ import kotlin.math.roundToInt
  * Renders one tab per [SessionItem]: the title plus a status indicator (running / exited
  * successfully / exited with an error). Tapping a tab switches to that session; long-pressing one
  * and dragging reorders it. Every tab carries a menu button for rename / close / move, so those
- * actions reach background sessions too. A trailing "+" starts a new session, and a trailing
- * chevron collapses the whole bar (a floating [SessionsRestoreHandle] brings it back). With many
+ * actions reach background sessions too. A leading chevron collapses the whole bar (a floating
+ * [SessionsRestoreHandle] brings it back), a trailing "+" starts a new session. With many
  * sessions the row scrolls, and the active tab is always scrolled into view.
  *
  * This replaces the old navigation drawer session list.
@@ -113,9 +113,26 @@ fun SessionsBar(
             .fillMaxWidth()
             // Only the bar's own background fades; tab labels, chips and indicators stay opaque.
             .background(MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha))
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            // The extra 2dp of vertical padding grows the bar itself, not the chips, which keep
+            // their own 32dp minimum and stay vertically centred in the taller strip.
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // The collapse chevron leads the row, before the tabs, the "+" and any empty-bar prompt, so
+        // it never sits at the trailing edge where the scrolled tabs used to run under it.
+        Icon(
+            imageVector = SessionIcons.ChevronUp,
+            contentDescription = collapseLabel,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clickable {
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    onCollapse()
+                }
+                .padding(2.dp)
+                .size(24.dp),
+        )
+
         if (sessions.isEmpty()) {
             // A clickable Text rather than a TextButton: the button's 48dp minimum interactive
             // size would keep the empty bar taller than the populated one.
@@ -160,19 +177,6 @@ fun SessionsBar(
                     .size(24.dp),
             )
         }
-
-        Icon(
-            imageVector = SessionIcons.ChevronUp,
-            contentDescription = collapseLabel,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .clickable {
-                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    onCollapse()
-                }
-                .padding(2.dp)
-                .size(24.dp),
-        )
     }
 }
 

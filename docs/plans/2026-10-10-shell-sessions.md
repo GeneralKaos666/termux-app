@@ -490,6 +490,12 @@ back arrow to page 1.
 Revised 2026-10-21: the halved tabs proved too small to tap, so the chip minimum went 24dp → 32dp
 (bar 36dp measured on device at 408dpi: 82px chips). Still well under the 48dp Material default.
 
+Revised again 2026-10-21: the bar's own vertical padding went 2dp → 4dp, growing the *bar* to 40dp
+(102px measured: chips stay 82px, 10px above and below) without touching the chips, and the collapse
+chevron moved from the trailing edge to the leading edge of the row, before the tabs and the "+".
+The trailing edge was where the scrolled tabs ran under it; the bar now reads
+`[chevron] [tabs…] [+]` and measures 81px for the chevron slot, chips starting at x81.
+
 Also fixed 2026-10-21: `terminal-margin-vertical` was applied to the whole shell, so any non-zero
 margin drew a line of the terminal background colour (the decor background) above the sessions bar.
 The margins now pad the terminal area inside the shell instead, leaving the bars flush with the screen
