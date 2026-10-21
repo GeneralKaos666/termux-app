@@ -62,7 +62,6 @@
     <string name="title_rename_session">Set session name</string>
     <string name="action_rename_session_confirm">Set</string>
 
-    <string name="action_toggle_soft_keyboard">Keyboard</string>
     <string name="extra_keys_text_input_hint">Type a line to send</string>
     <string name="action_back_to_keys">Back to keys</string>
     <string name="action_hide_keys">Hide keys</string>
