@@ -41,6 +41,7 @@ import com.termux.app.ui.background.TerminalBackgroundState
 import com.termux.app.ui.firstrun.FirstRunOverlay
 import com.termux.app.ui.firstrun.FirstRunState
 import com.termux.app.ui.keys.ExtraKeysBar
+import com.termux.app.ui.keys.ExtraKeysHandle
 import com.termux.app.ui.keys.ExtraKeysState
 import com.termux.app.ui.sessions.SessionsBar
 import com.termux.app.ui.sessions.SessionsRestoreHandle
@@ -152,6 +153,10 @@ private fun TerminalShellHost(
     // floating restore handle stays on screen.
     var sessionsBarExpanded by rememberSaveable { mutableStateOf(true) }
 
+    // Whether the extra-keys grids are expanded. Collapsed, the bar keeps no height and the
+    // terminal grows down to the bottom edge, where the floating handle restores the keys.
+    var extraKeysExpanded by rememberSaveable { mutableStateOf(true) }
+
     // Dark-first chrome: the terminal and the extra-keys grid are always dark, so the shell follows
     // them rather than the system light/dark setting. Material You (dark variant) on API 31+,
     // Termux palette fallback elsewhere; see the theme module.
@@ -222,6 +227,20 @@ private fun TerminalShellHost(
                         ),
                 ) {
                     AndroidView(factory = { terminalView })
+
+                    // The extra-keys collapse handle floats over the terminal at the bottom-end
+                    // corner instead of inside the bar, so it never covers the last key of the
+                    // grid; collapsed, it sits at the bottom edge like SessionsRestoreHandle.
+                    if (extraKeysState.visible) {
+                        ExtraKeysHandle(
+                            keysVisible = extraKeysExpanded,
+                            onToggle = { extraKeysExpanded = !extraKeysExpanded },
+                            backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(4.dp),
+                        )
+                    }
                 }
 
                 AnimatedVisibility(
@@ -231,6 +250,7 @@ private fun TerminalShellHost(
                 ) {
                     ExtraKeysBar(
                         state = extraKeysState,
+                        keysVisible = extraKeysExpanded,
                         initialText = savedTextInput,
                         animationsEnabled = animationsEnabled,
                         callbacks = callbacks,

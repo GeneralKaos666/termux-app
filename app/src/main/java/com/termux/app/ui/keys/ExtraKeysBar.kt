@@ -22,14 +22,12 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,9 +73,9 @@ internal fun extraKeysPageHeight(
 
 /**
  * The bottom extra-keys bar: a three-page pager (two key grids with independent layouts, plus the
- * text-send field) with the collapse chevron floating over its top-end corner. Pages are reached by
- * swiping the pager; while the keys are collapsed the bar has no height left, so the same chevron
- * floats at the bottom-end corner as a restore handle.
+ * text-send field). Pages are reached by swiping the pager. The bar has no collapse control of its
+ * own: [ExtraKeysHandle] floats over the terminal just above it, so it never covers a key, and while
+ * the keys are collapsed the bar has no height left and the handle sits at the bottom edge.
  *
  * Both key grids are the shared `ExtraKeysView` engine, embedded through [AndroidView] so a user's
  * custom `extra-keys` / `extra-keys-page2` layouts, modifier buttons, swipe-up popups and long-press
@@ -85,6 +83,7 @@ internal fun extraKeysPageHeight(
  * keeps its draft text and the view contracts below fire only on whole-bar hide or teardown.
  *
  * @param state Shell-owned bar state (visibility, grid heights, current page).
+ * @param keysVisible Whether the pager is expanded; when false the whole bar collapses to nothing.
  * @param initialText Text to restore into the send field on first show (e.g. after rotation).
  * @param callbacks Bridge back into the activity.
  * @param onLeaveWritingPage The user paged or collapsed off the text-send field; hand focus back
@@ -94,6 +93,7 @@ internal fun extraKeysPageHeight(
 @Composable
 fun ExtraKeysBar(
     state: ExtraKeysState,
+    keysVisible: Boolean,
     initialText: String?,
     animationsEnabled: Boolean,
     callbacks: ShellHostCallbacks,
@@ -107,10 +107,6 @@ fun ExtraKeysBar(
     // The writing page's EditText, set once its AndroidView factory has run (which happens at bar
     // creation since every page stays composed).
     val editTextRef = remember { Ref<EditText?>(null) }
-    // Whether the key-grid portion of the pager is expanded. Only the floating chevron stays
-    // visible when collapsed; it re-expands the bar.
-    var keysVisible by rememberSaveable { mutableStateOf(true) }
-
     val density = LocalDensity.current
     val gridHeight = with(density) { state.gridHeightPx.toDp() }
     val grid2Height = with(density) { state.grid2HeightPx.toDp() }
@@ -186,8 +182,6 @@ fun ExtraKeysBar(
         label = "extraKeysPagerAlpha",
     )
 
-    val collapseLabel = stringResource(R.string.action_hide_keys)
-    val expandLabel = stringResource(R.string.action_show_keys)
     val backLabel = stringResource(R.string.action_back_to_keys)
 
     Box(
@@ -232,30 +226,6 @@ fun ExtraKeysBar(
                     backLabel = backLabel,
                 )
             }
-        }
-
-        if (keysVisible) {
-            KeysBarChevron(
-                label = collapseLabel,
-                icon = QuickActionIcons.ChevronDown,
-                backgroundAlpha = backgroundAlpha,
-                onToggle = { keysVisible = false },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(2.dp),
-            )
-        } else {
-            // Collapsed, the bar itself is zero-height at the bottom edge of the shell, so the
-            // handle aligns there and reaches up over the terminal (like SessionsRestoreHandle).
-            KeysBarChevron(
-                label = expandLabel,
-                icon = QuickActionIcons.ChevronUp,
-                backgroundAlpha = backgroundAlpha,
-                onToggle = { keysVisible = true },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(4.dp),
-            )
         }
     }
 }
@@ -343,26 +313,38 @@ private fun TextInputPage(
 }
 
 /**
- * The bar's collapse chevron: a small circled icon floating over the pager's top-end corner while
- * the keys are up, and at the bottom-end corner of the shell as a restore handle once they are
- * collapsed and the bar itself has no height left.
+ * The extra-keys collapse handle: a circled chevron floating over the terminal at the bottom-end
+ * corner, just above the bar while the keys are up and at the bottom edge of the shell once they
+ * are collapsed. It is deliberately outside the bar so it never covers the last key of the grid,
+ * mirroring [com.termux.app.ui.sessions.SessionsRestoreHandle].
  */
 @Composable
-private fun KeysBarChevron(
-    label: String,
-    icon: ImageVector,
-    backgroundAlpha: Float,
+internal fun ExtraKeysHandle(
+    keysVisible: Boolean,
     onToggle: () -> Unit,
+    backgroundAlpha: Float = 1f,
     modifier: Modifier = Modifier,
 ) {
-    KeysBarIcon(
-        label = label,
-        icon = icon,
-        onClick = onToggle,
+    val view = LocalView.current
+    val label = stringResource(if (keysVisible) R.string.action_hide_keys else R.string.action_show_keys)
+    IconButton(
+        onClick = {
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            onToggle()
+        },
         modifier = modifier
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha)),
-    )
+            .background(
+                MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha),
+                CircleShape,
+            )
+            .semantics { contentDescription = label },
+    ) {
+        Icon(
+            imageVector = if (keysVisible) QuickActionIcons.ChevronDown else QuickActionIcons.ChevronUp,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
+    }
 }
 
 /**

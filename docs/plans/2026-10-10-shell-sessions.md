@@ -501,6 +501,15 @@ with the visible window), so it was kept and moved inside the shell layout as an
 edge instead of a layout sibling: it no longer takes 1dp of space, and it still hides behind the IME,
 so the margin logic is unchanged.
 
+Also changed 2026-10-21: the collapse chevron used to float *inside* the bar's top-end corner, on top
+of the last key of the grid (measured on device: the chevron circle spanned x1032–1108 over a key
+label ending at x1085). It is now `ExtraKeysHandle`, drawn by the shell over the terminal at the
+bottom-end corner just above the bar (10px clear at 408dpi), styled like `SessionsRestoreHandle`
+(48dp circled `IconButton`). `keysVisible` is hoisted from `ExtraKeysBar` to the shell as
+`extraKeysExpanded`; the bar itself no longer draws any control. Collapsed, the pager keeps zero
+height and the handle drops to the bottom edge of the shell (4dp padding), restoring the keys where
+it used to sit when the bar was hidden.
+
 - Page 2 is a real second `ExtraKeysView` (not a Compose imitation), so custom layouts, modifiers,
   popups and long-press repeat work there exactly as on page 1.
 - Its layout resolves like page 1: the `extra-keys-page2` property in
@@ -515,5 +524,7 @@ so the margin logic is unchanged.
 - Deviation from the approved design: the proposed "None" preset was dropped — it resolved to
   `default`, so it was an entry that changed nothing.
 - Unit suite green (520 tests, 0 failures) including new `ExtraKeysPage2PresetsTest` and updated
-  height/state/settings-XML/preference-store tests. Device gate outstanding: chevron overlay and
-  collapse handle, two grids with per-page layouts, and the back-arrow → terminal IME handoff.
+  height/state/settings-XML/preference-store tests. Device gate cleared 2026-10-21: the handle floats
+  above the grid (10px clear, no overlap), the collapse/restore round-trip works in both keyboard
+  states, and the two grids with per-page layouts and the back-arrow → terminal IME handoff were
+  verified earlier in the same pass.
