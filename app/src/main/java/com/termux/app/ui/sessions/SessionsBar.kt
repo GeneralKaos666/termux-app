@@ -278,9 +278,10 @@ private fun SessionTab(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
                 .background(containerColor)
-                // Slimmer than the 48dp Material default: a plain clickable icon (see the menu
-                // button below) rather than an IconButton keeps the whole bar near half height.
-                .heightIn(min = 24.dp)
+                // Compact, but still a comfortable tap target: 32dp rather than Material's 48dp
+                // minimum. A plain clickable icon (see the menu button below) instead of an
+                // IconButton is what keeps the bar from being forced back up to 48dp.
+                .heightIn(min = 32.dp)
                 .onGloballyPositioned { coordinates ->
                     val bounds = coordinates.boundsInRoot()
                     // The index is fixed up by SessionsBar from the session order; only the extent

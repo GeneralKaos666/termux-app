@@ -487,6 +487,9 @@ dot/chevron strip above the extra keys was deleted, the collapse chevron moving 
 page entirely: page 2 is now a **second key grid with its own layout**, page 3 (text-send) gained a
 back arrow to page 1.
 
+Revised 2026-10-21: the halved tabs proved too small to tap, so the chip minimum went 24dp → 32dp
+(bar 36dp measured on device at 408dpi: 82px chips). Still well under the 48dp Material default.
+
 - Page 2 is a real second `ExtraKeysView` (not a Compose imitation), so custom layouts, modifiers,
   popups and long-press repeat work there exactly as on page 1.
 - Its layout resolves like page 1: the `extra-keys-page2` property in
