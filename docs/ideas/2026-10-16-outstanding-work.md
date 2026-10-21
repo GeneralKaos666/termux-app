@@ -5,7 +5,7 @@
 known and what the next step would cost. Items marked *needs spec* require the full cycle
 (brainstorming → spec → plan) before any code.
 **Origin:** user instruction — "remove what's up next in readme and add what we havent done in
-docs/superpowers/ideas". The public README now carries a compact version of this list as a table; this
+docs/superpowers/ideas". The public README now carries a compact prose version of this list; this
 file is the detailed record, with the grounding for each item, plus the gaps found while building the
 sessions reorder and the appearance screen.
 **Path classification:** mixed — see the legend. This file is not a spec and authorizes nothing.

@@ -24,13 +24,15 @@ Kotlin and Jetpack Compose.
   for the first page (Default, Compact, Vim, Emacs) and a **Second page preset** picker for the
   second (Default, Function). A custom `extra-keys` or `extra-keys-page2` property in
   `~/.termux/termux.properties` always overrides the preset.
-- **Appearance screen** under the terminal's Style menu and in Settings: colour schemes, an
-  editor for the background, foreground, cursor and all sixteen ANSI colours, font and size,
-  and cursor style and blink, all with a live preview. Both cursor settings can be left at
-  their Default, which follows `termux.properties`. It replaces the separate Termux:Styling app.
+- **Appearance screen** from the terminal's Style menu (Settings → Display → Style → Appearance):
+  colour schemes, an editor for the background, foreground, cursor and all sixteen ANSI colours,
+  font and size, and cursor style and blink, all with a live preview. Both cursor settings can be
+  left at their Default, which follows `termux.properties`. It replaces the separate Termux:Styling
+  app.
 - **Wallpaper backgrounds**: point the terminal at your system wallpaper or an image of your
-  own.
-- **First-run walkthrough** on a fresh install, leading into the bootstrap package install.
+  own. (A live wallpaper will not work — only a static image is read.)
+- **First-run walkthrough** on a fresh install, leading into the bootstrap package install. It
+  shows only while there are no sessions, and never again once the bootstrap is installed.
 - **Engine upgrades** in the terminal itself: tap-to-open `OSC 8` hyperlinks, per-cell coloured
   underlines (`SGR 58`), richer underline styles, ligatures and grapheme shaping (on by default,
   toggle in Appearance), a first cut of the kitty graphics protocol, and a renderer that redraws
