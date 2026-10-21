@@ -11,7 +11,6 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.util.AttributeSet;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -390,8 +389,13 @@ public final class ExtraKeysView extends GridLayout {
         if (extraKeysInfo == null)
             return;
 
+        // Drop only the special buttons this instance registered. When several instances share one
+        // map (the extra-keys bar renders a second grid page and passes the same map to both, so a
+        // modifier toggled on one page applies on the other), clearing the whole list would wipe the
+        // other instance's registrations on every reload. Buttons still attached are this instance's
+        // children; `null` parents are leftovers of a previous reload of this instance.
         for(SpecialButtonState state : mSpecialButtons.values())
-            state.buttons = new ArrayList<>();
+            state.buttons.removeIf(button -> button.getParent() == this || button.getParent() == null);
 
         removeAllViews();
 
