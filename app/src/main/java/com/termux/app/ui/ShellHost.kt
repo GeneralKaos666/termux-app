@@ -212,7 +212,14 @@ private fun TerminalShellHost(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .weight(1f)
+                        // Terminal margin, not shell margin: the bars stay flush with the screen
+                        // edges, and the decor background (the terminal background colour) is only
+                        // exposed around the terminal itself, where it belongs.
+                        .padding(
+                            horizontal = shellChromeState.terminalMarginHorizontalDp.dp,
+                            vertical = shellChromeState.terminalMarginVerticalDp.dp,
+                        ),
                 ) {
                     AndroidView(factory = { terminalView })
                 }

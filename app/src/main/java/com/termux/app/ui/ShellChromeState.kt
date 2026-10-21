@@ -21,6 +21,26 @@ class ShellChromeState {
         this.barTransparencyPercent = barTransparencyPercent.coerceIn(0, 100)
     }
 
+    /**
+     * Margin around the terminal area, in dp, from `terminal-margin-horizontal` and
+     * `terminal-margin-vertical`.
+     *
+     * Applied to the terminal itself rather than to the whole shell. Insetting the shell would leave
+     * a strip of the decor background — which is the *terminal* background colour — above the
+     * sessions bar and below the extra-keys bar, so a 1dp margin showed up as a thin black line over
+     * the chrome.
+     */
+    var terminalMarginHorizontalDp by mutableStateOf(0)
+        private set
+
+    var terminalMarginVerticalDp by mutableStateOf(0)
+        private set
+
+    fun updateTerminalMargins(horizontalDp: Int, verticalDp: Int) {
+        terminalMarginHorizontalDp = horizontalDp.coerceAtLeast(0)
+        terminalMarginVerticalDp = verticalDp.coerceAtLeast(0)
+    }
+
     companion object {
         const val DEFAULT_TRANSPARENCY_PERCENT = 30
     }

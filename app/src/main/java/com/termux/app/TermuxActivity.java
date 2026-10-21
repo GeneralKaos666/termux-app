@@ -698,9 +698,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private void setMargins() {
         RelativeLayout relativeLayout = findViewById(R.id.activity_termux_root_relative_layout);
-        int marginHorizontal = mProperties.getTerminalMarginHorizontal();
-        int marginVertical = mProperties.getTerminalMarginVertical();
-        ViewUtils.setLayoutMarginsInDp(relativeLayout, marginHorizontal, marginVertical, marginHorizontal, marginVertical);
+        // The terminal margin is applied to the terminal area inside the Compose shell (see
+        // ShellHost), not to the shell itself. Insetting the shell would expose a strip of the decor
+        // background - which TermuxTerminalSessionActivityClient sets to the terminal background
+        // colour - above the sessions bar and below the extra-keys bar, i.e. a thin line of the
+        // terminal colour over the chrome.
+        ViewUtils.setLayoutMarginsInDp(relativeLayout, 0, 0, 0, 0);
+        if (mShellChromeState != null) {
+            mShellChromeState.updateTerminalMargins(
+                mProperties.getTerminalMarginHorizontal(), mProperties.getTerminalMarginVertical());
+        }
     }
 
 
@@ -747,6 +754,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSnackbarState = new SnackbarState();
         mTerminalBackgroundState = new TerminalBackgroundState();
         mShellChromeState = new ShellChromeState();
+        // The shell chrome state now exists, so the terminal margins (read in setMargins()) can be
+        // pushed into the Compose shell. The earlier setMargins() call in onCreate() only zeroed the
+        // layout margins, because this state did not exist yet.
+        setMargins();
         syncInterfaceTransparency();
         mFirstRunState = new FirstRunState();
 

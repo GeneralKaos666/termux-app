@@ -490,6 +490,12 @@ back arrow to page 1.
 Revised 2026-10-21: the halved tabs proved too small to tap, so the chip minimum went 24dp → 32dp
 (bar 36dp measured on device at 408dpi: 82px chips). Still well under the 48dp Material default.
 
+Also fixed 2026-10-21: `terminal-margin-vertical` was applied to the whole shell, so any non-zero
+margin drew a line of the terminal background colour (the decor background) above the sessions bar.
+The margins now pad the terminal area inside the shell instead, leaving the bars flush with the screen
+edges. The separate 1dp `activity_termux_bottom_space_view` still shows the same colour below the
+extra-keys bar.
+
 - Page 2 is a real second `ExtraKeysView` (not a Compose imitation), so custom layouts, modifiers,
   popups and long-press repeat work there exactly as on page 1.
 - Its layout resolves like page 1: the `extra-keys-page2` property in
