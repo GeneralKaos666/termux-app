@@ -1,5 +1,8 @@
 # Terminal engine upgrade — workstream 3: shaped-run grid snapping and ligatures (implementation plan)
 
+**Status:** implemented (`d5bb6baa`, `94d29f2c`, `30d9a9e6`); the §-device checks are outstanding.
+The task list below is the original execution flow and is left unchecked.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let the renderer draw whole runs as platform-shaped text (so ligatures form and Indic/Arabic shaping survives) without letting a glyph leave its cell: a pure `ShapedRunPolicy` reads the platform's shaped advances and decides whether a run lands on the cell grid; a run that does not is re-drawn span by span, each span scaled onto its own cells. A new ligature toggle (default on, in the appearance screen) drives `Paint.setFontFeatureSettings` once per renderer.

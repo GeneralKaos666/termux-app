@@ -1,7 +1,8 @@
 # Settings IA rework — design spec
 
 **Date:** 2026-10-16
-**Status:** awaiting user review (pre-planning)
+**Status:** implemented (`de9ed98b`..`9077b5f6`); see
+[`../plans/2026-10-16-settings-ia.md`](../plans/2026-10-16-settings-ia.md).
 **Origin:** user vision — "the same Termux underneath, just with a much better UI/UX…". Milestone C of
 [`2026-10-10-shell-and-sessions-ux-design.md`](./2026-10-10-shell-and-sessions-ux-design.md) §7:
 *"Rework the preferences IA; setup wizard"*.

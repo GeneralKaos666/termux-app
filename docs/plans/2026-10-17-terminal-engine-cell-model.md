@@ -1,7 +1,9 @@
 # Terminal engine upgrade — workstream 1: the cell model — implementation plan
 
 **Date:** 2026-10-17
-**Status:** awaiting user review (pre-execution)
+**Status:** implemented. The storage, dirty rows, underline styles, per-cell link ids, grapheme
+clusters and the `SGR 4:n`/`OSC 8` parsing halves all ship on `master` and are consumed by WS2, WS3
+and WS5.
 **Path:** bounded. The storage being changed already exists (`TerminalRow`, `TerminalBuffer`, `TextStyle`); this
 plan widens the per-cell model in place rather than introducing a new one.
 **Origin:** [`../ideas/2026-10-14-terminal-engine-upgrade-idea.md`](../ideas/2026-10-14-terminal-engine-upgrade-idea.md)

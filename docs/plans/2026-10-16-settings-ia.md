@@ -1,5 +1,8 @@
 # Settings IA Rework Implementation Plan
 
+**Status:** implemented (`de9ed98b`..`9077b5f6`). The task list below is the original execution flow
+and is left unchecked.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Reorganise the `Settings → Termux` preference tree from three module-named screens (Debugging / Terminal I/O / Terminal View) into three task-named screens (Display / Keyboard / Advanced), without changing any persisted preference key.

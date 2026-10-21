@@ -1,7 +1,9 @@
 # Shell & sessions UX — design spec
 
 **Date:** 2026-10-10
-**Status:** awaiting user review (pre-planning)
+**Status:** implemented. Milestones A (shell & sessions), B (sensible defaults) and C1 (terminal
+background) all shipped; see [`../plans/2026-10-10-shell-sessions.md`](../plans/2026-10-10-shell-sessions.md)
+for the per-task commits and status.
 **Origin:** user vision — "the same Termux underneath, just with a much better UI/UX, sensible defaults, smooth interactions, and proper Android integration."
 **Scope:** the experience layer only. The terminal engine (`:terminal-emulator`, `:terminal-view`, JNI) is untouched. First workstream is the **app shell and session management**; the other three parts of the vision (sensible defaults, settings/onboarding, Android integration) are queued as later milestones in §7 and are **not** planned here.
 **Decisions taken by the user:** Jetpack Compose shell (wrap the existing `TerminalView`); keep `targetSdk 28` for now; keep the `com.termux` identity and package.

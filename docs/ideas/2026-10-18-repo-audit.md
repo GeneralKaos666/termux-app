@@ -120,9 +120,15 @@ API-29 gate (`SDK_INT` stubbed to 0) and the WS2/TerminalView overlay protocol.
 
 ---
 
-## 5. Doc hygiene — mechanical, one commit
+## 5. Doc hygiene — mechanical, one commit — **[done 2026-10-20]**
 
-Status lines that contradict shipped code:
+All four stale "awaiting review" status lines were replaced with implemented statuses and commit
+ranges, the three plans with no status line gained one, the ledger's WS1 line was corrected, and the
+appearance plan's `docs/superpowers/` path now points at `docs/ideas/`. The plans' task lists are
+deliberately left unchecked as the original execution record. `docs/en/index.md` is upstream-inherited
+scaffolding (from the termux.github.io i18n commit), not this fork's debt.
+
+Status lines that previously contradicted shipped code:
 
 - `docs/specs/2026-10-10-shell-and-sessions-ux-design.md:5` — "awaiting user review (pre-planning)"
   (A–C shipped).
@@ -135,10 +141,6 @@ Status lines that contradict shipped code:
 Plans whose task lists are entirely unchecked although the work shipped: `2026-10-16-settings-ia.md`,
 `2026-10-17-terminal-engine-cell-model.md`, `2026-10-17-renderer-dirty-region.md`,
 `2026-10-18-ws3-shaping-ligatures.md`, and `2026-10-10-shell-sessions.md:47-91` (A1).
-
-Also: the ledger's WS1 line (`2026-10-16-outstanding-work.md:96-98`) still reads "pre-planning
-review"; the appearance plan points at a gitignored `docs/superpowers/` path
-(`docs/plans/2026-10-14-in-app-terminal-appearance.md:29`); `docs/en/index.md` is a stub.
 
 ---
 
@@ -165,8 +167,8 @@ review"; the appearance plan points at a gitignored `docs/superpowers/` path
    plan to "ack-only". It is the only place where the recorded status overstates the code, and it
    blocks device check D-2.~~ **Done 2026-10-18** (`1fdcb66e`, `cdb86841`, `fcb244c7`, `0709dd2f`);
    the spec and plan are corrected and D-2 is runnable.
-2. **Doc hygiene (§5)** — one mechanical commit; removes four false "awaiting review" statuses and
-   five all-unchecked plans.
+2. ~~**Doc hygiene (§5)** — one mechanical commit; removes four false "awaiting review" statuses and
+   five all-unchecked plans.~~ **Done 2026-10-20.**
 3. **Device batch (§3)** — WS3, WS4 (now runnable), WS2, the appearance presets and the
    settings-IA check, whenever a phone is available.
 4. **WS6 audit** — cheapest of the unspecced epics, and it doubles as a compatibility regression

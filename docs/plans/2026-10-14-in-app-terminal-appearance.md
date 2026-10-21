@@ -26,7 +26,7 @@ untouched, and `:termux-shared` gets **no diff**.
 Gate at merge: `./gradlew :app:testDebugUnitTest` green (17 classes / 111 tests / 0 failures), and
 `git diff --stat` confirmed no changes under `terminal-emulator/`, `terminal-view/` or `termux-shared/`.
 
-Carried forward (not part of this plan's scope; see `docs/superpowers/ideas/2026-10-16-outstanding-work.md`):
+Carried forward (not part of this plan's scope; see `docs/ideas/2026-10-16-outstanding-work.md`):
 dead string resources were removed on 2026-10-16, and three of the shipped colour presets still lack an
 individual device check.
 

@@ -1,5 +1,8 @@
 # Terminal engine upgrade — workstream 2: renderer dirty-region drawing (implementation plan)
 
+**Status:** implemented (`e8e165a8`..`67ec4de3`). The task list below is the original execution flow
+and is left unchecked.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ])` syntax for tracking.
 
 **Goal:** Make `:terminal-view` draw only the dirty visible rows (targeted invalidation + row-range rendering), consume WS1's dirty flags and monotonic change counter at draw time, and render distinct underline styles (double/curly/dotted/dashed). The "image layer" is not in scope; link ids remain unrendered.
