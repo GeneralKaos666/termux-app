@@ -17,10 +17,10 @@ class ExtraKeysState {
     var visible: Boolean by mutableStateOf(false)
 
     /**
-     * Which page of the bar's pager is showing: [PAGE_KEYS] (the key grid), [PAGE_ACTIONS] (the
-     * quick actions) or [PAGE_WRITING] (the text-send field). Written by Compose when the user
-     * swipes or taps a page dot, and by [textInputVisible] when Java toggles the writing page.
-     * Out-of-range assignments are clamped.
+     * Which page of the bar's pager is showing: [PAGE_KEYS] (the first key grid), [PAGE_KEYS_2] (the
+     * second key grid, with its own layout) or [PAGE_WRITING] (the text-send field). Written by
+     * Compose when the user swipes or taps a page dot, and by [textInputVisible] when Java toggles
+     * the writing page. Out-of-range assignments are clamped.
      */
     var page: Int
         get() = pageState
@@ -42,15 +42,18 @@ class ExtraKeysState {
             page = if (value) PAGE_WRITING else PAGE_KEYS
         }
 
-    /** Total height of the key grid in pixels, or 0 when there are no keys to show. */
+    /** Total height of the first key grid in pixels, or 0 when there are no keys to show. */
     var gridHeightPx: Int by mutableStateOf(0)
 
+    /** Total height of the second key grid in pixels, or 0 when there are no keys to show. */
+    var grid2HeightPx: Int by mutableStateOf(0)
+
     companion object {
-        /** Page index of the extra-keys grid. */
+        /** Page index of the first extra-keys grid. */
         const val PAGE_KEYS = 0
 
-        /** Page index of the quick-actions page. */
-        const val PAGE_ACTIONS = 1
+        /** Page index of the second extra-keys grid, which has its own layout. */
+        const val PAGE_KEYS_2 = 1
 
         /** Page index of the text-send field. */
         const val PAGE_WRITING = 2

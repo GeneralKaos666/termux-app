@@ -42,7 +42,6 @@ import com.termux.app.ui.firstrun.FirstRunOverlay
 import com.termux.app.ui.firstrun.FirstRunState
 import com.termux.app.ui.keys.ExtraKeysBar
 import com.termux.app.ui.keys.ExtraKeysState
-import com.termux.app.ui.keys.QuickAction
 import com.termux.app.ui.sessions.SessionsBar
 import com.termux.app.ui.sessions.SessionsRestoreHandle
 import com.termux.app.ui.sessions.SessionsState
@@ -70,14 +69,14 @@ interface ShellHostCallbacks {
     /** Start a new session. */
     fun onNewSession()
 
-    /** Wire the given [view] to its client and load the active key set. Called once per creation. */
-    fun onExtraKeysViewCreated(view: ExtraKeysView)
+    /**
+     * Wire the given [view] for pager [page] to its client and load that page's key layout. Called
+     * once per creation, and once per key-grid page (both grids stay composed together).
+     */
+    fun onExtraKeysViewCreated(page: Int, view: ExtraKeysView)
 
-    /** Drop the activity's reference to the extra-keys view it is no longer hosting. */
-    fun onExtraKeysViewReleased()
-
-    /** Run the extra-keys bar quick action. */
-    fun onExtraKeysAction(action: QuickAction)
+    /** Drop the activity's reference to the key-grid view for pager [page] it is no longer hosting. */
+    fun onExtraKeysViewReleased(page: Int)
 
     /** Write [text] (or a newline when empty) to the current session. */
     fun onExtraKeysTextSend(text: String)

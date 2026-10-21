@@ -5,8 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
- * Compose-observable state for the shell chrome (the sessions tab bar and the extra-keys bar with
- * its quick actions), mutated from the Java activity like the other shell states.
+ * Compose-observable state for the shell chrome (the sessions tab bar and the extra-keys bar, whose
+ * second page is a second key grid), mutated from the Java activity like the other shell states.
  */
 class ShellChromeState {
 

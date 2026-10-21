@@ -1,13 +1,16 @@
 package com.termux.app.terminal.io;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
 
 import com.termux.app.TermuxActivity;
+import com.termux.app.activities.SettingsActivity;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalViewClient;
+import com.termux.app.ui.keys.ExtraKeysPage2Presets;
 import com.termux.app.ui.keys.KeySetPresets;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.extrakeys.ExtraKeysConstants;
@@ -22,6 +25,7 @@ import org.json.JSONException;
 public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
 
     private ExtraKeysInfo mExtraKeysInfo;
+    private ExtraKeysInfo mExtraKeysInfoPage2;
 
     final TermuxActivity mActivity;
     final TermuxTerminalViewClient mTermuxTerminalViewClient;
@@ -52,6 +56,7 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
      */
     private void setExtraKeys() {
         mExtraKeysInfo = null;
+        mExtraKeysInfoPage2 = null;
 
         try {
             // The mMap stores the extra key and style string values while loading properties
@@ -65,6 +70,13 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
                 extrakeys = KeySetPresets.jsonFor(mActivity.getPreferences().getExtraKeysPreset());
             }
 
+            String extrakeysPage2 = (String) mActivity.getProperties().getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_PAGE2, true);
+
+            // Same contract as the first keys page: the custom property wins over the Settings preset.
+            if (mActivity.getProperties().getPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_PAGE2, null, true) == null) {
+                extrakeysPage2 = ExtraKeysPage2Presets.jsonFor(mActivity.getPreferences().getExtraKeysPage2Preset());
+            }
+
             String extraKeysStyle = (String) mActivity.getProperties().getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_STYLE, true);
 
             ExtraKeysConstants.ExtraKeyDisplayMap extraKeyDisplayMap = ExtraKeysInfo.getCharDisplayMapForStyle(extraKeysStyle);
@@ -74,22 +86,29 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
             }
 
             mExtraKeysInfo = new ExtraKeysInfo(extrakeys, extraKeysStyle, ExtraKeysConstants.CONTROL_CHARS_ALIASES);
+            mExtraKeysInfoPage2 = new ExtraKeysInfo(extrakeysPage2, extraKeysStyle, ExtraKeysConstants.CONTROL_CHARS_ALIASES);
         } catch (JSONException e) {
             Logger.showToast(mActivity, "Could not load and set the \"" + TermuxPropertyConstants.KEY_EXTRA_KEYS + "\" property from the properties file: " + e.toString(), true);
             Logger.logStackTraceWithMessage(LOG_TAG, "Could not load and set the \"" + TermuxPropertyConstants.KEY_EXTRA_KEYS + "\" property from the properties file: ", e);
 
             try {
                 mExtraKeysInfo = new ExtraKeysInfo(TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS, TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS_STYLE, ExtraKeysConstants.CONTROL_CHARS_ALIASES);
+                mExtraKeysInfoPage2 = new ExtraKeysInfo(TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS_PAGE2, TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS_STYLE, ExtraKeysConstants.CONTROL_CHARS_ALIASES);
             } catch (JSONException e2) {
                 Logger.showToast(mActivity, "Can't create default extra keys",true);
                 Logger.logStackTraceWithMessage(LOG_TAG, "Could create default extra keys: ", e);
                 mExtraKeysInfo = null;
+                mExtraKeysInfoPage2 = null;
             }
         }
     }
 
     public ExtraKeysInfo getExtraKeysInfo() {
         return mExtraKeysInfo;
+    }
+
+    public ExtraKeysInfo getExtraKeysInfoPage2() {
+        return mExtraKeysInfoPage2;
     }
 
     @SuppressLint("RtlHardcoded")
@@ -108,6 +127,10 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
             TerminalView terminalView = mTermuxTerminalViewClient.getActivity().getTerminalView();
             if (terminalView != null && terminalView.mEmulator != null)
                 terminalView.mEmulator.toggleAutoScrollDisabled();
+        } else if ("SETTINGS".equals(key)) {
+            // The quick-actions page was replaced by this second key grid, so its Settings shortcut
+            // is now an ordinary placeable key.
+            mActivity.startActivity(new Intent(mActivity, SettingsActivity.class));
         } else {
             super.onTerminalExtraKeyButtonClick(view, key, ctrlDown, altDown, shiftDown, fnDown);
         }

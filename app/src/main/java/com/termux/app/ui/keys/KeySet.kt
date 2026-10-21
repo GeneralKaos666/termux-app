@@ -19,7 +19,8 @@ data class ExtraKey(val key: String, val popup: String? = null)
  *
  * [DEFAULT] mirrors `TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS` as plain Kotlin so the
  * defaults have a canonical, dependency-free reference and a unit test can prove they have not
- * drifted from the shared constant.
+ * drifted from the shared constant. [DEFAULT_PAGE2] does the same for the second keys page
+ * (`TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS_PAGE2`, see [ExtraKeysPage2Presets]).
  */
 object KeySet {
 
@@ -46,6 +47,34 @@ object KeySet {
             ExtraKey("DOWN"),
             ExtraKey("RIGHT"),
             ExtraKey("PGDN"),
+        ),
+    )
+
+    /**
+     * The default second keys page: terminal modifiers and navigation on top, editing/navigation
+     * keys plus the chrome keys (`PASTE`, `KEYBOARD`, `SCROLL`, `SETTINGS`, handled by
+     * `TermuxTerminalExtraKeys`, not the shared key map) below.
+     */
+    val DEFAULT_PAGE2: List<List<ExtraKey>> = listOf(
+        listOf(
+            ExtraKey("ESC"),
+            ExtraKey("TAB"),
+            ExtraKey("CTRL"),
+            ExtraKey("ALT"),
+            ExtraKey("LEFT"),
+            ExtraKey("DOWN"),
+            ExtraKey("UP"),
+            ExtraKey("RIGHT"),
+        ),
+        listOf(
+            ExtraKey("HOME"),
+            ExtraKey("END"),
+            ExtraKey("PGUP"),
+            ExtraKey("PGDN"),
+            ExtraKey("PASTE"),
+            ExtraKey("KEYBOARD"),
+            ExtraKey("SCROLL"),
+            ExtraKey("SETTINGS"),
         ),
     )
 }

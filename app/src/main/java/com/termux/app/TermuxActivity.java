@@ -38,7 +38,6 @@ import com.termux.app.ui.ShellChromeState;
 import com.termux.app.ui.background.TerminalBackgroundState;
 import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
-import com.termux.app.ui.keys.QuickAction;
 import com.termux.app.ui.sessions.SessionItem;
 import com.termux.app.ui.sessions.SessionItemKt;
 import com.termux.app.ui.sessions.SessionsState;
@@ -58,7 +57,10 @@ import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.app.terminal.TermuxTerminalViewClient;
 import com.termux.app.terminal.io.FullScreenWorkAround;
+import com.termux.shared.termux.extrakeys.ExtraKeysInfo;
 import com.termux.shared.termux.extrakeys.ExtraKeysView;
+import com.termux.shared.termux.extrakeys.SpecialButton;
+import com.termux.shared.termux.extrakeys.SpecialButtonState;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
@@ -139,9 +141,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     View mTermuxActivityBottomSpaceView;
 
     /**
-     * The terminal extra keys view.
+     * The terminal extra keys view: the first key grid, and the primary one for the rest of the
+     * activity ({@link TermuxTerminalViewClient#readExtraKeysSpecialButton(SpecialButton)} reads
+     * modifier state through it; both grids share one state map, see {@link #mExtraKeysSpecialButtons}).
      */
     ExtraKeysView mExtraKeysView;
+
+    /**
+     * The second key grid, which renders its own `extra-keys-page2` layout. It stays composed next
+     * to {@link #mExtraKeysView} while the bar is up, so both views are alive at the same time.
+     */
+    ExtraKeysView mExtraKeysView2;
+
+    /**
+     * The modifier (CTRL/ALT/SHIFT/FN) state map shared by both key grids, so a modifier toggled on
+     * one page applies on the other. Created from the first grid to be inflated and handed to every
+     * grid after that; {@code ExtraKeysView.reload()} only clears the buttons of the instance it
+     * runs on, so the two grids can share it.
+     */
+    private Map<SpecialButton, SpecialButtonState> mExtraKeysSpecialButtons;
 
     /**
      * The client for the {@link #mExtraKeysView}.
@@ -202,9 +220,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private boolean mLaunchFailsafe;
 
     /**
-     * The extra-keys preset last applied to the key matrix, used to detect Settings changes on resume.
+     * The extra-keys preset last applied to the first key grid, used to detect Settings changes on
+     * resume.
      */
     private String mAppliedExtraKeysPreset = "";
+
+    /**
+     * The second extra-keys page's preset last applied to the second key grid, used to detect
+     * Settings changes on resume.
+     */
+    private String mAppliedExtraKeysPage2Preset = "";
 
     /**
      * The appearance revision last applied to the terminal, used to detect an appearance change made
@@ -248,13 +273,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         @Override
-        public void onExtraKeysViewCreated(ExtraKeysView extraKeysView) {
-            setExtraKeysView(extraKeysView);
+        public void onExtraKeysViewCreated(int page, ExtraKeysView extraKeysView) {
+            if (page == ExtraKeysState.PAGE_KEYS_2) setExtraKeysView2(extraKeysView);
+            else setExtraKeysView(extraKeysView);
+
             if (mTermuxTerminalExtraKeys == null) return;
 
             extraKeysView.setExtraKeysViewClient(mTermuxTerminalExtraKeys);
             extraKeysView.setButtonTextAllCaps(mProperties.shouldExtraKeysTextBeAllCaps());
-            extraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
+            extraKeysView.setSpecialButtons(getSharedExtraKeysSpecialButtons(extraKeysView));
+            extraKeysView.reload(extraKeysInfoForPage(page), mTerminalToolbarDefaultHeight);
 
             // Applied once, only while the bar is shown, matching the old toolbar behaviour.
             if (!mFullScreenWorkAroundApplied && mProperties.isUsingFullScreen() && mProperties.isUsingFullScreenWorkAround()) {
@@ -264,25 +292,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         @Override
-        public void onExtraKeysViewReleased() {
-            setExtraKeysView(null);
-        }
-
-        @Override
-        public void onExtraKeysAction(QuickAction action) {
-            switch (action) {
-                case KEYBOARD:
-                    if (mTermuxTerminalViewClient != null)
-                        mTermuxTerminalViewClient.onToggleSoftKeyboardRequest();
-                    break;
-                case TEXT_INPUT:
-                    setExtraKeysTextInputVisible(mExtraKeysState != null && !mExtraKeysState.getTextInputVisible());
-                    break;
-                case SETTINGS:
-                    startActivity(new Intent(TermuxActivity.this, SettingsActivity.class));
-                    break;
-
-            }
+        public void onExtraKeysViewReleased(int page) {
+            if (page == ExtraKeysState.PAGE_KEYS_2) setExtraKeysView2(null);
+            else setExtraKeysView(null);
         }
 
         @Override
@@ -497,16 +509,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Pick up an interface-transparency change made in Settings.
         syncInterfaceTransparency();
 
-        // Apply an extra-keys preset change made in Settings. A custom extra-keys property in the
-        // properties file keeps winning over presets (see TermuxTerminalExtraKeys.setExtraKeys()).
+        // Apply an extra-keys preset change made in Settings, for either key grid. A custom
+        // extra-keys / extra-keys-page2 property in the properties file keeps winning over presets
+        // (see TermuxTerminalExtraKeys.setExtraKeys()).
         String extraKeysPreset = mPreferences.getExtraKeysPreset();
-        if (!extraKeysPreset.equals(mAppliedExtraKeysPreset)) {
+        String extraKeysPage2Preset = mPreferences.getExtraKeysPage2Preset();
+        if (!extraKeysPreset.equals(mAppliedExtraKeysPreset) || !extraKeysPage2Preset.equals(mAppliedExtraKeysPage2Preset)) {
             mAppliedExtraKeysPreset = extraKeysPreset;
+            mAppliedExtraKeysPage2Preset = extraKeysPage2Preset;
             reloadProperties();
             if (mTermuxTerminalExtraKeys != null) {
                 mTermuxTerminalExtraKeys.reloadExtraKeys();
-                if (mExtraKeysView != null)
-                    mExtraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
+                reloadExtraKeysViews();
                 updateExtraKeysBar();
             }
         }
@@ -716,6 +730,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTermuxTerminalExtraKeys = new TermuxTerminalExtraKeys(this, mTerminalView,
             mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient);
         mAppliedExtraKeysPreset = mPreferences.getExtraKeysPreset();
+        mAppliedExtraKeysPage2Preset = mPreferences.getExtraKeysPage2Preset();
         mAppliedAppearanceRevision = AppearanceStyling.revision(this);
 
         // Base height of a single extra-key row, in pixels. The total grid height scales with the
@@ -852,17 +867,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
     /**
-     * Updates the Compose extra-keys bar state from the active key set: the grid height is the
-     * per-row height times the number of rows and the configured height scale factor.
+     * Updates the Compose extra-keys bar state from the active key sets: each grid's height is the
+     * per-row height times its own number of rows and the configured height scale factor.
      */
     private void updateExtraKeysBar() {
         if (mExtraKeysState == null) return;
 
+        final float rowHeight = mTerminalToolbarDefaultHeight * mProperties.getTerminalToolbarHeightScaleFactor();
+
         final int rows = (mTermuxTerminalExtraKeys == null || mTermuxTerminalExtraKeys.getExtraKeysInfo() == null)
             ? 0 : mTermuxTerminalExtraKeys.getExtraKeysInfo().getMatrix().length;
+        mExtraKeysState.setGridHeightPx(Math.round(rowHeight * rows));
 
-        mExtraKeysState.setGridHeightPx(Math.round(mTerminalToolbarDefaultHeight * rows *
-            mProperties.getTerminalToolbarHeightScaleFactor()));
+        final int rowsPage2 = (mTermuxTerminalExtraKeys == null || mTermuxTerminalExtraKeys.getExtraKeysInfoPage2() == null)
+            ? 0 : mTermuxTerminalExtraKeys.getExtraKeysInfoPage2().getMatrix().length;
+        mExtraKeysState.setGrid2HeightPx(Math.round(rowHeight * rowsPage2));
     }
 
     /**
@@ -1249,6 +1268,46 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mExtraKeysView = extraKeysView;
     }
 
+    public ExtraKeysView getExtraKeysView2() {
+        return mExtraKeysView2;
+    }
+
+    public void setExtraKeysView2(ExtraKeysView extraKeysView) {
+        mExtraKeysView2 = extraKeysView;
+    }
+
+    /**
+     * Returns the key layout a key-grid page renders: the `extra-keys` layout for
+     * {@link ExtraKeysState#PAGE_KEYS} and the independent `extra-keys-page2` layout for
+     * {@link ExtraKeysState#PAGE_KEYS_2}.
+     */
+    private ExtraKeysInfo extraKeysInfoForPage(int page) {
+        if (mTermuxTerminalExtraKeys == null) return null;
+        if (page == ExtraKeysState.PAGE_KEYS_2) return mTermuxTerminalExtraKeys.getExtraKeysInfoPage2();
+        return mTermuxTerminalExtraKeys.getExtraKeysInfo();
+    }
+
+    /**
+     * Returns the modifier state map shared by both key grids. The first grid to be inflated
+     * creates it, so its own states (which read the pressed/unpressed tint from a view of the same
+     * theme) are reused by the second grid; passing the same map to both means a modifier toggled
+     * on one page applies on the other.
+     */
+    private Map<SpecialButton, SpecialButtonState> getSharedExtraKeysSpecialButtons(ExtraKeysView extraKeysView) {
+        if (mExtraKeysSpecialButtons == null) {
+            mExtraKeysSpecialButtons = extraKeysView.getDefaultSpecialButtons(extraKeysView);
+        }
+        return mExtraKeysSpecialButtons;
+    }
+
+    /** Reloads every live key grid with the layout of its own page. */
+    private void reloadExtraKeysViews() {
+        if (mExtraKeysView != null)
+            mExtraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
+        if (mExtraKeysView2 != null)
+            mExtraKeysView2.reload(mTermuxTerminalExtraKeys.getExtraKeysInfoPage2(), mTerminalToolbarDefaultHeight);
+    }
+
     public float getTerminalToolbarDefaultHeight() {
         return mTerminalToolbarDefaultHeight;
     }
@@ -1381,10 +1440,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mProperties != null) {
             reloadProperties();
 
-            if (mExtraKeysView != null) {
-                mExtraKeysView.setButtonTextAllCaps(mProperties.shouldExtraKeysTextBeAllCaps());
-                mExtraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
-            }
+            final boolean allCaps = mProperties.shouldExtraKeysTextBeAllCaps();
+            if (mExtraKeysView != null)
+                mExtraKeysView.setButtonTextAllCaps(allCaps);
+            if (mExtraKeysView2 != null)
+                mExtraKeysView2.setButtonTextAllCaps(allCaps);
+            reloadExtraKeysViews();
 
             // Update NightMode.APP_NIGHT_MODE
             TermuxThemeUtils.setAppNightMode(mProperties.getNightMode());

@@ -11,28 +11,18 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,58 +40,51 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.invisibleToUser
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.R
 import com.termux.app.ui.ShellHostCallbacks
-import com.termux.app.ui.keys.QuickAction.KEYBOARD
-import com.termux.app.ui.keys.QuickAction.TEXT_INPUT
 import com.termux.shared.termux.extrakeys.ExtraKeysView
 import com.termux.shared.view.KeyboardUtils
-
-/**
- * Quick actions for the terminal chrome. [TEXT_INPUT] moves the pager to the writing page (through
- * the activity's toggle); the others fall through to the activity like before.
- */
-enum class QuickAction { KEYBOARD, TEXT_INPUT, SETTINGS }
-
-/** Natural height of the quick-actions page of the bar, in dp. */
-internal val QuickActionsPageHeight = 76.dp
 
 /** Natural height of the writing (text-send) page of the bar, in dp. */
 internal val WritingPageHeight = 56.dp
 
 /**
- * Target height of the extra-keys bar's pager for the given [page]: the key grid page uses the
- * configured grid height, the quick-actions and writing pages their own natural heights, and the
- * whole pager collapses to nothing while the keys are hidden (only the strip with the page dots
- * and the collapse chevron stays visible).
+ * Target height of the extra-keys bar's pager for the given [page]: each key grid page uses its own
+ * configured grid height ([gridHeight] for [ExtraKeysState.PAGE_KEYS], [grid2Height] for
+ * [ExtraKeysState.PAGE_KEYS_2]), the writing page its own natural height, and the whole pager
+ * collapses to nothing while the keys are hidden (only the floating chevron restore handle stays
+ * visible).
  */
-internal fun extraKeysPageHeight(page: Int, keysVisible: Boolean, gridHeight: Dp): Dp = when {
+internal fun extraKeysPageHeight(
+    page: Int,
+    keysVisible: Boolean,
+    gridHeight: Dp,
+    grid2Height: Dp = gridHeight,
+): Dp = when {
     !keysVisible -> 0.dp
     page == ExtraKeysState.PAGE_KEYS -> gridHeight
-    page == ExtraKeysState.PAGE_ACTIONS -> QuickActionsPageHeight
+    page == ExtraKeysState.PAGE_KEYS_2 -> grid2Height
     else -> WritingPageHeight
 }
 
 /**
- * The bottom extra-keys bar: a slim strip of page dots and a collapse chevron above a three-page
- * pager (key grid, quick actions, text-send field).
+ * The bottom extra-keys bar: a three-page pager (two key grids with independent layouts, plus the
+ * text-send field) with the collapse chevron floating over its top-end corner. Pages are reached by
+ * swiping the pager; while the keys are collapsed the bar has no height left, so the same chevron
+ * floats at the bottom-end corner as a restore handle.
  *
- * The key grid is still the shared `ExtraKeysView` engine, embedded through [AndroidView] so a
- * user's custom `extra-keys` layout, modifier buttons, swipe-up popups and long-press repeat keep
- * working unchanged. All three pages stay composed while the bar is up, so the field keeps its
- * draft text and the view contracts below fire only on whole-bar hide or teardown.
+ * Both key grids are the shared `ExtraKeysView` engine, embedded through [AndroidView] so a user's
+ * custom `extra-keys` / `extra-keys-page2` layouts, modifier buttons, swipe-up popups and long-press
+ * repeat keep working unchanged. All three pages stay composed while the bar is up, so the field
+ * keeps its draft text and the view contracts below fire only on whole-bar hide or teardown.
  *
- * @param state Shell-owned bar state (visibility, grid height, current page).
+ * @param state Shell-owned bar state (visibility, grid heights, current page).
  * @param initialText Text to restore into the send field on first show (e.g. after rotation).
  * @param callbacks Bridge back into the activity.
  * @param onLeaveWritingPage The user paged or collapsed off the text-send field; hand focus back
@@ -124,12 +107,13 @@ fun ExtraKeysBar(
     // The writing page's EditText, set once its AndroidView factory has run (which happens at bar
     // creation since every page stays composed).
     val editTextRef = remember { Ref<EditText?>(null) }
-    // Whether the key-grid portion of the pager is expanded. Only the strip stays visible when
-    // collapsed; its dots re-expand the bar onto the chosen page.
+    // Whether the key-grid portion of the pager is expanded. Only the floating chevron stays
+    // visible when collapsed; it re-expands the bar.
     var keysVisible by rememberSaveable { mutableStateOf(true) }
 
     val density = LocalDensity.current
     val gridHeight = with(density) { state.gridHeightPx.toDp() }
+    val grid2Height = with(density) { state.grid2HeightPx.toDp() }
 
     // Not rememberSaveable: the activity-owned state resets to the keys page when the activity is
     // recreated (rotation, process death — the draft text is restored separately through
@@ -137,8 +121,8 @@ fun ExtraKeysBar(
     // first frame and animate back. Both sides always start on the keys page.
     val pagerState = rememberPagerState(initialPage = state.page, pageCount = { ExtraKeysState.PAGE_WRITING + 1 })
 
-    // Collapsing returns to the keys page: the pager is hidden behind the strip, and leaving the
-    // writing page behind it would keep the IME bound to an invisible field. The settle effect
+    // Collapsing returns to the first keys page: the pager is hidden behind the strip, and leaving
+    // the writing page behind it would keep the IME bound to an invisible field. The settle effect
     // below then hands focus back to the terminal.
     LaunchedEffect(keysVisible) {
         if (!keysVisible && state.page != ExtraKeysState.PAGE_KEYS) {
@@ -146,7 +130,7 @@ fun ExtraKeysBar(
         }
     }
 
-    // External writes (Java's setExtraKeysTextInputVisible, the page dots) move the pager. While
+    // External writes (Java's setExtraKeysTextInputVisible, the back arrow) move the pager. While
     // it is collapsed there is nothing to animate, so jump instead.
     LaunchedEffect(state.page) {
         if (pagerState.settledPage != state.page) {
@@ -159,10 +143,9 @@ fun ExtraKeysBar(
     // state so text-input visibility and the IME input-mode logic in TermuxActivity follow.
     // Arriving on a *visible* writing page focuses the field and shows the IME; leaving it hands
     // focus back to the terminal (mirroring setExtraKeysTextInputVisible(false), which handles the
-    // Java-initiated direction). Visibility is part of the key: a dot tapped while the keys are
-    // collapsed re-expands the bar onto the writing page the pager never left, so the page index
-    // alone does not change and the field would stay unfocused behind the keyboard binding to the
-    // terminal.
+    // Java-initiated direction). Visibility is part of the key: the writing page can also be reached
+    // while the keys are collapsed, so the page index alone does not change and the field would stay
+    // unfocused behind the keyboard binding to the terminal.
     LaunchedEffect(pagerState) {
         var previousWriting = false
         snapshotFlow {
@@ -191,7 +174,7 @@ fun ExtraKeysBar(
 
     // Animated target of the pager (collapse, page changes); its unanimated form drives the
     // semantics below so a hidden pager flips to invisible immediately, not after the animation.
-    val pagerHeightTarget = extraKeysPageHeight(pagerState.settledPage, keysVisible, gridHeight)
+    val pagerHeightTarget = extraKeysPageHeight(pagerState.settledPage, keysVisible, gridHeight, grid2Height)
     val pagerHeight by animateDpAsState(
         targetValue = pagerHeightTarget,
         animationSpec = if (animationsEnabled) tween(180) else snap(),
@@ -203,24 +186,17 @@ fun ExtraKeysBar(
         label = "extraKeysPagerAlpha",
     )
 
-    Column(
+    val collapseLabel = stringResource(R.string.action_hide_keys)
+    val expandLabel = stringResource(R.string.action_show_keys)
+    val backLabel = stringResource(R.string.action_back_to_keys)
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            // Only the bar's own background fades (strip, key grid, quick actions and writing
-            // field all live under it); the icon and key tints stay opaque for readability.
+            // Only the bar's own background fades (the pager and the floating chevron live under
+            // it); the icon and key tints stay opaque for readability.
             .background(MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha)),
     ) {
-        BarStrip(
-            keysVisible = keysVisible,
-            currentPage = pagerState.currentPage,
-            onSelectPage = { page ->
-                // A dot tapped while the keys are collapsed expands the bar onto that page.
-                keysVisible = true
-                state.page = page
-            },
-            onToggleKeys = { keysVisible = !keysVisible },
-        )
-
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = keysVisible,
@@ -234,27 +210,68 @@ fun ExtraKeysBar(
                 ),
         ) { page ->
             when (page) {
-                ExtraKeysState.PAGE_KEYS -> KeysPage(gridHeight = gridHeight, callbacks = callbacks)
-                ExtraKeysState.PAGE_ACTIONS -> QuickActionsPage(callbacks = callbacks)
+                ExtraKeysState.PAGE_KEYS -> KeysPage(
+                    page = page,
+                    gridHeight = gridHeight,
+                    callbacks = callbacks,
+                )
+
+                ExtraKeysState.PAGE_KEYS_2 -> KeysPage(
+                    page = page,
+                    gridHeight = grid2Height,
+                    callbacks = callbacks,
+                )
+
                 else -> TextInputPage(
                     pendingText = pendingText,
                     editTextRef = editTextRef,
                     callbacks = callbacks,
+                    // The back arrow leaves the writing page for the first key grid; the settle
+                    // effect above then hands focus (and so the IME) back to the terminal.
+                    onBack = { state.page = ExtraKeysState.PAGE_KEYS },
+                    backLabel = backLabel,
                 )
             }
+        }
+
+        if (keysVisible) {
+            KeysBarChevron(
+                label = collapseLabel,
+                icon = QuickActionIcons.ChevronDown,
+                backgroundAlpha = backgroundAlpha,
+                onToggle = { keysVisible = false },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(2.dp),
+            )
+        } else {
+            // Collapsed, the bar itself is zero-height at the bottom edge of the shell, so the
+            // handle aligns there and reaches up over the terminal (like SessionsRestoreHandle).
+            KeysBarChevron(
+                label = expandLabel,
+                icon = QuickActionIcons.ChevronUp,
+                backgroundAlpha = backgroundAlpha,
+                onToggle = { keysVisible = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp),
+            )
         }
     }
 }
 
 /**
- * Page 1 of the pager: the key grid, still the shared [ExtraKeysView] engine embedded through
- * [AndroidView] so a user's custom `extra-keys` layout, modifier buttons, swipe-up popups and
- * long-press repeat keep working unchanged. All pages stay composed (see [ExtraKeysBar]), so the
- * create/release contract with the activity fires only when the whole bar is hidden or the
- * activity is torn down, not on page changes or key collapse.
+ * A key-grid page of the pager ([ExtraKeysState.PAGE_KEYS] or [ExtraKeysState.PAGE_KEYS_2]): the
+ * shared [ExtraKeysView] engine embedded through [AndroidView] so a user's custom layout for that
+ * page, modifier buttons, swipe-up popups and long-press repeat keep working unchanged. All pages
+ * stay composed (see [ExtraKeysBar]), so the create/release contract with the activity fires only
+ * when the whole bar is hidden or the activity is torn down, not on page changes or key collapse.
+ *
+ * @param page The pager page this grid renders, so the activity can tell the two instances apart
+ *   when it wires them to their own layout.
  */
 @Composable
-private fun KeysPage(gridHeight: Dp, callbacks: ShellHostCallbacks) {
+private fun KeysPage(page: Int, gridHeight: Dp, callbacks: ShellHostCallbacks) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -264,10 +281,10 @@ private fun KeysPage(gridHeight: Dp, callbacks: ShellHostCallbacks) {
             factory = { context ->
                 val extraKeysView = LayoutInflater.from(context)
                     .inflate(R.layout.view_terminal_toolbar_extra_keys, null) as ExtraKeysView
-                callbacks.onExtraKeysViewCreated(extraKeysView)
+                callbacks.onExtraKeysViewCreated(page, extraKeysView)
                 extraKeysView
             },
-            onRelease = { callbacks.onExtraKeysViewReleased() },
+            onRelease = { callbacks.onExtraKeysViewReleased(page) },
             modifier = Modifier
                 .fillMaxWidth()
                 // Fixed intrinsic height so the grid keeps re-flowing its keys only when the
@@ -278,186 +295,102 @@ private fun KeysPage(gridHeight: Dp, callbacks: ShellHostCallbacks) {
 }
 
 /**
- * Page 2 of the pager: the three quick actions as icon-plus-label buttons. [QuickAction.TEXT_INPUT]
- * navigates to the writing page through the activity's toggle, which now maps onto the pager.
- */
-@Composable
-private fun QuickActionsPage(callbacks: ShellHostCallbacks) {
-    val view = LocalView.current
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        QuickActionButton(
-            label = stringResource(R.string.action_toggle_soft_keyboard),
-            icon = QuickActionIcons.Keyboard,
-            view = view,
-        ) { callbacks.onExtraKeysAction(KEYBOARD) }
-        QuickActionButton(
-            label = stringResource(R.string.action_text_input),
-            icon = QuickActionIcons.Text,
-            view = view,
-        ) { callbacks.onExtraKeysAction(TEXT_INPUT) }
-        QuickActionButton(
-            label = stringResource(R.string.action_open_settings),
-            icon = QuickActionIcons.Settings,
-            view = view,
-        ) { callbacks.onExtraKeysAction(QuickAction.SETTINGS) }
-    }
-}
-
-@Composable
-private fun QuickActionButton(label: String, icon: ImageVector, view: View, onClick: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable {
-                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                onClick()
-            }
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .semantics { contentDescription = label },
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(28.dp),
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-/**
  * Page 3 of the pager (the old field above the keys): an [EditText] that writes a whole line to the
- * current session on send. Inflated from the same layout as before so
- * [com.termux.app.TermuxTerminalViewClient] can still find it by id. Focus and the IME are driven
- * by the bar when the pager settles here, not by the factory, which would grab focus at bar
- * creation while every page is composed.
+ * current session on send, with a back arrow that returns to the first key grid. Inflated from the
+ * same layout as before so [com.termux.app.TermuxTerminalViewClient] can still find it by id. Focus
+ * and the IME are driven by the bar when the pager settles here, not by the factory, which would
+ * grab focus at bar creation while every page is composed.
  */
 @Composable
 private fun TextInputPage(
     pendingText: Ref<String?>,
     editTextRef: Ref<EditText?>,
     callbacks: ShellHostCallbacks,
+    onBack: () -> Unit,
+    backLabel: String,
 ) {
-    AndroidView(
-        factory = { context ->
-            val editText = LayoutInflater.from(context)
-                .inflate(R.layout.view_terminal_toolbar_text_input, null) as EditText
-            editText.hint = context.getString(R.string.extra_keys_text_input_hint)
-            pendingText.value?.takeIf { it.isNotEmpty() }?.let { editText.setText(it) }
-            pendingText.value = null
-            editText.setOnEditorActionListener { v, _, _ ->
-                callbacks.onExtraKeysTextSend(v.text.toString())
-                v.setText("")
-                true
-            }
-            editTextRef.value = editText
-            editText
-        },
-        onRelease = { editTextRef.value = null },
-        modifier = Modifier.fillMaxSize(),
+    Row(modifier = Modifier.fillMaxSize()) {
+        KeysBarIcon(
+            label = backLabel,
+            icon = QuickActionIcons.ArrowBack,
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.CenterVertically)
+                .padding(start = 4.dp),
+        )
+
+        AndroidView(
+            factory = { context ->
+                val editText = LayoutInflater.from(context)
+                    .inflate(R.layout.view_terminal_toolbar_text_input, null) as EditText
+                editText.hint = context.getString(R.string.extra_keys_text_input_hint)
+                pendingText.value?.takeIf { it.isNotEmpty() }?.let { editText.setText(it) }
+                pendingText.value = null
+                editText.setOnEditorActionListener { v, _, _ ->
+                    callbacks.onExtraKeysTextSend(v.text.toString())
+                    v.setText("")
+                    true
+                }
+                editTextRef.value = editText
+                editText
+            },
+            onRelease = { editTextRef.value = null },
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize(),
+        )
+    }
+}
+
+/**
+ * The bar's collapse chevron: a small circled icon floating over the pager's top-end corner while
+ * the keys are up, and at the bottom-end corner of the shell as a restore handle once they are
+ * collapsed and the bar itself has no height left.
+ */
+@Composable
+private fun KeysBarChevron(
+    label: String,
+    icon: ImageVector,
+    backgroundAlpha: Float,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    KeysBarIcon(
+        label = label,
+        icon = icon,
+        onClick = onToggle,
+        modifier = modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha)),
     )
 }
 
 /**
- * The slim strip above the pager: three tappable page dots on the left and the key-grid collapse
- * chevron on the right. It is the only part of the bar that stays visible when the keys are
- * collapsed — the dots then re-expand the bar onto the chosen page.
+ * A small clickable circled bar icon with a spoken label. A plain clickable [Icon] rather than an
+ * IconButton, both to stay small enough for the chrome and because Material3's IconButton enforces
+ * a 48dp minimum interactive size.
  */
 @Composable
-private fun BarStrip(
-    keysVisible: Boolean,
-    currentPage: Int,
-    onSelectPage: (Int) -> Unit,
-    onToggleKeys: () -> Unit,
+private fun KeysBarIcon(
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
-    val pageLabels = listOf(
-        stringResource(R.string.extra_keys_page_keys),
-        stringResource(R.string.extra_keys_page_actions),
-        stringResource(R.string.extra_keys_page_text_input),
-    )
-    val toggleLabel =
-        stringResource(if (keysVisible) R.string.action_hide_keys else R.string.action_show_keys)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp)
-            .selectableGroup(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        pageLabels.forEachIndexed { index, label ->
-            val isActive = index == currentPage
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(width = 40.dp, height = 48.dp)
-                    // selectable, not clickable+semantics: it supplies the click action, the touch
-                    // target and the ripple. Its semantics are then replaced wholesale, so the dot
-                    // publishes exactly one node carrying label, tab role and selected state —
-                    // stacking a semantics{} block next to it leaves a second, non-clickable node
-                    // that a screen reader announces instead of the actionable one.
-                    .selectable(
-                        selected = isActive,
-                        role = Role.Tab,
-                        onClick = {
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            onSelectPage(index)
-                        },
-                    )
-                    .clearAndSetSemantics {
-                        contentDescription = label
-                        selected = isActive
-                        role = Role.Tab
-                    },
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isActive) {
-                                MaterialTheme.colorScheme.onSurface
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            },
-                        ),
-                )
-            }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        IconButton(
-            onClick = {
+    Icon(
+        imageVector = icon,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier
+            .clip(CircleShape)
+            .clickable {
                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                onToggleKeys()
-            },
-            modifier = Modifier.semantics { contentDescription = toggleLabel },
-        ) {
-            Icon(
-                imageVector = if (keysVisible) {
-                    QuickActionIcons.ChevronDown
-                } else {
-                    QuickActionIcons.ChevronUp
-                },
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
+                onClick()
+            }
+            .padding(4.dp)
+            .semantics { contentDescription = label },
+    )
 }
 
 /** Simple observable holder for a value crossing a composition boundary. */
