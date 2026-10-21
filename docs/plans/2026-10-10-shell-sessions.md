@@ -476,3 +476,30 @@ Android-view layers), so Compose visuals were gated through a11y dumps and the u
   whose shell has not set a terminal title renames it instead of visibly moving it; and only the
   active tab carries the overflow menu, so a non-active session cannot be renamed or closed until
   it is tapped first.
+
+---
+
+## Chrome slimming + second key grid (2026-10-20)
+
+Design retargeted in chat (no separate spec): the sessions bar was halved (56dp → 28dp) and the
+dot/chevron strip above the extra keys was deleted, the collapse chevron moving onto the bar itself
+(with a floating restore handle when collapsed). The extra-keys pager then lost its quick-actions
+page entirely: page 2 is now a **second key grid with its own layout**, page 3 (text-send) gained a
+back arrow to page 1.
+
+- Page 2 is a real second `ExtraKeysView` (not a Compose imitation), so custom layouts, modifiers,
+  popups and long-press repeat work there exactly as on page 1.
+- Its layout resolves like page 1: the `extra-keys-page2` property in
+  `~/.termux/termux.properties` always wins, otherwise the "Second page preset" picker in
+  Settings → Keyboard (`default`, `function`).
+- Both grids share one `SpecialButtonState` map, so CTRL/ALT toggled on one page applies on the
+  other; `ExtraKeysView.reload()` now clears only the buttons of the instance it runs on to make
+  that sharing possible.
+- `QuickAction`, `QuickActionsPage` and the `onExtraKeysAction` callback are gone. The dropped
+  actions survive as engine keys: `KEYBOARD`/`PASTE`/`SCROLL` already did, and `SETTINGS` was added
+  next to them in `TermuxTerminalExtraKeys`. `action_text_input` was removed with the page.
+- Deviation from the approved design: the proposed "None" preset was dropped — it resolved to
+  `default`, so it was an entry that changed nothing.
+- Unit suite green (520 tests, 0 failures) including new `ExtraKeysPage2PresetsTest` and updated
+  height/state/settings-XML/preference-store tests. Device gate outstanding: chevron overlay and
+  collapse handle, two grids with per-page layouts, and the back-arrow → terminal IME handoff.

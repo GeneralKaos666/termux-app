@@ -6,45 +6,56 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
- * The bar animates its height per page: the key grid page uses the configured grid height, the
- * quick-actions and writing pages their own natural heights, and the pager collapses to nothing
- * (leaving only the strip) when the keys are hidden.
+ * The bar animates its height per page: each key grid page uses its own configured grid height, the
+ * writing page its own natural height, and the pager collapses to nothing (leaving only the chevron)
+ * when the keys are hidden.
  */
 class ExtraKeysPageHeightTest {
 
     @Test
     fun `collapsing hides the pager regardless of the current page`() {
         for (page in ExtraKeysState.PAGE_KEYS..ExtraKeysState.PAGE_WRITING) {
-            assertEquals(0.dp, extraKeysPageHeight(page, keysVisible = false, gridHeight = 120.dp))
+            assertEquals(
+                0.dp,
+                extraKeysPageHeight(page, keysVisible = false, gridHeight = 120.dp, grid2Height = 80.dp),
+            )
         }
     }
 
     @Test
-    fun `the keys page uses the configured grid height`() {
+    fun `the first keys page uses the first grid height`() {
         assertEquals(
             120.dp,
-            extraKeysPageHeight(ExtraKeysState.PAGE_KEYS, keysVisible = true, gridHeight = 120.dp),
+            extraKeysPageHeight(ExtraKeysState.PAGE_KEYS, keysVisible = true, gridHeight = 120.dp, grid2Height = 80.dp),
         )
     }
 
     @Test
-    fun `the quick actions and writing pages use their own natural heights`() {
+    fun `the second keys page uses the second grid height`() {
         assertEquals(
-            QuickActionsPageHeight,
-            extraKeysPageHeight(ExtraKeysState.PAGE_ACTIONS, keysVisible = true, gridHeight = 120.dp),
+            80.dp,
+            extraKeysPageHeight(ExtraKeysState.PAGE_KEYS_2, keysVisible = true, gridHeight = 120.dp, grid2Height = 80.dp),
         )
+    }
+
+    @Test
+    fun `without a second grid height the second keys page follows the first`() {
+        assertEquals(
+            120.dp,
+            extraKeysPageHeight(ExtraKeysState.PAGE_KEYS_2, keysVisible = true, gridHeight = 120.dp),
+        )
+    }
+
+    @Test
+    fun `the writing page uses its own natural height`() {
         assertEquals(
             WritingPageHeight,
-            extraKeysPageHeight(ExtraKeysState.PAGE_WRITING, keysVisible = true, gridHeight = 120.dp),
+            extraKeysPageHeight(ExtraKeysState.PAGE_WRITING, keysVisible = true, gridHeight = 120.dp, grid2Height = 80.dp),
         )
     }
 
     @Test
-    fun `the quick actions and writing pages stay reachable without a key grid`() {
-        assertNotEquals(
-            0.dp,
-            extraKeysPageHeight(ExtraKeysState.PAGE_ACTIONS, keysVisible = true, gridHeight = 0.dp),
-        )
+    fun `the writing page stays reachable without a key grid`() {
         assertNotEquals(
             0.dp,
             extraKeysPageHeight(ExtraKeysState.PAGE_WRITING, keysVisible = true, gridHeight = 0.dp),

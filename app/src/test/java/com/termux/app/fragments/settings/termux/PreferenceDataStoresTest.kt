@@ -36,6 +36,8 @@ class PreferenceDataStoresTest {
         assertEquals(true, store.getBoolean("soft_keyboard_enabled_only_if_no_hardware", false))
         store.putString("extra_keys_preset", "vim")
         assertEquals("vim", store.getString("extra_keys_preset", "default"))
+        store.putString("extra_keys_page2_preset", "function")
+        assertEquals("function", store.getString("extra_keys_page2_preset", "default"))
     }
 
     @Test

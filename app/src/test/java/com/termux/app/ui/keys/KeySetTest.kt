@@ -47,4 +47,26 @@ class KeySetTest {
             TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS,
         )
     }
+
+    @Test
+    fun `default second page is the documented double row`() {
+        assertEquals(2, KeySet.DEFAULT_PAGE2.size)
+        assertEquals(8, KeySet.DEFAULT_PAGE2[0].size)
+        assertEquals(8, KeySet.DEFAULT_PAGE2[1].size)
+        assertEquals(
+            listOf(
+                "ESC", "TAB", "CTRL", "ALT", "LEFT", "DOWN", "UP", "RIGHT",
+                "HOME", "END", "PGUP", "PGDN", "PASTE", "KEYBOARD", "SCROLL", "SETTINGS",
+            ),
+            KeySet.DEFAULT_PAGE2.flatten().map { it.key },
+        )
+    }
+
+    @Test
+    fun `shared termux default second page is unchanged`() {
+        assertEquals(
+            "[['ESC','TAB','CTRL','ALT','LEFT','DOWN','UP','RIGHT'], ['HOME','END','PGUP','PGDN','PASTE','KEYBOARD','SCROLL','SETTINGS']]",
+            TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS_PAGE2,
+        )
+    }
 }
