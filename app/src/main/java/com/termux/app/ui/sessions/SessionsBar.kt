@@ -25,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -114,16 +113,20 @@ fun SessionsBar(
             .fillMaxWidth()
             // Only the bar's own background fades; tab labels, chips and indicators stay opaque.
             .background(MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha))
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (sessions.isEmpty()) {
-            TextButton(
-                onClick = onNewSession,
-                modifier = Modifier.semantics { contentDescription = startSessionLabel },
-            ) {
-                Text(stringResource(R.string.action_start_session))
-            }
+            // A clickable Text rather than a TextButton: the button's 48dp minimum interactive
+            // size would keep the empty bar taller than the populated one.
+            Text(
+                text = stringResource(R.string.action_start_session),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable(onClick = onNewSession)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .semantics { contentDescription = startSessionLabel },
+            )
         } else {
             LazyRow(
                 modifier = Modifier.weight(1f),
@@ -145,31 +148,31 @@ fun SessionsBar(
                 }
             }
 
-            IconButton(
-                onClick = onNewSession,
-                modifier = Modifier.semantics { contentDescription = newSessionLabel },
-            ) {
-                Icon(
-                    imageVector = SessionIcons.Plus,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        IconButton(
-            onClick = {
-                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                onCollapse()
-            },
-            modifier = Modifier.semantics { contentDescription = collapseLabel },
-        ) {
+            // Plain clickable icons rather than IconButtons: Material3's IconButton enforces a
+            // 48dp minimum interactive size, which alone would keep the bar that tall.
             Icon(
-                imageVector = SessionIcons.ChevronUp,
-                contentDescription = null,
+                imageVector = SessionIcons.Plus,
+                contentDescription = newSessionLabel,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clickable(onClick = onNewSession)
+                    .padding(2.dp)
+                    .size(24.dp),
             )
         }
+
+        Icon(
+            imageVector = SessionIcons.ChevronUp,
+            contentDescription = collapseLabel,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clickable {
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    onCollapse()
+                }
+                .padding(2.dp)
+                .size(24.dp),
+        )
     }
 }
 
@@ -275,7 +278,9 @@ private fun SessionTab(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
                 .background(containerColor)
-                .heightIn(min = 48.dp)
+                // Slimmer than the 48dp Material default: a plain clickable icon (see the menu
+                // button below) rather than an IconButton keeps the whole bar near half height.
+                .heightIn(min = 24.dp)
                 .onGloballyPositioned { coordinates ->
                     val bounds = coordinates.boundsInRoot()
                     // The index is fixed up by SessionsBar from the session order; only the extent
@@ -333,16 +338,17 @@ private fun SessionTab(
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.width(4.dp))
-            IconButton(
-                onClick = { menuExpanded = true },
-                modifier = Modifier.size(24.dp),
-            ) {
-                Icon(
-                    imageVector = SessionIcons.MoreVert,
-                    contentDescription = menuLabel,
-                    tint = contentColor,
-                )
-            }
+            // A plain clickable icon rather than an IconButton: Material3's IconButton enforces
+            // a 48dp minimum interactive size, which alone would keep the bar that tall.
+            Icon(
+                imageVector = SessionIcons.MoreVert,
+                contentDescription = menuLabel,
+                tint = contentColor,
+                modifier = Modifier
+                    .clickable { menuExpanded = true }
+                    .padding(2.dp)
+                    .size(20.dp),
+            )
         }
 
         SessionActionsMenu(

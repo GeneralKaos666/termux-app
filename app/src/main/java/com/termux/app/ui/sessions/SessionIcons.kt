@@ -5,7 +5,7 @@ import com.termux.app.ui.materialIcon
 
 /**
  * Vector icons for the sessions bar, drawn from 24x24 Material Design icon path data (Apache 2.0,
- * material-design-icons) like the extra-keys quick actions.
+ * material-design-icons) like the extra-keys bar chrome.
  */
 object SessionIcons {
 
