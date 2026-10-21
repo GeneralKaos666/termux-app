@@ -63,15 +63,12 @@
     <string name="action_rename_session_confirm">Set</string>
 
     <string name="action_toggle_soft_keyboard">Keyboard</string>
-    <string name="action_text_input">Text</string>
     <string name="extra_keys_text_input_hint">Type a line to send</string>
+    <string name="action_back_to_keys">Back to keys</string>
     <string name="action_hide_keys">Hide keys</string>
     <string name="action_show_keys">Show keys</string>
     <string name="action_hide_sessions_bar">Hide sessions bar</string>
     <string name="action_show_sessions_bar">Show sessions bar</string>
-    <string name="extra_keys_page_keys">Extra keys page</string>
-    <string name="extra_keys_page_actions">Quick actions page</string>
-    <string name="extra_keys_page_text_input">Text input page</string>
     <string name="action_undo">Undo</string>
     <string name="msg_session_renamed">Session renamed</string>
     <string name="msg_session_closed">Session closed</string>
@@ -325,8 +322,11 @@
                 <string name="termux_terminal_view_extra_keys_preset_entry_compact">Compact</string>
                 <string name="termux_terminal_view_extra_keys_preset_entry_vim">Vim</string>
                 <string name="termux_terminal_view_extra_keys_preset_entry_emacs">Emacs</string>
+                <string name="termux_terminal_view_extra_keys_page2_preset_title">Second page preset</string>
+                <string name="termux_terminal_view_extra_keys_page2_preset_entry_default">Default</string>
+                <string name="termux_terminal_view_extra_keys_page2_preset_entry_function">Function</string>
                 <string name="termux_terminal_view_extra_keys_preset_note_title">Custom layouts win</string>
-                <string name="termux_terminal_view_extra_keys_preset_note_summary">An extra-keys property set in ~/.termux/termux.properties overrides the preset.</string>
+                <string name="termux_terminal_view_extra_keys_preset_note_summary">An extra-keys or extra-keys-page2 property set in ~/.termux/termux.properties overrides the presets.</string>
 
 
 

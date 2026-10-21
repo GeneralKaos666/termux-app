@@ -27,6 +27,11 @@
             app:title="@string/termux_terminal_view_extra_keys_preset_title"
             app:defaultValue="default" />
 
+        <ListPreference
+            app:key="extra_keys_page2_preset"
+            app:title="@string/termux_terminal_view_extra_keys_page2_preset_title"
+            app:defaultValue="default" />
+
         <Preference
             app:key="extra_keys_preset_note"
             app:title="@string/termux_terminal_view_extra_keys_preset_note_title"

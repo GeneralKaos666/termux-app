@@ -41,6 +41,18 @@ public class KeyboardPreferencesFragment extends PreferenceFragmentCompat {
                 "emacs",
             });
         }
+
+        ListPreference extraKeysPage2Preset = findPreference("extra_keys_page2_preset");
+        if (extraKeysPage2Preset != null) {
+            extraKeysPage2Preset.setEntries(new CharSequence[] {
+                getString(R.string.termux_terminal_view_extra_keys_page2_preset_entry_default),
+                getString(R.string.termux_terminal_view_extra_keys_page2_preset_entry_function),
+            });
+            extraKeysPage2Preset.setEntryValues(new CharSequence[] {
+                TERMUX_APP.DEFAULT_IVALUE_EXTRA_KEYS_PAGE2_PRESET,
+                "function",
+            });
+        }
     }
 
 }
@@ -105,6 +117,9 @@ class KeyboardPreferencesDataStore extends PreferenceDataStore {
             case "extra_keys_preset":
                 mPreferences.setExtraKeysPreset(value);
                 break;
+            case "extra_keys_page2_preset":
+                mPreferences.setExtraKeysPage2Preset(value);
+                break;
             default:
                 break;
         }
@@ -117,6 +132,8 @@ class KeyboardPreferencesDataStore extends PreferenceDataStore {
         switch (key) {
             case "extra_keys_preset":
                 return mPreferences.getExtraKeysPreset();
+            case "extra_keys_page2_preset":
+                return mPreferences.getExtraKeysPage2Preset();
             default:
                 return defValue;
         }
