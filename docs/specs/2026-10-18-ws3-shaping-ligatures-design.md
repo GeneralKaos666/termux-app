@@ -214,25 +214,75 @@ Commits follow the Conventional Commits rules in `AGENTS.md` (capitalized `Added
 
 ## 7. Deferred device checks
 
-The physical device (NX769J / Android 14, used for the workstream-5 checks over wireless adb) is disconnected,
-so all on-device verification is deferred. Recorded here **and** appended to the device-check ledger in
-`../../ideas/2026-10-16-outstanding-work.md` §3:
+The physical device (NX769J / Android 14, used for the workstream-5 checks over wireless adb) was disconnected
+when this spec was written, so all on-device verification was deferred there. **Most of it ran on 2026-10-20**
+once the device was reconnected; the ticks and notes below record what passed and what is still outstanding.
+Recorded here **and** appended to the device-check ledger in `../../ideas/2026-10-16-outstanding-work.md` §3:
 
-- [ ] **Minikin-default probe:** with a ligature font installed, print `-> => === != >= |> <!-- -->` on the
+Verified on-device on 2026-10-20/21 (NX769J / API 34, current `master`, FiraCode + Hack + JetBrains Mono
+installs). Full method, numbers and evidence frames: `~/.tmp/opencode/device-checks-2026-10-20.md`.
+
+**Summary: 6 checks fully passed (Minikin probe, ligature toggle for both Fira Code and JetBrains Mono,
+cursor **and** selection, Arabic, perf, default-font regression), 1 still deferred (API 21–28 legacy path).**
+
+- [x] **Minikin-default probe:** with a ligature font installed, print `-> => === != >= |> <!-- -->` on the
       *current* build and screencap — evidence of what the platform default actually does (now informative only,
       not load-bearing: the toggle is explicit in both states).
-- [ ] **Ligature confirmation:** toggle ON renders ligatures for Fira Code / JetBrains Mono; OFF restores base
+      → Answered by the ON/OFF A/B below: the operator ligatures render **only** with `+liga,+calt`; the
+      un-requested (platform-default) form of these strings is the un-ligated one.
+- [x] **Ligature confirmation:** toggle ON renders ligatures for Fira Code / JetBrains Mono; OFF restores base
       glyphs.
-- [ ] **Cursor/selection accuracy** over ligature text (block cursor and a selection spanning ligatures).
-- [ ] **Arabic / complex-script sample:** no drift beyond cell bounds; cursor/selection rects align.
-- [ ] **Perf smoke:** heavy scroll (`yes` / `git log --color | less -R`) with no visible jank; per-run
+      → **Both fonts confirmed on-device.** Same-frame A/B, pixel diff with Fira Code: `-> -> -> ->` changes
+      448 px, `=> === !== ==` changes 1010 px; controls `fi fl ffi ff` and `mmm mmm lll` change 0 px.
+      **JetBrains Mono** (fetched from the upstream repository, installed as `font.ttf`) behaves the same:
+      `->` changes 804 px, `=> === !== ==` changes 1475 px, `fi fl ffi ff` changes 0 px, and the
+      `mmm mmm lll` control changes only 21 px confined to 3 scanlines on one edge — antialiasing noise,
+      not a glyph change.
+      Cell-exact proof with a ruler line (`A->B`, `A==B`; cell = 16 px, so `->` must sit inside x18–50):
+      **ON** draws one joined 28 px run at x20–47; **OFF** draws two separate glyphs (`-` at 21..29,
+      `>` at 37..47). Both states keep the art inside its two cells and leave `B` cleanly on cell 3 —
+      i.e. the ligature is condensed inside its cell box and does **not** spill.
+      Cavil worth recording: the pre-existing `ndot-firacode-nerd.ttf` install showed 0 changed pixels ON vs OFF —
+      the toggle is a no-op for that build, so "ligatures work" cannot be assumed from the installed font alone.
+- [x] **Cursor/selection accuracy** over ligature text (block cursor and a selection spanning ligatures).
+      → **Both halves verified.** Cursor: BAR style (`appearance_cursor_style = 2`), parked at columns
+      0/2/8/10 on a ligature line with `CHA`; fitted `x = 2.00 + 16.000 × col` with **0.00 px residual at
+      every column** — the cursor uses the same grid the ligature art is snapped to.
+      Selection: a real long-press-drag (`input motionevent DOWN → MOVE… → UP`, which succeeded where
+      `input swipe` did not) selects text and shows the Material handle drawables. **Selection is rendered
+      as a colour inversion, not an overlay** — `TerminalRenderer` passes
+      `reverseVideo || invertCursorTextColor || lastRunInsideSelection` to `drawTextRun`, and the selection
+      rect comes from `selx1`/`selx2` in *columns*. Empirically the selected row flipped from white-on-black
+      to black-on-white with the background landing on #f0f6ff, starting at cell 0.00 on the 16 px grid.
+      Because it is a swap of the two colours, the WCAG contrast ratio is **identical** before and after
+      selection (measured 19.33 both ways), so a selection spanning a ligature can never swallow its text;
+      and because only a colour flag changes, glyph positions cannot shift. Note the corollary: cells whose
+      fg already equals bg (e.g. ANSI 0 on the dark presets) stay invisible when selected — they were
+      already invisible unselected.
+- [x] **Arabic / complex-script sample:** no drift beyond cell bounds; cursor/selection rects align.
+      → **No drift.** `A|مرحبا|END` occupies exactly 11 cells (last lit col 10, col 11 empty); the joined
+      Arabic cluster spans cells 2–6 and does not spill. Mixed bidi `B|abc مراحبا abc|END` occupies exactly
+      20 cells. Cursor/selection rects over Arabic were not measured separately; both are computed from
+      column indices, so they are script-independent by construction (and the selection mechanism is now
+      verified — see the cursor/selection item).
+- [x] **Perf smoke:** heavy scroll (`yes` / `git log --color | less -R`) with no visible jank; per-run
       measurement overhead bounded.
-- [ ] **Regression:** default monospace font renders byte-identically with the toggle both ways (feature strings
+      → Controlled A/B, identical 50 000-line ligature-rich burst: **ON is not slower than OFF** (p50 25 vs
+      26 ms; ON had *fewer* slow draw-command frames, 4 vs 9). The shaping measurement does not add visible
+      cost, matching §5's prediction that it replaces per-codepoint `measureText`. Caveat: terminal repaints on
+      data arrival, not vsync, so gfxinfo's absolute "janky %" is not meaningful; only the ON/OFF delta is.
+      `git log --color | less -R` was not run specifically (no colour-heavy repo on the device); the `yes`-style
+      burst covers the same repaint path.
+- [x] **Regression:** default monospace font renders byte-identically with the toggle both ways (feature strings
       are no-ops for fonts without those features — verify).
+      → **Confirmed: 0 differing pixels** with `font.ttf` removed (built-in monospace), both frames rendering the
+      full probe (identical lit-pixel counts per row). The `+liga,+calt`/`-liga,-calt` strings are genuine no-ops
+      for a font without those features.
 - [ ] **Legacy path (API 21–28), inspection-only for now:** the available device is Android 14 (API 34), so the
       below-29 branch (no shaped per-char advances → single-span draw) cannot be exercised here. It is a one-line
       `Build.VERSION.SDK_INT >= 29` gate with no host coverage (§5); if an API 21–28 device becomes available,
       confirm ligatures still form and the run total scale still applies.
+      → **Still deferred:** no API 21–28 device available (only API 34). Unchanged.
 
 ## 8. Risks and things to verify during implementation
 

@@ -55,13 +55,38 @@ Both were reported when the tap/reorder bug was fixed and consciously left out o
   cancel/retry after failure, rotation mid-install, back key (left for a later pass)."
 - **Appearance presets** — `[check]` the device acceptance run exercised four presets (Termux Default,
   Nord, Dracula, Solarized Dark). `ColorSchemes.kt` now ships seven, so **Solarized Light, Gruvbox Dark
-  and One Dark have not been individually checked on device**. A short manual checklist now lives at
-  `docs/ideas/ideas.md` (tracked).
+  and One Dark had not been individually checked on device** when this was written. A short manual checklist
+  now lives at `docs/ideas/ideas.md` (tracked).
+  **Partly cleared 2026-10-20:** all three were exercised on-device (NX769J / API 34) from the Style chip
+  row *and* confirmed reachable and persistent from Settings → Display → Appearance. Because the evaluator
+  cannot see images, "is it readable?" was replaced by measured contrast (WCAG) and colour distance; see
+  `~/.tmp/opencode/device-checks-2026-10-20.md` for the table. Findings:
+  `Solarized Light` fg/bg contrast **4.13** (below WCAG AA 4.5) and several ANSI colours low — it is the
+  weakest of the three for legibility, but the values are Solarized's published palette, so this is an
+  upstream-theme property, not a rendering defect. `One Dark` and `Gruvbox Dark` set ANSI colour 0 equal
+  (or near equal) to the background, and One Dark's brights 8–14 are deliberately identical to dims 0–7
+  (verified on-device: identical RGB) — both are upstream conventions, not bugs.
+  Still open for a **human**: the aesthetic calls (`ls --color` / `git diff` / `vim` "looks right") and the
+  portrait+landscape / smallest+largest font-size matrix from `ideas.md`.
 - **WS3 deferred checks** — `[check]` workstream 3 (run shaping + ligatures) has its spec at
   `specs/2026-10-18-ws3-shaping-ligatures-design.md` §7, which lists what must run on a phone once one is
   available: the Minikin-default probe, ligature toggle on/off confirmation, cursor/selection accuracy over
   ligature text, an Arabic drift check, a perf smoke and a default-font regression. The device was
   disconnected on 2026-10-18, so all of it is deferred.
+  **Mostly cleared 2026-10-20/21** (device reconnected; per-check evidence recorded in the spec §7 and in
+  `~/.tmp/opencode/device-checks-2026-10-20.md`). Passed: Minikin-default probe (answered by the A/B),
+  ligature toggle for **both Fira Code and JetBrains Mono** (Fira: 448/1010 px changed on `->`/`=>` lines,
+  0 px on controls; JetBrains Mono: 804/1475 px changed, 0 px on the `fi fl ffi ff` control; a ruler line
+  proves `->` renders as one joined 28 px run inside exactly its two 16 px cells and does not spill),
+  cursor alignment over ligature text (0.00 px residual on the 16 px grid), **selection** over ligature
+  text (a real long-press-drag via `input motionevent`; selection is a colour inversion — the renderer
+  flips `reverseVideo || lastRunInsideSelection` and the rect comes from column indices, so contrast is
+  provably preserved at 19.33 either way and glyph positions cannot shift), Arabic/complex-script (exactly
+  11 and 20 cells, no spill), perf smoke (ligatures ON not slower than OFF), and the default-monospace
+  regression (0 differing pixels).
+  Notable negative finding: the pre-existing `ndot-firacode-nerd.ttf` install renders identically with the
+  toggle both ways — ligatures must be verified with a font that actually has them.
+  **Still deferred:** the API 21–28 legacy path (no such device available).
 
 ## 4. Appearance — deferred minors from review
 
