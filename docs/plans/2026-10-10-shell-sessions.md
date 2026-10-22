@@ -534,3 +534,13 @@ it used to sit when the bar was hidden.
   above the grid (10px clear, no overlap), the collapse/restore round-trip works in both keyboard
   states, and the two grids with per-page layouts and the back-arrow → terminal IME handoff were
   verified earlier in the same pass.
+
+Also fixed 2026-10-21: swipe-up extra-key popups could be shown and then never engage. The trigger
+upstream relies on is `ACTION_UP` on the key view, but the popup window appears *under the finger*,
+so the system moves the touch target to it and the key only receives `ACTION_CANCEL`; the popup then
+sat on screen with no way to fire. `ExtraKeysView` now gives the popup button its own touch listener
+(releasing on it, or tapping it, fires the popup key and closes it), keeps the popup up across that
+cancel, drops a stale popup on the next key press, and tracks `mPopupEngaged` so the key-view release
+path cannot fire the same popup twice. Verified on device through an app-private touch trace: one
+`anyClick` per gesture, the popup key lands in the terminal (prompt row changed), plain keys and the
+second grid are unaffected.
