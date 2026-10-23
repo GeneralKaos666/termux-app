@@ -455,17 +455,13 @@ public final class ExtraKeysView extends GridLayout {
 
                         case MotionEvent.ACTION_MOVE:
                             if (buttonInfo.getPopup() != null) {
-                                // Show popup on swipe up
+                                // Show popup on swipe up; once armed it stays until the gesture
+                                // ends, regardless of where the finger drifts after that.
                                 if (mPopupWindow == null && event.getY() < 0) {
                                     stopScheduledExecutors();
                                     view.setBackground(defaultButtonBackground);
                                     view.setBackgroundTintList(defaultButtonBackgroundTint);
                                     showPopup(view, buttonInfo.getPopup());
-                                }
-                                if (mPopupWindow != null && event.getY() > 0) {
-                                    view.setBackground(new ColorDrawable(mButtonActiveBackgroundColor));
-                                    view.setBackgroundTintList(null);
-                                    dismissPopup();
                                 }
                             }
                             return true;
@@ -474,10 +470,9 @@ public final class ExtraKeysView extends GridLayout {
                             view.setBackground(defaultButtonBackground);
                             view.setBackgroundTintList(defaultButtonBackgroundTint);
                             stopScheduledExecutors();
-                            // The gesture is aborted, so no release will ever arrive to fire or
-                            // dismiss the popup: drop it here instead of leaving it to linger over
-                            // the keys.
-                            dismissPopupIfAny();
+                            // A swipe-up popup is a commitment: even if the system or the pager
+                            // cancels the gesture (finger drift), the armed popup key still fires.
+                            firePopupIfArmed(view, buttonInfo, button);
                             return true;
 
                         case MotionEvent.ACTION_UP:
@@ -492,13 +487,9 @@ public final class ExtraKeysView extends GridLayout {
                             if (mLongPressCount == 0 || mPopupWindow != null) {
                                 // Trigger popup button click if swipe up complete. The popup window
                                 // is not touchable, so this key keeps the gesture stream no matter
-                                // where the finger lifts (over the popup, above it, or back over the
-                                // key), and the popup key fires right here.
+                                // where the finger lifts, and the popup key fires right here.
                                 if (mPopupWindow != null) {
-                                    dismissPopup();
-                                    if (buttonInfo.getPopup() != null) {
-                                        onAnyExtraKeyButtonClick(view, buttonInfo.getPopup(), button);
-                                    }
+                                    firePopupIfArmed(view, buttonInfo, button);
                                 } else {
                                     view.performClick();
                                 }
@@ -668,6 +659,20 @@ public final class ExtraKeysView extends GridLayout {
         mPopupWindow.setContentView(null);
         mPopupWindow.dismiss();
         mPopupWindow = null;
+    }
+
+    /**
+     * Fires the popup key and dismisses the popup if a swipe-up popup is armed; otherwise does
+     * nothing. Called from both {@code ACTION_UP} and {@code ACTION_CANCEL} so the armed popup key
+     * lands no matter how the gesture ends.
+     */
+    private void firePopupIfArmed(View view, ExtraKeyButton buttonInfo, MaterialButton button) {
+        if (mPopupWindow != null) {
+            dismissPopup();
+            if (buttonInfo.getPopup() != null) {
+                onAnyExtraKeyButtonClick(view, buttonInfo.getPopup(), button);
+            }
+        }
     }
 
     /** Dismiss the popup window if one is shown. */

@@ -550,10 +550,16 @@ window only receives the release when the finger happens to be inside its bounds
 the popup (or anywhere outside it) dismissed it via `ACTION_CANCEL` without firing, and the key's
 own stream was already dead. The popup is now a pure visual indicator: `PopupWindow.setTouchable(false)`
 keeps the whole gesture stream on the key, whose existing `ACTION_UP` path fires the popup key no
-matter where the finger lifts, and `ACTION_CANCEL` now drops the popup instead of leaving it to
-linger. The popup button's own listener and the `mPopupEngaged` flag were removed, and the popup's
-background now uses the normal (unpressed) key color instead of the active color so it matches the
-extra keys it floats above. Verified on device via injected gesture streams and prompt-row pixel
-diffs: popup shows black with its label, lifting above the popup enters the popup key, sliding back
-down onto the key dismisses the popup and enters the base key, plain taps enter the base key, and
-no gesture double-fires.
+matter where the finger lifts. The popup button's own listener and the `mPopupEngaged` flag were
+removed, and the popup's background now uses the normal (unpressed) key color instead of the active
+color so it matches the extra keys it floats above. Verified on device via injected gesture streams
+and prompt-row pixel diffs: popup shows black with its label, lifting above the popup enters the
+popup key, plain taps enter the base key, and no gesture double-fires.
+
+Follow-up 2026-10-22: the popup still read as "cancelled" to the user, because `ACTION_CANCEL`
+discarded an armed popup and the `ACTION_MOVE` branch dismissed it when the finger drifted back
+below the key's top edge. Both cancellation paths are gone. `ACTION_MOVE` no longer dismisses an
+armed popup, and both `ACTION_UP` and `ACTION_CANCEL` now commit it through the shared
+`firePopupIfArmed` helper — a swipe-up popup is treated as a commitment, so the popup key lands no
+matter where (or how) the gesture ends, matching the reference app's "don't cancel the popup"
+handling.
