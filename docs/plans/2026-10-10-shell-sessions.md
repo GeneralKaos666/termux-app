@@ -563,3 +563,14 @@ armed popup, and both `ACTION_UP` and `ACTION_CANCEL` now commit it through the 
 `firePopupIfArmed` helper — a swipe-up popup is treated as a commitment, so the popup key lands no
 matter where (or how) the gesture ends, matching the reference app's "don't cancel the popup"
 handling.
+
+Final alignment 2026-10-22: at the user's request the popup was brought in line with the reference
+app (`Graywizard888/Terminal_EX`) rather than the custom paths above. The popup is a touchable,
+outside-touchable, non-focusable `PopupWindow` shown with `showAsDropDown(view, 0, -2 * height)`,
+painted with the active (pressed) key background; it has no touch/click listener of its own. The key
+handler is the reference's: `ACTION_MOVE` shows the popup on swipe up and dismisses it when the
+finger slides back down, `ACTION_CANCEL` just restores the background and stops the repeat executors
+(leaving the popup up), and `ACTION_UP` fires the popup key when the popup is still showing. The
+`firePopupIfArmed` helper, the `mPopupEngaged` flag, and the non-touchable-popup behavior were all
+removed. Verified on device via an app-private event trace: a plain vertical swipe up fires the
+popup key, a swipe back down fires the base key, and a plain tap fires the base key.
