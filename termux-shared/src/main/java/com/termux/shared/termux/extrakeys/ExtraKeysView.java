@@ -201,15 +201,13 @@ public final class ExtraKeysView extends GridLayout {
     protected int mLongPressRepeatDelay;
 
 
-    /** The popup window shown if {@link ExtraKeyButton#getPopup()} returns a {@code non-null} value
-     * and a swipe up action is done on an extra key. */
-    protected PopupWindow mPopupWindow;
-
     /**
-     * Whether {@link #mPopupWindow}'s own button already engaged, so the gesture that opened it
-     * must not fire the same popup again when it ends.
+     * The popup window shown if {@link ExtraKeyButton#getPopup()} returns a {@code non-null} value
+     * and a swipe up action is done on an extra key. It is a pure visual indicator: the window is
+     * not touchable, so the key that opened it keeps the whole gesture stream and its
+     * {@code ACTION_UP} decides whether the popup key fires.
      */
-    protected boolean mPopupEngaged;
+    protected PopupWindow mPopupWindow;
 
     protected ScheduledExecutorService mScheduledExecutor;
     protected Handler mHandler;
@@ -446,7 +444,6 @@ public final class ExtraKeysView extends GridLayout {
                             // A popup left over from a cancelled or abandoned gesture must not linger
                             // over the keys.
                             dismissPopupIfAny();
-                            mPopupEngaged = false;
                             // Paint the pressed background with a plain ColorDrawable. The stock
                             // background tint is transparent in the normal state, so it must be
                             // cleared or it would tint the pressed color away entirely.
@@ -459,7 +456,7 @@ public final class ExtraKeysView extends GridLayout {
                         case MotionEvent.ACTION_MOVE:
                             if (buttonInfo.getPopup() != null) {
                                 // Show popup on swipe up
-                                if (mPopupWindow == null && !mPopupEngaged && event.getY() < 0) {
+                                if (mPopupWindow == null && event.getY() < 0) {
                                     stopScheduledExecutors();
                                     view.setBackground(defaultButtonBackground);
                                     view.setBackgroundTintList(defaultButtonBackgroundTint);
@@ -477,11 +474,10 @@ public final class ExtraKeysView extends GridLayout {
                             view.setBackground(defaultButtonBackground);
                             view.setBackgroundTintList(defaultButtonBackgroundTint);
                             stopScheduledExecutors();
-                            // Do not dismiss here: this cancel is usually the system moving the touch
-                            // target to the popup window that just appeared under the finger, and the
-                            // popup must stay up to receive the release. A leftover popup is dropped
-                            // on the next key press instead.
-                            mPopupEngaged = false;
+                            // The gesture is aborted, so no release will ever arrive to fire or
+                            // dismiss the popup: drop it here instead of leaving it to linger over
+                            // the keys.
+                            dismissPopupIfAny();
                             return true;
 
                         case MotionEvent.ACTION_UP:
@@ -492,17 +488,12 @@ public final class ExtraKeysView extends GridLayout {
                             view.setBackground(defaultButtonBackground);
                             view.setBackgroundTintList(defaultButtonBackgroundTint);
                             stopScheduledExecutors();
-                            // The popup's own button may have engaged already (the touch target moves
-                            // to its window once it is shown), in which case this gesture must not fire
-                            // the same popup a second time.
-                            if (mPopupEngaged) {
-                                mPopupEngaged = false;
-                                dismissPopupIfAny();
-                                return true;
-                            }
                             // If ACTION_UP up was not from a repetitive key or was with a key with a popup button
                             if (mLongPressCount == 0 || mPopupWindow != null) {
-                                // Trigger popup button click if swipe up complete
+                                // Trigger popup button click if swipe up complete. The popup window
+                                // is not touchable, so this key keeps the gesture stream no matter
+                                // where the finger lifts (over the popup, above it, or back over the
+                                // key), and the popup key fires right here.
                                 if (mPopupWindow != null) {
                                     dismissPopup();
                                     if (buttonInfo.getPopup() != null) {
@@ -656,34 +647,19 @@ public final class ExtraKeysView extends GridLayout {
         button.setMinimumHeight(0);
         button.setWidth(width);
         button.setHeight(height);
-        // Same setBackground() reasoning as in the touch handler: the stock background tint is
-        // transparent in the normal state, so clear it or the pressed color is tinted away.
-        button.setBackground(new ColorDrawable(mButtonActiveBackgroundColor));
+        // The popup must look like the extra keys it floats above: the normal (unpressed) key
+        // background. The stock background tint is transparent in the normal state, so clear it or
+        // the painted color would be tinted away.
+        button.setBackground(new ColorDrawable(mButtonBackgroundColor));
         button.setBackgroundTintList(null);
-        // The popup is drawn under the finger that swiped up, so the system moves the touch target
-        // to this window and the key's own ACTION_UP never arrives. The popup must therefore engage
-        // itself: releasing on it (or tapping it) fires the popup key and closes it. Handling the
-        // release here rather than with a click listener also covers a finger that keeps sliding
-        // past the popup before lifting, which a Button would treat as a cancelled press.
-        button.setOnTouchListener((popupView, popupEvent) -> {
-            int action = popupEvent.getAction();
-            if (action == MotionEvent.ACTION_UP) {
-                mPopupEngaged = true;
-                dismissPopup();
-                onAnyExtraKeyButtonClick(view, extraButton, button);
-                return true;
-            }
-            if (action == MotionEvent.ACTION_CANCEL) {
-                dismissPopupIfAny();
-                return true;
-            }
-            return false;
-        });
         mPopupWindow = new PopupWindow(this);
         mPopupWindow.setWidth(LayoutParams.WRAP_CONTENT);
         mPopupWindow.setHeight(LayoutParams.WRAP_CONTENT);
         mPopupWindow.setContentView(button);
-        mPopupWindow.setOutsideTouchable(true);
+        // The popup is only a visual indicator: it must not take the touch away from the key that
+        // opened it, or the key would receive ACTION_CANCEL instead of the release and the popup
+        // key would never fire when the finger is lifted off the popup.
+        mPopupWindow.setTouchable(false);
         mPopupWindow.setFocusable(false);
         mPopupWindow.showAsDropDown(view, 0, -2 * height);
     }
