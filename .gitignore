@@ -47,3 +47,6 @@ Thumbs.db
 
 # Local brainstorming scratch — never committed
 .superpowers/
+
+# Idea notes — local only, not tracked (directory itself stays visible)
+docs/ideas/*.md
