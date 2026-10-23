@@ -84,7 +84,7 @@ The fork keeps moving. These are the pieces still in progress or up next.
 - **Three colour presets need a look on a real phone.** The appearance screen ships seven schemes.
   Four are already familiar and checked, but Solarized Light, Gruvbox Dark and One Dark have only
   ever been seen by a developer's eye, not on a device. There is a short checklist in
-  `docs/ideas/ideas.md`.
+  `docs/ledger/manual-checks.md`.
 - **Terminal engine upgrade — nearly finished.** Everything captured in the plan now ships on
   `master`: the new cell model, the renderer that redraws only what changed, run shaping with
   ligatures, a kitty-graphics subset, and tap-to-open `OSC 8` hyperlinks with `SGR 58` coloured
@@ -95,7 +95,7 @@ The fork keeps moving. These are the pieces still in progress or up next.
   the fork, even though its constants, properties file and a hidden settings entry ship here. There
   are two ways to close that gap — build the plugin again as a `:float` module next to the app, or
   fold the floating window into the app itself. The trade-offs, and why a plain clone will not
-  work, are written up in `docs/ideas/ideas.md`.
+  work, are written up in `docs/ledger/manual-checks.md`.
 
 ## License and security
 

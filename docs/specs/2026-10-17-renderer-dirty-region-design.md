@@ -82,7 +82,7 @@ The buffer owns truth; the view is the single consumer. Three moving parts:
      (it re-sets the decor background), but `updateBackgroundColor()` early-returns in wallpaper/custom-image
      mode, so a pure palette OSC can stay stale until the next dirty repaint. Not fixed in WS2 because a robust
      signal (a palette version) would either add a per-update palette comparison or touch `:app`; recorded in
-     `docs/ideas/2026-10-16-outstanding-work.md`.
+     `docs/ledger/outstanding-work.md`.
    - no dirty visible row and no cursor/reverse-video change → **no invalidation** (output that changed nothing
      drawn, e.g. an OSC 8 link registration or a mode bit no one renders).
 3. **Post-draw consumption in `onDraw()`:** after `render(...)` returns:

@@ -1084,7 +1084,7 @@ git commit -S -m "Added(terminal): Add the ligature toggle to the terminal appea
 
 **Files:**
 - Modify: `docs/specs/2026-10-18-ws3-shaping-ligatures-design.md` (status header)
-- Modify: `docs/ideas/2026-10-16-outstanding-work.md` (§7 WS3 bullet)
+- Modify: `docs/ledger/outstanding-work.md` (§7 WS3 bullet)
 
 **Interfaces:**
 - Consumes: the three commits from Tasks 1–3.
@@ -1108,6 +1108,6 @@ git status --short              # only pre-existing untracked files (.planning/)
 - [ ] **Step 3: Commit**
 
 ```bash
-git add docs/specs/2026-10-18-ws3-shaping-ligatures-design.md docs/ideas/2026-10-16-outstanding-work.md
+git add docs/specs/2026-10-18-ws3-shaping-ligatures-design.md docs/ledger/outstanding-work.md
 git commit -S -m "Changed(docs): Record the WS3 shaping and ligatures implementation"
 ```

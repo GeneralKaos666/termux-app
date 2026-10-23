@@ -271,8 +271,8 @@ git commit -m "Added(terminal): Decode, store, place and delete kitty graphics i
 **Files:**
 - Modify: `docs/specs/2026-10-18-ws4-graphics-placement-design.md` (status + deviations)
 - Modify: `docs/plans/2026-10-18-ws4-graphics-placement-plan.md` (Tasks 3–5 recorded as landed here)
-- Modify: `docs/ideas/2026-10-16-outstanding-work.md` (WS4 entry: what now works, what remains)
-- Modify: `docs/ideas/2026-10-18-repo-audit.md` (§1.1 resolved; §7 step 1 closed)
+- Modify: `docs/ledger/outstanding-work.md` (WS4 entry: what now works, what remains)
+- Modify: `docs/ledger/repo-audit.md` (§1.1 resolved; §7 step 1 closed)
 
 **Interfaces:** none — documentation and verification only.
 

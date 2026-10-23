@@ -92,7 +92,7 @@ gated on a green `./gradlew test`. No PR.
 
 **Files to change:**
 - `docs/specs/2026-10-18-ws4-graphics-placement-design.md` (status → implemented, reference commits)
-- `docs/ideas/2026-10-16-outstanding-work.md` (update §7 WS4 status if present; record deferred checks)
+- `docs/ledger/outstanding-work.md` (update §7 WS4 status if present; record deferred checks)
 
 **Verification:**
 - `./gradlew :terminal-emulator:test :terminal-view:test :app:testDebugUnitTest` all green
