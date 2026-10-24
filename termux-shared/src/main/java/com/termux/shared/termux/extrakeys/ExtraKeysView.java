@@ -621,6 +621,8 @@ public final class ExtraKeysView extends GridLayout {
     void showPopup(View view, ExtraKeyButton extraButton) {
         int width = view.getMeasuredWidth();
         int height = view.getMeasuredHeight();
+        final Drawable defaultButtonBackground = view.getBackground();
+        final ColorStateList defaultButtonBackgroundTint = view.getBackgroundTintList();
         MaterialButton button;
         if (isSpecialButton(extraButton)) {
             button = createSpecialButton(extraButton.getKey(), false);
@@ -638,11 +640,16 @@ public final class ExtraKeysView extends GridLayout {
         button.setMinimumHeight(0);
         button.setWidth(width);
         button.setHeight(height);
-        // Match the extra keys' active (pressed) background, as the reference app does. The stock
-        // background tint is transparent in the normal state, so clear it or the painted color
-        // would be tinted away.
-        button.setBackground(new ColorDrawable(mButtonActiveBackgroundColor));
-        button.setBackgroundTintList(null);
+        // Match how extra keys are colored/styled
+        if (defaultButtonBackground != null) {
+            button.setBackground(defaultButtonBackground.getConstantState() != null
+                ? defaultButtonBackground.getConstantState().newDrawable()
+                : defaultButtonBackground);
+            button.setBackgroundTintList(defaultButtonBackgroundTint);
+        } else {
+            button.setBackground(new ColorDrawable(mButtonBackgroundColor));
+            button.setBackgroundTintList(null);
+        }
         mPopupWindow = new PopupWindow(this);
         mPopupWindow.setWidth(LayoutParams.WRAP_CONTENT);
         mPopupWindow.setHeight(LayoutParams.WRAP_CONTENT);
