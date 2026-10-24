@@ -1,295 +1,435 @@
-# Outstanding work — the not-yet-done ledger (NOT a plan)
+# Outstanding work — the single work ledger (NOT a plan)
 
-**Date:** 2026-10-16
+**Date:** 2026-10-24 (consolidated)
 **Status:** capture only. Nothing here is approved, scheduled, or designed. Each entry records what is
 known and what the next step would cost. Items marked *needs spec* require the full cycle
 (brainstorming → spec → plan) before any code.
-**Origin:** user instruction — "remove what's up next in readme and add what we havent done in
-docs/superpowers/ideas". The public README now carries a compact prose version of this list; this
-file is the detailed record, with the grounding for each item, plus the gaps found while building the
-sessions reorder and the appearance screen.
-**Path classification:** mixed — see the legend. This file is not a spec and authorizes nothing.
-
-**Related:** `specs/2026-10-10-shell-and-sessions-ux-design.md` (§7 milestones),
-`plans/2026-10-10-shell-sessions.md`, `plans/2026-10-14-in-app-terminal-appearance.md`,
-`ideas/2026-10-14-terminal-engine-upgrade-idea.md`,
-`ideas/2026-10-16-termux-float-port-idea.md`, `ideas/2026-10-18-repo-audit.md` (snapshot of the code
-and docs; this ledger still owns the decisions).
+**Origin:** the former six-file ledger (`outstanding-work`, `repo-audit`, `engine-upgrade`,
+`float-port`, `upgrade-roadmap`, `manual-checks`) was folded into two files on 2026-10-24. This file
+owns every decision and every piece of not-yet-done work; `manual-checks.md` owns every device/manual
+check and is deliberately the **last** thing to do. The pre-fold text of the absorbed files is in git
+history before this commit.
+**Reconciled 2026-10-24** against `master` (`da327795`): the extra-key popup work of 2026-10-22 is
+recorded as done, the stale "WS3 device checklist still outstanding" line is corrected, and the
+`docs/ideas/` paths that survived the 2026-10-20 re-home are repointed here.
 
 **Legend:** `[bounded]` small and self-contained · `[needs spec]` architectural, needs its own cycle ·
-`[deferred]` postponed on purpose · `[check]` built but not verified on device ·
-`[probed]` verification attempted on device, with the outcome recorded ·
-`[limitation]` accepted as-is for now · `[non-goal]` decided against.
+`[deferred]` postponed on purpose · `[check]` built but not verified on device · `[probed]`
+verification attempted on device, with the outcome recorded · `[limitation]` accepted as-is for now ·
+`[non-goal]` decided against.
 
 ---
 
-## 1. Sessions — durability
+## 0. Work order at a glance
 
-Moved here verbatim in spirit from the README's former "What's next" section.
+1. **Diagnosed defects** — the bounded items in §2.4 (palette repaint, wide-glyph link hit-test,
+   underline-array tests, silent protocol errors, focus events).
+2. **Engine remainder (§2)** — WS6 compatibility audit, then the rest of xterm conformance.
+3. **Code and test gaps (§3)** — god-class splits and the missing test surface.
+4. **Build and platform (§4)** — R8/release hardening, Java 17, CI, bootstrap caching, JitPack.
+5. **Epics that need a spec cycle (§5)** — session restore, Termux:Float, 256-colour palette,
+   palette-version signal.
+6. **Dependency refresh (§4.3)** — one commit per dependency, ascending blast radius,
+   `compose-bom` last and separate.
+7. **Device and manual checks** — `manual-checks.md`. These are the last thing to do, after the
+   code work above settles.
 
-- **Session durability / restore** — `[needs spec]` a running shell cannot outlive the app process.
-  Sessions live in `TermuxShellManager.mTermuxSessions` in memory and the PTY is in-process, so
-  `TermuxService.onStartCommand` returning `START_NOT_STICKY` means process death ends them. Realistic
-  "durability" = persist a session snapshot (name/title, command, cwd where capturable) and **respawn**
-  fresh sessions on the next launch, opt-in. Write it up separately before building it.
-  (Grounding: appearance plan, Appendix — Direction B.)
-- **Ordering advice already recorded** — the appendix recommended "appearance first, then
-  B-ergonomics, then B-restore". Appearance, drag-to-reorder, rename and close have all since shipped.
+---
 
-## 2. Sessions bar — two defects found and deliberately left unfixed
+## 1. Sessions, shell and settings
 
-Both were reported when the tap/reorder bug was fixed and consciously left out of that commit's scope.
+### 1.1 Session durability / restore — `[needs spec]`
 
-- **Positional fallback tab titles** — `[done 2026-10-16, commit 1d973de4]` the fallback number is now derived
-  from the session's stable id, so reordering a session with no name/terminal title keeps its label. The
-  dead `number` parameter was removed from `sessionItem(...)` and the `i + 1` argument dropped at
+A running shell cannot outlive the app process. Sessions live in
+`TermuxShellManager.mTermuxSessions` in memory and the PTY is in-process, so
+`TermuxService.onStartCommand` returning `START_NOT_STICKY` means process death ends them. Realistic
+"durability" = persist a session snapshot (name/title, command, cwd where capturable) and **respawn**
+fresh sessions on the next launch, opt-in. Write it up separately before building it. (Grounding:
+appearance plan, Appendix — Direction B.)
+
+Ordering advice already recorded: "appearance first, then B-ergonomics, then B-restore". Appearance,
+drag-to-reorder, rename and close have all since shipped.
+
+### 1.2 Sessions bar — closed defects (record)
+
+- **Positional fallback tab titles** — `[done 2026-10-16, 1d973de4]` the fallback number is derived
+  from the session's stable id, so reordering a session with no name/terminal title keeps its label.
+  The dead `number` parameter was removed from `sessionItem(...)` and the `i + 1` argument dropped at
   `TermuxActivity.java:769`; covered by `SessionItemMappingTest`.
-- **Only the active tab exposes the ⋮ menu** — `[done 2026-10-16, commit e9434cf7]` every tab now shows
-  its own overflow, so rename / close / move are reachable without switching first. The long-press
-  divergence noted below was resolved by keeping long-press as the drag handle and the ⋮ as the menu
-  entry point on every tab.
+- **Only the active tab exposes the ⋮ menu** — `[done 2026-10-16, e9434cf7]` every tab shows its own
+  overflow, so rename / close / move are reachable without switching first. Long-press stays the drag
+  handle; the ⋮ is the menu entry point on every tab.
+- **Extra-key swipe-up popups** — `[done 2026-10-22, ba68e464 → da327795]` six commits fixed and then
+  aligned the popup with the reference app (`Graywizard888/Terminal_EX`): the popup is a touchable,
+  outside-touchable, non-focusable `PopupWindow` shown at `showAsDropDown(view, 0, -2 * height)`,
+  painted with the active (pressed) key background, with no listener of its own. `ACTION_MOVE` shows
+  it on swipe up and dismisses it when the finger slides back down; `ACTION_CANCEL` restores the
+  background, stops the repeat executors and leaves the popup up; `ACTION_UP` fires it when still
+  showing. The earlier `firePopupIfArmed` helper, `mPopupEngaged` flag and non-touchable-popup paths
+  were removed. Verified on device with an event trace (swipe up fires popup key, swipe back down and
+  plain tap fire the base key). No open work.
 
-## 3. Device checks not yet run
+### 1.3 Settings and onboarding — shipped
 
-- **B1 onboarding** — `[check]` `plans/2026-10-10-shell-sessions.md:440` records: "Not exercised:
-  cancel/retry after failure, rotation mid-install, back key (left for a later pass)."
-- **Appearance presets** — `[check]` the device acceptance run exercised four presets (Termux Default,
-  Nord, Dracula, Solarized Dark). `ColorSchemes.kt` now ships seven, so **Solarized Light, Gruvbox Dark
-  and One Dark had not been individually checked on device** when this was written. A short manual checklist
-  now lives at `docs/ideas/ideas.md` (tracked).
-  **Partly cleared 2026-10-20:** all three were exercised on-device (NX769J / API 34) from the Style chip
-  row *and* confirmed reachable and persistent from Settings → Display → Appearance. Because the evaluator
-  cannot see images, "is it readable?" was replaced by measured contrast (WCAG) and colour distance; see
-  `~/.tmp/opencode/device-checks-2026-10-20.md` for the table. Findings:
-  `Solarized Light` fg/bg contrast **4.13** (below WCAG AA 4.5) and several ANSI colours low — it is the
-  weakest of the three for legibility, but the values are Solarized's published palette, so this is an
-  upstream-theme property, not a rendering defect. `One Dark` and `Gruvbox Dark` set ANSI colour 0 equal
-  (or near equal) to the background, and One Dark's brights 8–14 are deliberately identical to dims 0–7
-  (verified on-device: identical RGB) — both are upstream conventions, not bugs.
-  Still open for a **human**: the aesthetic calls (`ls --color` / `git diff` / `vim` "looks right") and the
-  portrait+landscape / smallest+largest font-size matrix from `ideas.md`.
-- **WS3 deferred checks** — `[check]` workstream 3 (run shaping + ligatures) has its spec at
-  `specs/2026-10-18-ws3-shaping-ligatures-design.md` §7, which lists what must run on a phone once one is
-  available: the Minikin-default probe, ligature toggle on/off confirmation, cursor/selection accuracy over
-  ligature text, an Arabic drift check, a perf smoke and a default-font regression. The device was
-  disconnected on 2026-10-18, so all of it is deferred.
-  **Mostly cleared 2026-10-20/21** (device reconnected; per-check evidence recorded in the spec §7 and in
-  `~/.tmp/opencode/device-checks-2026-10-20.md`). Passed: Minikin-default probe (answered by the A/B),
-  ligature toggle for **both Fira Code and JetBrains Mono** (Fira: 448/1010 px changed on `->`/`=>` lines,
-  0 px on controls; JetBrains Mono: 804/1475 px changed, 0 px on the `fi fl ffi ff` control; a ruler line
-  proves `->` renders as one joined 28 px run inside exactly its two 16 px cells and does not spill),
-  cursor alignment over ligature text (0.00 px residual on the 16 px grid), **selection** over ligature
-  text (a real long-press-drag via `input motionevent`; selection is a colour inversion — the renderer
-  flips `reverseVideo || lastRunInsideSelection` and the rect comes from column indices, so contrast is
-  provably preserved at 19.33 either way and glyph positions cannot shift), Arabic/complex-script (exactly
-  11 and 20 cells, no spill), perf smoke (ligatures ON not slower than OFF), and the default-monospace
-  regression (0 differing pixels).
-  Notable negative finding: the pre-existing `ndot-firacode-nerd.ttf` install renders identically with the
-  toggle both ways — ligatures must be verified with a font that actually has them.
-  **Still deferred:** the API 21–28 legacy path (no such device available).
+- B1 first-run walkthrough, B2 extra-key presets and B3 font-size default shipped.
+- Milestone C **preferences information-architecture rework** shipped 2026-10-16. The Termux hub is
+  now Display / Keyboard / Advanced, all 13 leaf `app:key` values are frozen, and no migration is
+  needed. Commits `de9ed98b`..`9077b5f6`; spec `specs/2026-10-16-settings-ia-design.md`, plan
+  `plans/2026-10-16-settings-ia.md`; final review clean.
+- The remaining onboarding and settings checks are device-only: `manual-checks.md` D-7 and D-8.
 
-## 4. Appearance — deferred minors from review
+### 1.4 Appearance — shipped, one device pass outstanding
 
-- `[done 2026-10-16, commit 6c606187]` Dead string resources removed: `title_create_named_session`,
-  `action_create_named_session_confirm` (orphaned by the sessions-bar commit), `action_paste` (orphaned by
-  the Compose extra-keys bar), and `error_styling_not_installed` + `action_styling_install` (orphaned by the
-  appearance-screen commit). Found via lint `UnusedResources`; the report no longer lists any unused
-  string. Other unused resources (7 session/current-session drawables, `preference_markdown_text.xml`, 3
-  styles) remain — not part of this item.
-- `[done 2026-10-16, commit 349cbd66]` The cursor-override-cannot-be-cleared precedence. Cursor style
-  and blink are now stored as nullable overrides (`null` = follow `termux.properties`), the screen has
-  Default chips for both, Reset stages `null`, and Apply clears the stored override instead of pinning
-  a value. A colour-only Apply no longer creates a cursor override.
-- (Grounding: `.superpowers/sdd/2026-10-14-in-app-terminal-appearance/progress.md:235–238`.)
-
-## 5. Terminal background — live wallpaper
-
-- `[limitation]` With a live (animated) wallpaper, `WallpaperManager.getDrawable()` yields no usable
+- Seven colour presets ship; Solarized Light, Gruvbox Dark and One Dark have had a machine contrast
+  pass but still need the human aesthetic pass (`manual-checks.md` D-5).
+- `[done 6c606187]` dead string resources removed (lint `UnusedResources` no longer lists any unused
+  string). Other unused resources (7 session/current-session drawables, `preference_markdown_text.xml`,
+  3 styles) were later deleted in `b99c79e1`.
+- `[done 349cbd66]` cursor style and blink are nullable overrides (`null` = follow
+  `termux.properties`), with Default chips and a Reset that stages `null`; a colour-only Apply no
+  longer creates a cursor override.
+- `[limitation]` with a live (animated) wallpaper, `WallpaperManager.getDrawable()` yields no usable
   frame (black), so the system-wallpaper background works only with a static image. Ruled a
   device/engine quirk seen on the ZTE live wallpaper, not app code.
 
-## 6. Settings & first-run onboarding (spec §7, milestone C) — IA rework shipped
+---
 
-- Shipped: the B1 first-run walkthrough, B2 extra-key presets, B3 font-size default.
-- Shipped (2026-10-16): the milestone C **preferences information-architecture rework**. The Termux hub is
-  now Display / Keyboard / Advanced, all 13 leaf `app:key` values are frozen, and no migration is needed.
-  Stream 3 commits `de9ed98b`..`9077b5f6`; spec `specs/2026-10-16-settings-ia-design.md`, plan
-  `plans/2026-10-16-settings-ia.md`; final review clean (one Important fix pass).
+## 2. Terminal engine program
 
-## 7. Terminal engine upgrade
+### 2.1 Decisions
 
-- Captured separately in `ideas/2026-10-14-terminal-engine-upgrade-idea.md` (brainstorming stopped
-  before approach selection; resume at its "Open decision" section). Not repeated here.
-  `[updated 2026-10-17]` Approach **B (substrate first)** chosen; workstream 1 (cell model) has a spec at
-  `specs/2026-10-17-terminal-engine-cell-model-design.md`. It is now implemented and consumed by WS2, WS3
-  and WS5. It also absorbed the parsing halves
-  of `SGR 4:n` (underline styles) and `OSC 8` (hyperlinks) so the new storage ships live rather than unused;
-  workstream 5 keeps xterm conformance, link click handling and the remaining OSC 8 work. Workstreams 2–6 remain
-  unspecced.
-  `[updated 2026-10-17]` Workstream 2 (renderer dirty-region drawing) is implemented on `master`
-  (`feature`-style commits `e8e165a8`..`67ec4de3` once the branch gate passes): renderer row-range entry point,
-  tested `RowInvalidation` decision logic + viewport mapping, and the view's counter/dirty/overlay protocol.
-  Its spec (`specs/2026-10-17-renderer-dirty-region-design.md`) records one limitation found during review:
-  - `[bounded]` **palette changes with no other output** — OSC 4/10/11/12 mutate the palette without marking a
-    row dirty or ticking the change counter, so the view's overlay comparison (cursor cell/visibility/shape and
-    reverse video) cannot see them. Normally `onColorsChanged` → `updateBackgroundColor()` repaints the view in
-    full, but that early-returns in wallpaper/custom-image mode. Fixes: either compare a palette version per
-    update, or make the wallpaper-mode path still invalidate. Rare in practice (a palette OSC is usually
-    accompanied by text output, which dirties rows); needs a spec cycle if the robust signal is chosen.
-- **WS5 — OSC 8 hyperlinks end-to-end + `SGR 58` underline color: done.** Branch
-  `feature/ws5-hyperlinks-sgr58`; spec `specs/2026-10-17-osc8-hyperlinks-sgr58-underline-design.md`
-  (`Approved — implemented`), plan `plans/2026-10-17-osc8-hyperlinks-sgr58-underline.md`, one commit per
-  planned task, `./gradlew test` **411/411 green**. Five deviations, all now written into the spec:
-  1. hit-test uses `getColumnAndRow(event, true)` (descent + scroll aware, mirrors selection/mouse math)
-     instead of the draft's bare `y / mFontLineSpacing`;
-  2. `reset()` initialises the underline color;
-  3. `SavedScreenState.mSavedUnderlineColor` saves/restores it for DECSC/DECRC;
-  4. the app dispatches through `ShareUtils.openUrl` (the existing URL-opening path, with the system
-     chooser fallback) instead of a bespoke `ACTION_VIEW` + `ActivityNotFoundException` catch;
-  5. `SGR 0` also clears the underline color (the pre-existing `SGR 58` parse was never reset).
-  Leftovers / follow-ups:
-  - `[bounded]` the plan's renderer **pixel** test is impossible on this host: Robolectric's native graphics
-    runtime reports *"not supported on Linux (aarch64)"* and its legacy mode rasterizes nothing (proved with a
-    control asserting two different contents render differently — both came back blank). Replaced with a
-    recording-`Canvas` call-sequence test (draw calls + paint underline flag/color); pixel-exact appearance
-    remains the manual device check.
-  - `[decided 2026-10-18]` OSC 8 taps dispatch **unconditionally**, while the existing word-URL tap
-    is gated by the `open terminal transcript URL on click` property — confirmed as final by user
-    decision: an explicit program-stamped link is not a transcript URL guess, so the property does
-    not gate it. No code change pending; recorded in spec §4.5.
-  - `[bounded]` a **wide linked glyph** (emoji, CJK) resolves only on its base column: WS1 stamps the link id
-    on the base cell and leaves the continuation column at `0`, and the hit-test reads the tapped cell. ASCII
-    links are unaffected. The "reuse the previous base column" fallback needs a continuation test before it is
-    safe to add.
-  - `[closed]` the plan's "24-bit white `0xffffffff` collides with the foreground sentinel" edge cannot occur:
-    a 24-bit ARGB value always has `0xff` in its high byte, so it never equals `COLOR_INDEX_FOREGROUND`
-    (`256`) — and `58;5;256` means "default foreground", i.e. unset.
-  - **Review pass (two axes, `master..HEAD`):** no standards breach, no scope creep. Two real defects
-    found and fixed with RED-first tests (`414/414` green after):
-    - `[fixed]` an underline bit with no `SGR 4:n` style plus an `SGR 58` color drew **nothing**:
-      `drawUnderline` received `UNDERLINE_STYLE_NONE` and its `default:` broke instead of stroking.
-      Untyped and out-of-range styles now stroke a single line (the plan required this `default:`), and
-      an uncolored link still uses the text paint's own underline.
-    - `[closed]` the hit-test rejected `row < 0`, so a link scrolled into history never resolved even
-      though the tap coordinate is scroll-relative by design; the bound is now
-      `-getActiveTranscriptRows()`.
-  - `[closed]` the resolver no longer logs "disallowed scheme" when the id was garbage-collected before
-    the tap (nothing to sanitize).
-  - `[declined]` review judgement calls on the pre-existing cell model: a `CellAttributes` value type
-    for the travelling `style`/`linkId`/`underlineColor` triple, and moving the link lookup out of the
-    pure static resolver; both are wider refactors than WS5.
-  - `[open]` the erase/scroll/reflow plumbing for the underline-color array has no direct test (the
-    plan named none); see spec §8 "Not covered by tests".
-  - **Device check (manual, spec §8): passed** (2026-10-18) on the debug build of this tree installed
-    in place on a physical NX769J / Android 14 over wireless adb. An `OSC 8` `https` link tap opened
-    Chrome (twice); the *same* tap point on a `file:` fill opened nothing; the underline colours were
-    confirmed by scanning raw `screencap` pixels — `SGR 4` + `58;5;196` stroked a 2-row pure-red band,
-    `SGR 4:3` + `58;2;0;255;0` a 12-row wavy pure-green band, and an `OSC 8` link + `58;2;255;0;255`
-    with no `SGR 4` a 2-row pure-magenta band, while `58;5;196` alone drew nothing (the control frame
-    contains only the theme's red cursor). Method and measurements: spec §8.
-    A second pass (same session) closed what the first left implicit:
-    - `[done]` **scrolled-back hit-test**: 200 logical rows, each a full-width `OSC 8` link to
-      `https://example.com/probe/rowNNN` whose row number *also* selects the row's palette colour, so a
-      decoded raw screencap says which rows are visible and where their glyphs are. Dragging the
-      transcript back and tapping a decoded glyph resolved `row186` (1 page back), `row163` (3),
-      `row128` (6) and `row005` (~40, the top of the scrollback) — the row displayed at the tap point
-      every time, read out of Chrome's own UI hierarchy.
-    - `[done]` **link underline without `SGR 4`**: the same 12 full-width coloured rows printed twice,
-      once with `OSC 8` and once without. Per-scanline count of the row's own colour: the linked frame
-      shows full-width 1081-px runs (one underline per wrapped grid row), the control frame 112-429 px
-      glyph strokes and no run at all - the on-device form of the pixel test this host cannot rasterize.
-    - `[done]` **`file:` refusal with the link proven to exist**: the `file:` rows are underlined exactly
-      like the `https` rows (so the cells *are* links), yet the tap fell through to the client — the
-      soft keyboard came back after `BACK` had hidden it — and started nothing, while the identical tap
-      on the `https` rows opened Chrome with `example.com/probe/row04`.
-    - `[bounded]` the resolver's own warning is still unreadable here: the `shell` user gets no logcat
-      on this ROM, and `run-as com.termux logcat` returned an empty/unrelated buffer (a self-written
-      `log -t WS5TEST` line was invisible too). The underline plus the client-tap fall-through pin the
-      same behaviour down without it.
+- **Driving goal:** performance and rendering plus new terminal capabilities — not a general
+  maintainability, Kotlin or packaging refactor.
+- **Constraint:** companion-app interoperability (the 2026-10-17 `AGENTS.md` change made upstream
+  acceptance a non-goal; `minSdk 21`, Java 1.8 and the published `:termux-shared` / client-base
+  surfaces still bind).
+- **Capability targets (all four):** kitty graphics; OSC 8 hyperlinks + underline styles; ligatures
+  and grapheme shaping; more VT/xterm conformance.
+- **Performance driver:** no concrete symptom; the goal is architectural headroom.
+- **Approach B (substrate first) chosen:** evolve `TerminalBuffer` into the real cell model, keep the
+  parser where it is, then add the frame/dirty-region renderer, then land features as small consumers.
+- **Module shape:** `:terminal-emulator` ≈8.0k LOC, `:terminal-view` ≈2.9k LOC, `:termux-shared` ≈27k
+  LOC, all Java 1.8. `TerminalEmulator` is a 3,876-line god class (parser + screen mutation + DECSET
+  flags + colours + sixel/iTerm state); `TerminalView` is 1,661 lines doing input, gestures, selection
+  and drawing. `:termux-shared` imports terminal internals in 7 files, so `TerminalBuffer` is
+  effectively part of its API.
 
-- **WS3 — run shaping + ligatures: implemented (2026-10-18).** Spec at
-  `specs/2026-10-18-ws3-shaping-ligatures-design.md`; decisions taken: grid-snap verification with per-cell
-  fallback (Approach 1 over a cluster-aware restructure), **grid-snap verification is API 29+**
-  (`Paint.getTextRunAdvances` is API 29, not 21 — found during planning; below 29 a run draws as one shaped span
-  and ligatures still form), deterministic ligature toggle **default ON**
-  (`+liga,+calt` on / `-liga,-calt` off) because the device was disconnected and the platform default could
-  not be probed, device checks deferred to that spec's §7 (mirrored above), delivery straight onto `master`
-  with one commit per task. Implemented in three commits (`d5bb6baa`, `94d29f2c`, `30d9a9e6`): the grid-snap
-  policy and advance seam, the per-span glyph stage, and the ligature toggle (appearance screen, default on).
-  The §3 device checklist is still outstanding. Workstream 4 (graphics placement) is now implemented
-  and host-verified (spec `specs/2026-10-18-ws4-graphics-placement-design.md`, completion plan
-  `plans/2026-10-18-ws4-kitty-decode-render.md`): `a=t`/`a=T` decode, store and place, `a=p`/`a=d`
-  resolve against the placement registry, `a=q` honours the quiet levels, and chunked transmissions
-  are reassembled. The earlier ack-only state (which acknowledged images it never drew) is gone; its
-  §8 device checks (D-2) were **completed 2026-10-19** on the NX769J target — see
-  `specs/2026-10-18-ws4-graphics-placement-design.md` §8 (all six items ticked, with the measured run
-  record). They found and fixed one real defect: a transfer accepted only two chunks, so any image whose
-  transmission needed a third chunk silently rendered nothing. `KittyGraphicsTransfer.accept()` now
-  accepts `m=1` continuations, verified on device at 2, 3, 14 and 53 chunks (tests
-  `threeChunksConcatenatePayload`, `middleChunkOverBudgetErrors`). Workstream 6 (compat shims)
-  and the xterm-conformance remainder stay unspecced.
+### 2.2 Workstreams
 
-## 8. Doc hygiene debt (this directory)
+| # | Workstream | Status |
+|---|---|---|
+| 1 | Cell model: rich attributes, grapheme clusters, link id, dirty-row tracking | **done**; spec `specs/2026-10-17-terminal-engine-cell-model-design.md`; absorbed the parsing halves of `SGR 4:n` and `OSC 8` |
+| 2 | Renderer: frame snapshot + dirty-region + image layer | **done**; spec `specs/2026-10-17-renderer-dirty-region-design.md`; one limitation in §2.4 |
+| 3 | Text: run shaping / ligatures | **done**; spec `specs/2026-10-18-ws3-shaping-ligatures-design.md`; device evidence in `manual-checks.md` D-1 |
+| 4 | Graphics: unify sixel + iTerm2 + kitty as one placement layer | **done**; spec `specs/2026-10-18-ws4-graphics-placement-design.md`; D-2 passed 2026-10-19 |
+| 5 | Conformance + OSC 8 + underline styles | **done** (`SGR 58`, hyperlinks end-to-end); spec `specs/2026-10-17-osc8-hyperlinks-sgr58-underline-design.md` |
+| 6 | `:termux-shared` compat shims (threaded through all of the above) | **unspecced**; what remains is closer to an audit than a build — prove the public API stayed backward compatible and the delegating shims are real |
+| — | xterm-conformance remainder | **unspecced**, parked with WS5 |
 
-- `docs/superpowers/` is gitignored (`.gitignore:49`), so none of these records are in the repo — they
-  are local-only.
-- `[done 2026-10-16]` `plans/2026-10-14-in-app-terminal-appearance.md` now has a `## Status` section
-  recording C1–C4 shipped/merged (PR #1, merge `4b3a0143`), and its header line is updated.
+### 2.3 WS3 / WS4 / WS5 delivery notes
 
-## 9. Non-goals — decided against, recorded so they are not mistaken for gaps
+- **WS3** implemented in `d5bb6baa`, `94d29f2c`, `30d9a9e6`: grid-snap policy and advance seam, the
+  per-span glyph stage, and the ligature toggle (appearance screen, default on, `+liga,+calt` on /
+  `-liga,-calt` off). Grid-snap verification is API 29+ (`Paint.getTextRunAdvances` is API 29); below
+  29 a run draws as one shaped span and ligatures still form.
+- **WS4** implemented by `1fdcb66e` (base64 + size arithmetic), `cdb86841` (chunked transfer),
+  `fcb244c7` (real placement/deletion, offset-aware clamped `getSixelRect`) and `0709dd2f` (decoder
+  seam and the `a=t|T|p|q|d` dispatch). A real defect found on device — a transfer accepted only two
+  chunks — was fixed in `KittyGraphicsTransfer.accept()` (tests `threeChunksConcatenatePayload`,
+  `middleChunkOverBudgetErrors`).
+- **WS5** delivered on `feature/ws5-hyperlinks-sgr58` with `./gradlew test` 411/411 green, one commit
+  per planned task, five recorded deviations (hit-test math; `reset()` initialises the underline
+  colour; DECSC/DECRC saves it; app opens links through `ShareUtils.openUrl`; `SGR 0` clears it).
+  Device check passed 2026-10-18 (Chrome opened twice; `file:` refused; underline colours confirmed
+  by raw `screencap` pixels). Follow-ups: no pixel test on this host (Robolectric native graphics is
+  unsupported on Linux aarch64) — replaced by a recording-`Canvas` call-sequence test; OSC 8 taps
+  dispatch unconditionally by user decision; wide linked glyphs are in §2.4; the underline-colour
+  erase/scroll/reflow plumbing has no direct test; the resolver warning is unreadable on this ROM
+  (`shell` gets no logcat, `run-as` returned an empty buffer).
 
-From the shell/sessions spec (§ Non-goals): no rewrite of terminal emulation, input or scrollback; no
-change to the package or applicationId; no `:termux-shared` public API change; `:terminal-emulator` and
-`:terminal-view` compile and test unchanged.
+### 2.4 Known defects and bounded leftovers
 
-From the appearance plan (Non-goals): no `:terminal-emulator` / `:terminal-view` changes; no
-`:termux-shared` diff; no live-apply (explicit Apply was chosen); no new Gradle module and no new
-third-party dependency (the font picker is hand-written).
+- `[bounded]` **palette changes with no other output** — OSC 4/10/11/12 mutate the palette without
+  marking a row dirty or ticking the change counter, so the view's overlay comparison cannot see
+  them. `onColorsChanged → updateBackgroundColor()` normally repaints in full, but that early-returns
+  in wallpaper/custom-image mode. Fixes: compare a palette version per update, or make the
+  wallpaper-mode path still invalidate. Rare in practice; needs a spec cycle if the robust signal is
+  chosen.
+- `[bounded]` **wide linked glyph** — an emoji or CJK `OSC 8` link resolves only on its base column:
+  WS1 stamps the link id on the base cell and leaves the continuation column at `0`, and the hit-test
+  reads the tapped cell. ASCII links are unaffected. The "reuse the previous base column" fallback
+  needs a continuation test before it is safe.
+- `[bounded]` **focus events (DECSET 1004)** — `TerminalEmulator.java:207` defines the bit and maps
+  it, but no code ever emits focus-in/focus-out; the source itself says "NOT implemented".
+- `[bounded]` **escape-sequence errors silently swallowed** — `LOG_ESCAPE_SEQUENCES = false`
+  (`TerminalEmulator.java:37`) makes `logError(...)` a no-op, so `unknownSequence` /
+  `unimplementedSequence` produce nothing in release builds. This is how the ack-only kitty path
+  went unnoticed.
+- `[bounded]` **underline-colour plumbing without a direct test** — the erase/scroll/reflow path for
+  the WS5 underline-colour array has no test (see spec §8 "Not covered by tests").
+- `[decided]` **OSC 8 taps dispatch unconditionally** — the existing word-URL tap stays gated by
+  `open terminal transcript URL on click`; an explicit program-stamped link is not a transcript URL
+  guess. Recorded in the WS5 spec §4.5.
+- `[closed]` the "24-bit white collides with the foreground sentinel" edge cannot occur (a 24-bit
+  ARGB value always has `0xff` in its high byte, so it never equals `COLOR_INDEX_FOREGROUND`), and
+  `58;5;256` means "default foreground".
+- `[declined]` a `CellAttributes` value type for the travelling `style`/`linkId`/`underlineColor`
+  triple, and moving the link lookup out of the pure static resolver — both wider than WS5.
+- `[open]` inherited markers worth a decision, not necessarily a fix: `ITermImage.java:273`
+  (name/size keys unsupported), `TerminalEmulator.java:3062` (iTerm2 file-saving to Downloads
+  dropped), `:1837` (reverse wrap-around TODO), `:2299-2302` (ECH clears attributes?),
+  `TerminalRow.java:296` (unassigned characters get width 0), `:3497` (cursor field threading), plus
+  a long tail of `// Ignore.` branches on purpose-skipped controls. All predate this work.
 
-## 10. Scrollback depth — diagnosed 2026-10-19, probe run 2026-10-20, config-level, no code change
+### 2.5 Compatibility crux (why this is a program, not one spec)
+
+`ShellUtils` reaches into `TerminalBuffer` / `TerminalEmulator` for transcript dumping, so the
+terminal grid model is effectively part of `termux-shared`'s published API; any restructure must keep
+those accessors as delegating shims. `TermuxTerminalSessionClientBase` /
+`TermuxTerminalViewClientBase` are the base classes plugins extend, so new callbacks must be Java 8
+`default` no-op methods on `TerminalSessionClient` / `TerminalViewClient` (desugared on minSdk 21),
+then wired through the `*Base` classes. Risk to verify in design: confirm Java 8 `default` desugaring
+covers the plugin apps' toolchains, not just this repo. `:termux-shared` also carries UI (`ExtraKeysView`,
+`ReportActivity`, `TextIOActivity`) and drags `:terminal-view` upward — noted, out of scope, don't
+regress it. Graphics must keep today's `TerminalSixel` / `ITermImage` behavior while the kitty path
+is unified.
+
+---
+
+## 3. Code and test gaps
+
+### 3.1 Code gaps
+
+- `[resolved 2026-10-18]` **WS4 kitty graphics was ack-only** — it parsed and answered `OK` without
+  decoding, storing, placing or drawing; `deleteTerminalBitmaps(...)` had no call site and chunk
+  accumulation did not exist. Resolved by the WS4 completion plan (commits above). Kept here as the
+  cautionary record: a recorded status can overstate the code.
+- The bounded defects in §2.4.
+- `[open]` **`:termux-shared` has no `src/test` at all** — only `androidTest/.../ExampleInstrumentedTest.java`
+  boilerplate, with `testImplementation junit` declared but unused. (The 18 KB
+  `FileUtilsTests.java` that used to ship in the main source set was moved to the instrumented source
+  set in `c389a88d`.)
+- `[open]` **no tests at all** for `:terminal-emulator` `TerminalBitmap`, `TerminalSixel`,
+  `ITermImage`, `TerminalSession`, `TerminalColors`; `:terminal-view` `TerminalView` (1,661 lines),
+  text-selection controllers/handles; `:app` `TermuxService`,
+  `TermuxTerminalSessionActivityClient`, `TermuxInstaller`, `RunCommandService`,
+  `TermuxDocumentsProvider`, and every Compose screen.
+- `[open]` commented-out assertions in live test files: `TerminalRowTest.java:379,396-402,410,414,
+  426,438-440`; `TerminalTest.java:75`; `UnicodeInputTest.java:52-55`; `ResizeTest.java:132,134`;
+  `ScrollRegionTest.java:68`. No `@Ignore`/`@Disabled` and no empty test bodies — the suite is
+  honest, just incomplete.
+
+### 3.2 Code-shape debt
+
+- God classes: `TerminalEmulator.java` 3,876 lines, `TerminalView.java` 1,661, `FileUtils.java`
+  2,044, `TermuxConstants.java` 1,338. Behavior-preserving splits only.
+
+---
+
+## 4. Build, platform and dependency upgrades
+
+### 4.1 Build and platform debt
+
+- `app/build.gradle` carries a keystore password in plaintext next to the committed
+  `testkey_untrusted.jks` (upstream inheritance; debug-only, still unappealing).
+- `-dontobfuscate` in both ProGuard rule files makes release `minifyEnabled true` mostly inert.
+  R8/release hardening needs keep rules for the `:termux-shared` public API, JNI entry points and
+  Compose — a separate slice because it affects the published artifact.
+- `targetSdkVersion=28` while `compileSdkVersion=36`. Raising `targetSdkVersion` is a **dropped**
+  decision, not a todo (it was mis-numbered as roadmap item 15 before the consolidation).
+- No lint baseline; suppressions are ad hoc, with `SharedPreferenceUtils` carrying eight
+  `@SuppressLint("ApplySharedPref")` (synchronous `commit()` hidden on the main path).
+- `:app`'s `javaCompile` depends on downloading ~115 MB of bootstrap zips; `./gradlew clean` deletes
+  them (documented in `AGENTS.md`). Avoid the unnecessary re-download.
+- Java source/target is 1.8 with core library desugaring; CI and JitPack pin Temurin 17 and this
+  workspace runs Gradle on Java 21. Aligning the toolchain on 17 needs a desugaring check.
+- `terminal-view/build.gradle` now uses the AndroidX instrumentation runner (`823542d7`) — the former
+  audit entry about `android.support.test.runner.AndroidJUnitRunner` is closed.
+
+### 4.2 Toolchain and CI
+
+- CI hardening: lint, release build, dependabot for Gradle, dependency verification.
+- JitPack versioning for the published library modules.
+
+### 4.3 Upgrade roadmap
+
+Items 1–4 are done in this slice. Remaining items are **to do**; dependency refresh is one commit per
+dependency, ascending blast radius, with `compose-bom` last and separate. R8/release build remains a
+separate architectural slice. Device checks are the final row and live in `manual-checks.md`.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1 | Gradle 10 DSL syntax (`prop = value`) | done | `c9826aaa` |
+| 2 | Move `FileUtilsTests` out of the published artifact (instrumented) | done | `c389a88d` |
+| 3 | AndroidX instrumentation test runner (`terminal-view`) | done | `823542d7` |
+| 4 | Docs re-homing (`docs/ideas/` → `docs/ledger/`) | done | `26388328`, consolidated 2026-10-24 |
+| 5 | R8/release build hardening (keep rules for `:termux-shared` public API, JNI entry points, Compose) | to do | separate slice, affects published artifact |
+| 6 | God-class splits (§3.2) | to do | behavior-preserving |
+| 7 | `:termux-shared` unit tests (§3.1) | to do | expand beyond the instrumented harness |
+| 8 | `LOG_ESCAPE_SEQUENCES = false` silent protocol errors | to do | enable/restore logging or explicit errors |
+| 9 | Focus events (DECSET 1004) never emitted | to do | fix terminal focus event delivery |
+| 10 | Wallpaper-mode palette repaint | to do | fix repaint on palette changes |
+| 11 | Wide-glyph OSC 8 hit-test | to do | hit-test accuracy for wide glyphs + hyperlinks |
+| 12 | Java 1.8 → 17 | to do | align toolchain; check desugaring |
+| 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | to do | workflows |
+| 14 | CI bootstrap re-download | to do | avoid re-downloading cached zips unnecessarily |
+| 15 | JitPack versioning | to do | library publishing/versioning |
+| 16 | Session restore | to do | restore sessions across process death (§5.1) |
+| 17 | Termux:Float (shape A vs B) | to do | not chosen yet (§5.2) |
+| 18 | 256-colour palette | to do | full 256-colour support (§5.3) |
+| 19 | xterm conformance + WS6 audit | to do | conformance/shim gaps (§2.2) |
+| 20 | Dependency refresh — `desugar_jdk_libs` 1.1.5 → 2.1.5 | to do | ascending blast radius |
+| 21 | Dependency refresh — `commons-io` 2.5 → 2.22.0 | to do | Android < 8 rationale replaced by desugaring |
+| 22 | Dependency refresh — `guava` 24.1-jre → 33.7.2-jre | to do | keep `listenablefuture` shim if needed |
+| 23 | Dependency refresh — `androidx.window` 1.1.0 → 1.5.1 | to do | |
+| 24 | Dependency refresh — `appcompat` 1.6.1 → 1.8.0 | to do | |
+| 25 | Dependency refresh — `material` 1.12.0 → 1.14.0 | to do | |
+| 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | to do | |
+| 27 | Dependency refresh — `annotation` 1.9.0 → 1.11.0 | to do | |
+| 28 | Dependency refresh — `activity-compose` 1.11.0 → 1.13.0 | to do | |
+| 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | to do | |
+| 30 | Dependency refresh — `robolectric` 4.10 → 4.17 | to do | |
+| 31 | Dependency refresh — `hiddenapibypass` 6.1 → 6.2 | to do | |
+| 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | to do | **last and separate** |
+| 33 | Device and manual checks | to do | **last overall** — `manual-checks.md` |
+
+---
+
+## 5. Epics and open decisions
+
+### 5.1 Session restore
+
+See §1.1 — needs its own cycle (snapshot + opt-in respawn).
+
+### 5.2 Termux:Float — `[deferred]`, shape not chosen
+
+**Probed 2026-10-16** against a shallow clone of `https://github.com/termux/termux-float` at `master`
+(`75352bd`). The probe clone was kept outside the repo and has since been deleted; re-clone if this
+is picked up. Nothing in this repo was modified.
+
+Why a plain clone does not work: it is a whole separate Gradle build (`include ':app'`, AGP 8.7.3,
+its own wrapper and `gradle.properties`), so a nested project is never built by this repo's Gradle
+and the nested `.git` becomes an embedded repo. It links published Maven artifacts
+(`termux-shared`/`terminal-view` `8aca6dbbf4`), so a real port must rewrite those two lines to
+`project(':termux-shared')` / `project(':terminal-view')`. It pins Java 11 + desugaring against this
+repo's Java 1.8 / AGP 8.13.2. Licensing is **not** a blocker (GPLv3 on both sides).
+
+What already ships here: `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `VIBRATE` and `WAKE_LOCK` in
+the manifest; matching debug signing (`testkey_untrusted.jks`, alias `alias`) so `sharedUserId` works
+for debug; the whole float contract in `TermuxConstants` (`TERMUX_FLOAT_PACKAGE_NAME`
+`com.termux.window`, activity/service names, `ACTION_SHOW/HIDE/STOP_SERVICE`, properties paths,
+notification channel/id `1339`) plus `TermuxFloatAppSharedPreferences`; the matching
+`TermuxSession.execute(...)` signature; both float client base classes; and the hidden
+`termux_float` Settings entry, which starts working as soon as `com.termux.window` is installed.
+
+What is genuinely missing: `TermuxFloatActivity`, `TermuxFloatService`, `TermuxFloatView`, the float
+view client, any `WindowManager` overlay usage, `include ':float'`, and a counterpart to
+`TermuxFloatAppSharedProperties`.
+
+Move inventory (9 Java files, ~750 LOC): `TermuxFloatView` 359, `TermuxFloatViewClient` 263,
+`TermuxFloatService` 255, `TermuxFloatSessionClient` 191, `FloatingBubbleManager` 149,
+`TermuxFloatApplication` 39, `TermuxFloatAppSharedProperties` 36, `TermuxFloatPermissionActivity` 34,
+`TermuxFloatActivity` 21; plus 3 layouts, ~9 drawables, `values/{dimens,strings,styles}.xml`, 4
+notification PNGs and `testkey_untrusted.jks`; manifest adds 2 activities + 1 service.
+
+Shapes (neither chosen):
+
+- **A — new `:float` module, faithful port.** `include ':float'`, move the sources, point the two
+  deps at the local projects, per-module `minSdkVersion 24`, carry over `manifestPlaceholders`, keep
+  `applicationId com.termux.window` + `sharedUserId`. A plugin-style second APK, cheapest (order of a
+  day), still re-syncable with upstream; costs a second APK in CI and a copy to maintain.
+- **B — fold float into `:app`** as a first-class floating terminal over the existing
+  `TermuxService` sessions. No second APK or `sharedUserId`, better fit for the Compose shell host,
+  but real design work (overlay chrome, which session, IME/insets) and it drifts from upstream.
+
+Recommendation recorded at the time: A if the goal is "have Termux:Float again without maintaining a
+separate repo"; B only if floating terminals become part of this fork's UX.
+
+Gotchas to verify during design: per-module minSdk override; `TermuxFloatView.initFloatView()` calls
+`TermuxFloatAppSharedPreferences.build(getContext(), true)`, which exits the app when
+`applicationId != com.termux.window` (B must swap it); `TermuxFloatService.initializeFloatView()`
+catches the overlay failure instead of checking `Settings.canDrawOverlays()` ("always returns false,
+perhaps due to sharedUserId") — do not "fix" blindly, verify on device (`manual-checks.md` D-10);
+port `outputFileName`, `packagingOptions` exclusion, desugaring and the
+`TERMUX_FLOAT_APP__BUILD_APP_VERSION_NAME` / `_APK_VERSION_TAG` env overrides with their semver
+validation; release signing must match too, not just debug; CI must decide what to attach to releases;
+adding a module is a deliberate deviation from the `AGENTS.md` "concentrate changes in `:app`" rule.
+
+To resume: confirm the goal and pick A or B (A recommended), then run the normal brainstorming →
+spec → plan cycle.
+
+### 5.3 256-colour palette
+
+Undecided. The appearance screen exposes only `color0`..`color15` today; unmanaged keys are preserved
+untouched. The question is whether to surface the extended palette.
+
+### 5.4 Palette-version signal
+
+Only needed if the robust fix for the wallpaper-mode repaint (§2.4) is chosen; then it needs its own
+spec cycle.
+
+---
+
+## 6. Decisions and non-goals
+
+### 6.1 Scrollback depth — diagnosed 2026-10-19, probed 2026-10-20, no code change
 
 - **Report:** "terminal doesn't scroll back far enough."
-- **Diagnosis (host-side, complete):** the depth is the `terminal-transcript-rows` property, clamped by
-  `TerminalEmulator.java:238–240` (min 100, **max 50000**, **default 2000**), read once per new session at
-  `TermuxService.java:586` and sized into the `TerminalBuffer` ring (capacity = screen rows + transcript
-  rows; rows allocate lazily at ~0.5 KB each, so a full 50k transcript ≈ 25 MB). No runtime trim exists
-  and `TerminalView` scrolls to `getActiveTranscriptRows()`, so nothing else caps the depth.
-- **Why it felt broken:** the device's `~/.termux/termux.properties` already sets
-  `terminal-transcript-rows = 50000` (the max), but that file was **created after the app process had
-  started** — properties load at startup, so every live session was created with the 2000-line default.
-  `termux-reload-settings` reloads the shared properties singleton but does not touch sessions that
-  already exist (the ring is fixed at emulator creation): only a **new session** (Ctrl+Alt+C) or an app
-  restart picks up the configured value.
+- **Diagnosis:** depth is the `terminal-transcript-rows` property, clamped by
+  `TerminalEmulator.java:238–240` (min 100, **max 50000**, **default 2000**), read once per new
+  session at `TermuxService.java:586` and sized into the `TerminalBuffer` ring (capacity = screen rows
+  + transcript rows; rows allocate lazily at ~0.5 KB each, so a full 50k transcript ≈ 25 MB). No
+  runtime trim exists and `TerminalView` scrolls to `getActiveTranscriptRows()`.
+- **Why it felt broken:** the device's `~/.termux/termux.properties` set
+  `terminal-transcript-rows = 50000`, but that file was created **after** the app process had
+  started. Properties load at startup, so live sessions were created with the 2000-line default.
+  `termux-reload-settings` reloads the shared properties singleton but cannot resize an existing
+  ring: only a **new session** (Ctrl+Alt+C) or an app restart picks up the value.
 - `[decided 2026-10-19]` 50000 is enough — no change to `DEFAULT_TERMINAL_TRANSCRIPT_ROWS`,
-  `TERMINAL_TRANSCRIPT_ROWS_MAX` or the reload semantics (user decision; the property is the fix).
-- `[probed 2026-10-20]` The deferred on-device probe **was run** (target NX769J/API 34, reached at a new
-  wireless-debugging port `10.0.0.169:33723`). Result: the config-level diagnosis is **confirmed**; the
-  numeric pixel measurement is **not reproducible enough on this device to quote as a fact**.
-  - **Confirmed by source (deterministic).** `TerminalEmulator.getTerminalTranscriptRows()`
-    (`terminal-emulator/.../TerminalEmulator.java:578–583`) passes any value in
-    `[100, 50000]` straight through and falls back to `DEFAULT_TERMINAL_TRANSCRIPT_ROWS = 2000`
-    only for `null`/out-of-range, so `terminal-transcript-rows = 50000` really does yield 50000 and
-    `= 2000` really does yield 2000. `TermuxService.java:586` copies `mProperties.getTerminalTranscriptRows()`
-    into the session at creation, and `mProperties` is loaded once at process start — which is exactly the
-    load-timing explanation above: a session that predates the property keeps 2000, and only a **new
-    session (Ctrl+Alt+C) or an app restart** picks up the configured value.
-  - **Why the pixel walk failed on this device** (all reproducible, all worth knowing):
-    - The cell geometry in the old probe was stale. Measured precisely from three independent
-      full-width colour bars emitting at known lines: **cell height = 34 px exactly** and the terminal
-      view top **y = 250** (the old `CELL_H = 43`, `TERM_TOP_Y = 251` implied ~27 rows for a 28-row view).
-    - "Drag until the screencap stops changing" cannot detect the scroll end: the **blinking cursor alone
-      produces ~350–480 k pixel diff between two captures**, which is *larger* than the diff a real scroll
-      produces. A "stable screencap" therefore measured the cursor, not the buffer top.
-    - `adb shell input swipe` has **non-deterministic fling momentum** (`TerminalView` scrolls via
-      `Scroller.fling`, `terminal-view/.../TerminalView.java:237`). Repeated runs with identical drags
-      reported oldest-retained lines scattered between ~400 and ~3000, so the method cannot pin a number.
-    - Passing the shell command needs `input text` with `%s` for a space (`%20`/`%7E` silently type
-      nothing), and `input text` only reaches the terminal when the terminal — not the writing page — holds
-      the IME (`dumpsys input_method` → `mServedView`).
-  - **No user-visible change follows.** 50000 was already decided as sufficient, and the code path is
-    already correct; the device's `~/.termux/termux.properties` is back at
-    `terminal-transcript-rows = 50000` (it was temporarily set to 2000 for the A/B and restored from
-    `termux.properties.probe-bak`). The corrected bar probe (`probe2.sh`, colour-encodes its own line
-    index; `probe3.py`, exact-RGB reader) lives in local scratch `~/.tmp/opencode/` if the measurement is
-    ever worth redoing with a deterministic scroll primitive — e.g. driving
-    `TerminalView.setTopRow()` directly through an instrumentation test instead of synthetic swipes.
+  `TERMINAL_TRANSCRIPT_ROWS_MAX` or the reload semantics.
+- `[probed 2026-10-20]` the config-level diagnosis is confirmed; the numeric pixel measurement is
+  **not reproducible enough on this device to quote as a fact**. Measured cell height 34 px, view
+  top y = 250; the blinking cursor alone produces ~350–480k pixel diff between captures (larger than
+  a real scroll), and `adb shell input swipe` has non-deterministic fling momentum
+  (`Scroller.fling`), so repeated identical drags reported the oldest line anywhere between ~400 and
+  ~3000. Also: `input text` needs `%s` for a space and only reaches the terminal when it holds the
+  IME. A deterministic redo would drive `TerminalView.setTopRow()` through an instrumentation test
+  instead of synthetic swipes. No user-visible change follows.
+
+### 6.2 Non-goals — decided against, recorded so they are not mistaken for gaps
+
+From the shell/sessions spec: no rewrite of terminal emulation, input or scrollback; no change to the
+package or applicationId; no `:termux-shared` public API change; `:terminal-emulator` and
+`:terminal-view` compile and test unchanged.
+
+From the appearance plan: no `:terminal-emulator` / `:terminal-view` changes; no `:termux-shared`
+diff; no live-apply (explicit Apply was chosen); no new Gradle module and no new third-party
+dependency (the font picker is hand-written).
+
+Also dropped: raising `targetSdkVersion`; tab pinning; the Android-integration milestone; A3 step 2;
+the settings root-screen tidy/`termux.properties` surfacing; the setup wizard.
+
+---
+
+## 7. Doc hygiene state
+
+- `docs/plans/2026-10-14-in-app-terminal-appearance.md` has a `## Status` section recording C1–C4
+  shipped/merged (PR #1, merge `4b3a0143`).
+- The 2026-10-20 hygiene pass replaced the four false "awaiting review" status lines, added status
+  lines to the three plans that lacked one, and corrected the WS1 line. Plans keep their task lists
+  as the original execution record.
+- 2026-10-24 consolidation: `repo-audit.md`, `engine-upgrade.md`, `float-port.md` and
+  `upgrade-roadmap.md` were absorbed here and deleted; `manual-checks.md` is the only other ledger
+  file. Remaining `docs/ideas/` links in specs and plans were repointed.
+- `docs/superpowers/` is gitignored (`.gitignore:49`) and stays local-only; `docs/ideas/` holds only
+  a `.gitkeep` now.
+- `docs/en/index.md` is upstream-inherited scaffolding (from the termux.github.io i18n commit), not
+  this fork's debt.
+
+---
+
+## 8. Device and manual checks — the last thing to do
+
+Every device, emulator or human-eyeball check lives in
+[`manual-checks.md`](manual-checks.md), with its status and evidence. Nothing in this file should be
+scheduled after them; when the code work above settles, run that file end to end.

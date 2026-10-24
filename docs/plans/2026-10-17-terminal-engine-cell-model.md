@@ -6,7 +6,7 @@ clusters and the `SGR 4:n`/`OSC 8` parsing halves all ship on `master` and are c
 and WS5.
 **Path:** bounded. The storage being changed already exists (`TerminalRow`, `TerminalBuffer`, `TextStyle`); this
 plan widens the per-cell model in place rather than introducing a new one.
-**Origin:** [`../ideas/2026-10-14-terminal-engine-upgrade-idea.md`](../ideas/2026-10-14-terminal-engine-upgrade-idea.md)
+**Origin:** [`../ledger/outstanding-work.md`](../ledger/outstanding-work.md) (§2, the terminal engine program)
 → [`../specs/2026-10-17-terminal-engine-cell-model-design.md`](../specs/2026-10-17-terminal-engine-cell-model-design.md)
 (approved 2026-10-17). This plan is the execution artifact for that spec.
 **Scope:** `:terminal-emulator` **only** — dirty rows, underline styles, per-cell link ids, grapheme clusters,

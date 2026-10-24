@@ -1084,7 +1084,7 @@ git commit -S -m "Added(terminal): Add the ligature toggle to the terminal appea
 
 **Files:**
 - Modify: `docs/specs/2026-10-18-ws3-shaping-ligatures-design.md` (status header)
-- Modify: `docs/ledger/outstanding-work.md` (§7 WS3 bullet)
+- Modify: `docs/ledger/outstanding-work.md` (§2, WS3 bullet)
 
 **Interfaces:**
 - Consumes: the three commits from Tasks 1–3.

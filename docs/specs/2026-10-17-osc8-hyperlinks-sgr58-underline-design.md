@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-17
 **Status:** Approved — implemented (2026-10-17; spec corrected below where execution diverged)
-**Program:** `docs/ledger/engine-upgrade.md` (workstream 5)
+**Program:** `docs/ledger/outstanding-work.md` §2 (terminal engine program, workstream 5)
 **Depends on:** WS1 (cell model: `docs/specs/2026-10-17-terminal-engine-cell-model-design.md`),
 WS2 (renderer dirty-region: `docs/specs/2026-10-17-renderer-dirty-region-design.md`)
 

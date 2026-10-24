@@ -8,7 +8,7 @@
 are now companion-app interoperability (package identity, `TermuxConstants`, the client extension points) plus
 `minSdk 21` / Java 1.8. §7 and §8 are written against this.
 **Origin:** user request — "*let's do this Terminal engine upgrade*" — resuming
-[`../ideas/2026-10-14-terminal-engine-upgrade-idea.md`](../ideas/2026-10-14-terminal-engine-upgrade-idea.md), whose
+[`../ledger/outstanding-work.md`](../ledger/outstanding-work.md) (§2, the terminal engine program), whose
 brainstorming had stopped before approach selection.
 **Scope:** **workstream 1 only — the cell model** — plus the two parsing halves that make its new storage live
 (`SGR 4:n`, `OSC 8`). The idea file decomposes the program into six workstreams

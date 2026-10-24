@@ -3,10 +3,10 @@
 **Date:** 2026-10-17
 **Status:** implemented (`e8e165a8`..`67ec4de3`); see
 [`../plans/2026-10-17-renderer-dirty-region.md`](../plans/2026-10-17-renderer-dirty-region.md). One
-limitation found during review is recorded in the outstanding-work ledger §7 (palette changes with no
+limitation found during review is recorded in the outstanding-work ledger §2.4 (palette changes with no
 other output).
 **Origin:** user request — "*lest start ws2*" — continuing
-[`../ideas/2026-10-14-terminal-engine-upgrade-idea.md`](../ideas/2026-10-14-terminal-engine-upgrade-idea.md)
+[`../ledger/outstanding-work.md`](../ledger/outstanding-work.md)
 (§4's workstream 2: "Rendering: frame snapshot + dirty-region + image layer"), after workstream 1 shipped.
 **Scope:** **workstream 2 only — the renderer.** `:terminal-view` only; `:terminal-emulator` gets **zero diff**
 (WS1's dirty/underline APIs are consumed, not changed) and `:termux-shared` gets **zero diff**. The "image layer"

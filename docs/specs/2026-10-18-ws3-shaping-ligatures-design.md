@@ -27,7 +27,7 @@ fallback) plus a user-facing ligature toggle. Workstream 4 (graphics placement) 
   policy and the per-cell fallback run; below 29 a run draws as one shaped span (today's glyph behaviour, ligatures
   still form, `mes` is the shaped total). The ligature toggle itself applies on every API level.
 - **Device checks are deferred** while the device is disconnected (§7), recorded here and in
-  `../../ideas/2026-10-16-outstanding-work.md` §3.
+  `../ledger/manual-checks.md` (D-1).
 - **Delivery: straight onto `master`**, feature-style, one commit per task, each gated on a green local
   `./gradlew test` (the workstream-2 shape). No branch, no PR.
 
@@ -217,7 +217,7 @@ Commits follow the Conventional Commits rules in `AGENTS.md` (capitalized `Added
 The physical device (NX769J / Android 14, used for the workstream-5 checks over wireless adb) was disconnected
 when this spec was written, so all on-device verification was deferred there. **Most of it ran on 2026-10-20**
 once the device was reconnected; the ticks and notes below record what passed and what is still outstanding.
-Recorded here **and** appended to the device-check ledger in `../../ideas/2026-10-16-outstanding-work.md` §3:
+Recorded here **and** appended to the device-check ledger in `../ledger/manual-checks.md` (D-1):
 
 Verified on-device on 2026-10-20/21 (NX769J / API 34, current `master`, FiraCode + Hack + JetBrains Mono
 installs). Full method, numbers and evidence frames: `~/.tmp/opencode/device-checks-2026-10-20.md`.

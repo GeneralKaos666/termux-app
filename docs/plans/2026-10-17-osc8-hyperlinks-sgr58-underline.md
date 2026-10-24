@@ -1,7 +1,7 @@
 # Plan: WS5 — OSC 8 Hyperlinks End-to-End + SGR 58 Underline Color
 
 **Spec:** `docs/specs/2026-10-17-osc8-hyperlinks-sgr58-underline-design.md` (approved by user 2026-10-17)
-**Program:** `docs/ledger/engine-upgrade.md` (workstream 5)
+**Program:** `docs/ledger/outstanding-work.md` §2 (terminal engine program, workstream 5)
 **Branch base:** `309d3df4` (spec commit on master). Work proceeds on a feature branch with one
 commit per task.
 
@@ -396,7 +396,7 @@ already sanitized by Task 5, so no re-validation here.)
    - §6.4: add the `reset()` initialization and DECSC/DECRC save/restore bullets.
    - Header `Status:` → `Approved — implemented`; §8: note whether the Robolectric renderer test
      landed or the fallback (device sanity) applies.
-3. Ledger `docs/ledger/outstanding-work.md` §7: WS5 → done, with a one-line note of the
+3. Ledger `docs/ledger/outstanding-work.md` §2: WS5 → done, with a one-line note of the
    four deviations and any leftover (e.g. the white-ARGB sentinel edge).
 4. Update `.planning/` progress notes.
 
