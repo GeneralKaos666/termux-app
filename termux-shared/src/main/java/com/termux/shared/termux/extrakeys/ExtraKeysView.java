@@ -439,6 +439,13 @@ public final class ExtraKeysView extends GridLayout {
                 button.setOnTouchListener((view, event) -> {
                     switch (event.getAction()) {
                         case MotionEvent.ACTION_DOWN:
+                            if (buttonInfo.getPopup() != null) {
+                                android.view.ViewParent parent = view.getParent();
+                                while (parent != null) {
+                                    parent.requestDisallowInterceptTouchEvent(true);
+                                    parent = parent.getParent();
+                                }
+                            }
                             // A popup left over from a cancelled or abandoned gesture must not linger
                             // over the keys.
                             dismissPopupIfAny();
