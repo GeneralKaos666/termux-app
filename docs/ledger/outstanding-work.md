@@ -22,8 +22,8 @@ verification attempted on device, with the outcome recorded · `[limitation]` ac
 
 ## 0. Work order at a glance
 
-1. **Diagnosed defects** — the bounded items in §2.4 (palette repaint, wide-glyph link hit-test,
-   underline-array tests, silent protocol errors, focus events).
+1. **Diagnosed defects** — **done 2026-10-25** (3e0f1931, 0e37e230, d784313c, 980b29c6, ad380602):
+   the five bounded items in §2.4 are resolved.
 2. **Engine remainder (§2)** — WS6 compatibility audit, then the rest of xterm conformance.
 3. **Code and test gaps (§3)** — god-class splits and the missing test surface.
 4. **Build and platform (§4)** — R8/release hardening, Java 17, CI, bootstrap caching, JitPack.
@@ -149,24 +149,20 @@ drag-to-reorder, rename and close have all since shipped.
 
 ### 2.4 Known defects and bounded leftovers
 
-- `[bounded]` **palette changes with no other output** — OSC 4/10/11/12 mutate the palette without
-  marking a row dirty or ticking the change counter, so the view's overlay comparison cannot see
-  them. `onColorsChanged → updateBackgroundColor()` normally repaints in full, but that early-returns
-  in wallpaper/custom-image mode. Fixes: compare a palette version per update, or make the
-  wallpaper-mode path still invalidate. Rare in practice; needs a spec cycle if the robust signal is
-  chosen.
-- `[bounded]` **wide linked glyph** — an emoji or CJK `OSC 8` link resolves only on its base column:
-  WS1 stamps the link id on the base cell and leaves the continuation column at `0`, and the hit-test
-  reads the tapped cell. ASCII links are unaffected. The "reuse the previous base column" fallback
-  needs a continuation test before it is safe.
-- `[bounded]` **focus events (DECSET 1004)** — `TerminalEmulator.java:207` defines the bit and maps
-  it, but no code ever emits focus-in/focus-out; the source itself says "NOT implemented".
-- `[bounded]` **escape-sequence errors silently swallowed** — `LOG_ESCAPE_SEQUENCES = false`
-  (`TerminalEmulator.java:37`) makes `logError(...)` a no-op, so `unknownSequence` /
-  `unimplementedSequence` produce nothing in release builds. This is how the ack-only kitty path
-  went unnoticed.
-- `[bounded]` **underline-colour plumbing without a direct test** — the erase/scroll/reflow path for
-  the WS5 underline-colour array has no test (see spec §8 "Not covered by tests").
+- `[done 2026-10-25, ad380602]` **palette changes with no other output** — the simple fix was chosen:
+  `updateBackgroundColor()` now invalidates the terminal view even in wallpaper/custom-image mode, so
+  a palette-only change repaints. The robust palette-version signal remains deferred (§5.4).
+- `[done 2026-10-25, d784313c]` **wide linked glyph** — `getLinkIdAt` now resolves the trailing half
+  of a wide cell to its base column's link (`TerminalRow.getLinkIdResolvingWide`); covered by
+  `LinkRegistryTest.testWideGlyphLinkResolvesOnBothColumns`.
+- `[done 2026-10-25, 980b29c6]` **focus events (DECSET 1004)** — `TerminalEmulator.sendFocusEvent()`
+  writes `CSI I`/`CSI O` when the mode is set, wired from `TerminalView.onWindowFocusChanged()`.
+- `[done 2026-10-25, 3e0f1931]` **escape-sequence errors silently swallowed** — the
+  `LOG_ESCAPE_SEQUENCES` flag was removed; `logError`/`finishSequenceAndLogError` and the three
+  inline diagnostics now log unconditionally, matching the rest of the emulator.
+- `[done 2026-10-25, 0e37e230]` **underline-colour plumbing without a direct test** —
+  `TerminalBufferUnderlineColorTest` now covers erase/scroll/resize of the array; the plumbing was
+  already correct.
 - `[decided]` **OSC 8 taps dispatch unconditionally** — the existing word-URL tap stays gated by
   `open terminal transcript URL on click`; an explicit program-stamped link is not a transcript URL
   guess. Recorded in the WS5 spec §4.5.
@@ -266,10 +262,10 @@ separate architectural slice. Device checks are the final row and live in `manua
 | 5 | R8/release build hardening (keep rules for `:termux-shared` public API, JNI entry points, Compose) | to do | separate slice, affects published artifact |
 | 6 | God-class splits (§3.2) | to do | behavior-preserving |
 | 7 | `:termux-shared` unit tests (§3.1) | to do | expand beyond the instrumented harness |
-| 8 | `LOG_ESCAPE_SEQUENCES = false` silent protocol errors | to do | enable/restore logging or explicit errors |
-| 9 | Focus events (DECSET 1004) never emitted | to do | fix terminal focus event delivery |
-| 10 | Wallpaper-mode palette repaint | to do | fix repaint on palette changes |
-| 11 | Wide-glyph OSC 8 hit-test | to do | hit-test accuracy for wide glyphs + hyperlinks |
+| 8 | `LOG_ESCAPE_SEQUENCES = false` silent protocol errors | done | `3e0f1931` |
+| 9 | Focus events (DECSET 1004) never emitted | done | `980b29c6` |
+| 10 | Wallpaper-mode palette repaint | done | `ad380602` |
+| 11 | Wide-glyph OSC 8 hit-test | done | `d784313c` |
 | 12 | Java 1.8 → 17 | to do | align toolchain; check desugaring |
 | 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | to do | workflows |
 | 14 | CI bootstrap re-download | to do | avoid re-downloading cached zips unnecessarily |
