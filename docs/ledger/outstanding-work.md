@@ -228,10 +228,15 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   `TermuxTerminalSessionActivityClient`, `TermuxInstaller`, `RunCommandService`,
   `TermuxDocumentsProvider`, and every Compose screen. (`TerminalColors` now covered by
   `TerminalColorsTest`, `c7ec9c33`.)
-- `[open]` commented-out assertions in live test files: `TerminalRowTest.java:379,396-402,410,414,
-  426,438-440`; `TerminalTest.java:75`; `UnicodeInputTest.java:52-55`; `ResizeTest.java:132,134`;
-  `ScrollRegionTest.java:68`. No `@Ignore`/`@Disabled` and no empty test bodies — the suite is
-  honest, just incomplete.
+- `[done 2026-10-25]` commented-out assertions in live test files: removed the stale ones that
+  referenced removed APIs (`getLine(0)`, `line.mText`) across `TerminalRowTest`, `TerminalTest`
+  and `ScrollRegionTest`; restored the two that still held (`TerminalRowTest` unassigned-code-point
+  width, `ResizeTest` background colour). Two stay disabled because they encode stale behaviour —
+  one of them is the UTF-8 regression below.
+- `[open]` **UTF-8 decoder deviation** — `0xe0 0x80` (an overlong 3-byte lead whose successor is
+  out of range) now decodes to a single `U+FFFD`, but the "Best Practices" note in
+  `UnicodeInputTest` says it should decode to two. The disabled assertion at
+  `UnicodeInputTest.java:52-55` documents the expected behaviour; needs its own investigation.
 
 ### 3.2 Code-shape debt
 

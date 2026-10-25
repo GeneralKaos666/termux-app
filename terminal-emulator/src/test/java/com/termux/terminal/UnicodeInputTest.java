@@ -49,6 +49,8 @@ public class UnicodeInputTest extends TerminalTestCase {
 		mTerminal.append(input, input.length);
 		assertLinesAre("\uFFFD    ", "     ");
 
+		// Disabled: 0xe0 0x80 now decodes as a single U+FFFD, not the two the Best-Practices note
+		// above requires — a decoder regression tracked in the ledger.
 		// withTerminalSized(5, 2);
 		// input = new byte[]{(byte) 0xe0, (byte) 0x80, 'a'};
 		// mTerminal.append(input, input.length);
