@@ -226,8 +226,9 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   `ITermImage`, `TerminalSession`; `:terminal-view` `TerminalView` (1,661 lines),
   text-selection controllers/handles; `:app` `TermuxService`,
   `TermuxTerminalSessionActivityClient`, `TermuxInstaller`, `RunCommandService`,
-  `TermuxDocumentsProvider`, and every Compose screen. (`TerminalColors` now covered by
-  `TerminalColorsTest`, `c7ec9c33`.)
+  `TermuxDocumentsProvider`, and every Compose screen. (`TerminalColors` covered by
+  `TerminalColorsTest` `c7ec9c33`; `TerminalColorScheme` and `getPerceivedBrightnessOfColor` covered
+  by `TerminalColorSchemeTest` `3b4cc11e`.)
 - `[done 2026-10-25]` commented-out assertions in live test files: removed the stale ones that
   referenced removed APIs (`getLine(0)`, `line.mText`) across `TerminalRowTest`, `TerminalTest`
   and `ScrollRegionTest`; restored the two that still held (`TerminalRowTest` unassigned-code-point
