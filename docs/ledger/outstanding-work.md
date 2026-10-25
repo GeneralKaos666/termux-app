@@ -277,6 +277,17 @@ Items 1–4 are done in this slice. Remaining items are **to do**; dependency re
 dependency, ascending blast radius, with `compose-bom` last and separate. R8/release build remains a
 separate architectural slice. Device checks are the final row and live in `manual-checks.md`.
 
+**Dependency refresh — attempted 2026-10-25, mostly blocked.** Only `annotation` bumped cleanly. The
+2026 androidx/LSPosed releases now require higher SDK levels than this repo's deliberate pins
+(`minSdkVersion=21`, `compileSdkVersion=36`): `window:1.5.1` and `appcompat:1.8.0` need minSdk 23,
+`hiddenapibypass:6.2` needs compileSdk 37. `robolectric:4.17` needs a new
+`android-all-instrumented` jar that cannot be fetched in this environment. The remaining androidx UI
+bumps (`material`, `activity-compose`, `lifecycle-runtime-compose`, `compose-bom`) pull `appcompat`
+transitively, so they inherit the minSdk-23 block. `desugar_jdk_libs` 1.x→2.x is a major desugaring
+change and is the prerequisite for `commons-io`/`guava` (and `commons-io` 2.22.0 also contradicts the
+`AGENTS.md` "must remain 2.5" note). Net: the refresh needs a prior decision to raise `minSdk`/`compileSdk`
+before most of these are bumpable.
+
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 1 | Gradle 10 DSL syntax (`prop = value`) | done | `c9826aaa` |
@@ -298,19 +309,19 @@ separate architectural slice. Device checks are the final row and live in `manua
 | 17 | Termux:Float (shape A vs B) | to do | not chosen yet (§5.2) |
 | 18 | 256-colour palette | to do | full 256-colour support (§5.3) |
 | 19 | xterm conformance + WS6 audit | to do | conformance/shim gaps (§2.2) |
-| 20 | Dependency refresh — `desugar_jdk_libs` 1.1.5 → 2.1.5 | to do | ascending blast radius |
-| 21 | Dependency refresh — `commons-io` 2.5 → 2.22.0 | to do | Android < 8 rationale replaced by desugaring |
-| 22 | Dependency refresh — `guava` 24.1-jre → 33.7.2-jre | to do | keep `listenablefuture` shim if needed |
-| 23 | Dependency refresh — `androidx.window` 1.1.0 → 1.5.1 | to do | |
-| 24 | Dependency refresh — `appcompat` 1.6.1 → 1.8.0 | to do | |
-| 25 | Dependency refresh — `material` 1.12.0 → 1.14.0 | to do | |
-| 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | to do | |
-| 27 | Dependency refresh — `annotation` 1.9.0 → 1.11.0 | to do | |
-| 28 | Dependency refresh — `activity-compose` 1.11.0 → 1.13.0 | to do | |
-| 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | to do | |
-| 30 | Dependency refresh — `robolectric` 4.10 → 4.17 | to do | |
-| 31 | Dependency refresh — `hiddenapibypass` 6.1 → 6.2 | to do | |
-| 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | to do | **last and separate** |
+| 20 | Dependency refresh — `desugar_jdk_libs` 1.1.5 → 2.1.5 | deferred | major desugaring change; prerequisite for `commons-io`/`guava` |
+| 21 | Dependency refresh — `commons-io` 2.5 → 2.22.0 | deferred | contradicts `AGENTS.md` "must remain 2.5"; needs `desugar_jdk_libs` 2.x |
+| 22 | Dependency refresh — `guava` 24.1-jre → 33.7.2-jre | deferred | keep `listenablefuture` shim; do after `desugar_jdk_libs` |
+| 23 | Dependency refresh — `androidx.window` 1.1.0 → 1.5.1 | blocked | `window-core-android:1.5.1` needs minSdk 23 (repo pins 21) |
+| 24 | Dependency refresh — `appcompat` 1.6.1 → 1.8.0 | blocked | `appcompat-resources:1.8.0` needs minSdk 23 |
+| 25 | Dependency refresh — `material` 1.12.0 → 1.14.0 | blocked | pulls `appcompat` → minSdk 23 |
+| 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | to do | not yet attempted; may also pull minSdk-23 androidx |
+| 27 | Dependency refresh — `annotation` 1.9.0 → 1.11.0 | done | `1dfb9203` |
+| 28 | Dependency refresh — `activity-compose` 1.11.0 → 1.13.0 | blocked | pulls `appcompat` → minSdk 23 |
+| 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | blocked | pulls `appcompat` → minSdk 23 |
+| 30 | Dependency refresh — `robolectric` 4.10 → 4.17 | blocked | new `android-all-instrumented` jar cannot be fetched here |
+| 31 | Dependency refresh — `hiddenapibypass` 6.1 → 6.2 | blocked | needs compileSdk 37 (repo pins 36) |
+| 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | blocked | **last and separate**; pulls minSdk-23 androidx |
 | 33 | Device and manual checks | to do | **last overall** — `manual-checks.md` |
 
 ---
