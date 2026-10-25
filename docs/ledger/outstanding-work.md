@@ -223,10 +223,11 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   `FileUtilsTests.java` that used to ship in the main source set was moved to the instrumented source
   set in `c389a88d`.)
 - `[open]` **no tests at all** for `:terminal-emulator` `TerminalBitmap`, `TerminalSixel`,
-  `ITermImage`, `TerminalSession`, `TerminalColors`; `:terminal-view` `TerminalView` (1,661 lines),
+  `ITermImage`, `TerminalSession`; `:terminal-view` `TerminalView` (1,661 lines),
   text-selection controllers/handles; `:app` `TermuxService`,
   `TermuxTerminalSessionActivityClient`, `TermuxInstaller`, `RunCommandService`,
-  `TermuxDocumentsProvider`, and every Compose screen.
+  `TermuxDocumentsProvider`, and every Compose screen. (`TerminalColors` now covered by
+  `TerminalColorsTest`, `c7ec9c33`.)
 - `[open]` commented-out assertions in live test files: `TerminalRowTest.java:379,396-402,410,414,
   426,438-440`; `TerminalTest.java:75`; `UnicodeInputTest.java:52-55`; `ResizeTest.java:132,134`;
   `ScrollRegionTest.java:68`. No `@Ignore`/`@Disabled` and no empty test bodies — the suite is
