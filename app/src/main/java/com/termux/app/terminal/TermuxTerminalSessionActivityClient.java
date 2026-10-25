@@ -33,6 +33,7 @@ import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.terminal.TextStyle;
+import com.termux.view.TerminalView;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -558,7 +559,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     public void updateBackgroundColor() {
         if (!mActivity.isVisible()) return;
-        if (mActivity.shouldUseWallpaperTerminalBackground() || mActivity.shouldUseCustomImageTerminalBackground()) return;
+        if (mActivity.shouldUseWallpaperTerminalBackground() || mActivity.shouldUseCustomImageTerminalBackground()) {
+            // The decor background is the wallpaper/image, not the terminal palette, so it must not be
+            // repainted. Still repaint the terminal view: a palette-only change (OSC 4/10/11/12) neither
+            // dirties a row nor ticks the change counter, so this callback is its only repaint signal.
+            TerminalView terminalView = mActivity.getTerminalView();
+            if (terminalView != null) terminalView.invalidate();
+            return;
+        }
         TerminalSession session = mActivity.getCurrentSession();
         if (session != null && session.getEmulator() != null) {
             mActivity.getWindow().getDecorView().setBackgroundColor(session.getEmulator().mColors.mCurrentColors[TextStyle.COLOR_INDEX_BACKGROUND]);
