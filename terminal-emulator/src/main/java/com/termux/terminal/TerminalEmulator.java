@@ -40,9 +40,6 @@ import java.util.Stack;
  */
 public final class TerminalEmulator {
 
-    /** Log unknown or unimplemented escape sequences received from the shell process. */
-    private static final boolean LOG_ESCAPE_SEQUENCES = false;
-
     public static final int MOUSE_LEFT_BUTTON = 0;
 
     /** Mouse moving while having left mouse button pressed. */
@@ -1348,8 +1345,7 @@ public final class TerminalEmulator {
                         return;
                     }
                 } else {
-                    if (LOG_ESCAPE_SEQUENCES)
-                        Logger.logError(mClient, LOG_TAG, "Unrecognized device control string: " + dcs);
+                    Logger.logError(mClient, LOG_TAG, "Unrecognized device control string: " + dcs);
                 }
 
                 // Clear DCS args buffer and variables and finish sequence.
@@ -2619,7 +2615,7 @@ public final class TerminalEmulator {
                             case 58: mUnderlineColor = color; break;
                         }
                     } else {
-                        if (LOG_ESCAPE_SEQUENCES) Logger.logWarn(mClient, LOG_TAG, "Invalid color index: " + color);
+                        Logger.logWarn(mClient, LOG_TAG, "Invalid color index: " + color);
                     }
                 } else {
                     finishSequenceAndLogError("Invalid ISO-8613-3 SGR first argument: " + firstArg);
@@ -2637,8 +2633,7 @@ public final class TerminalEmulator {
             } else if (code >= 100 && code <= 107) { // Bright background color (aixterm codes).
                 mBackColor = code - 100 + 8;
             } else {
-                if (LOG_ESCAPE_SEQUENCES)
-                    Logger.logWarn(mClient, LOG_TAG, String.format("SGR unknown code %d", code));
+                Logger.logWarn(mClient, LOG_TAG, String.format("SGR unknown code %d", code));
             }
         }
     }
@@ -3548,32 +3543,30 @@ public final class TerminalEmulator {
     }
 
     private void logError(String errorType) {
-        if (LOG_ESCAPE_SEQUENCES) {
-            StringBuilder buf = new StringBuilder();
-            buf.append(errorType);
-            buf.append(", escapeState=");
-            buf.append(mEscapeState);
-            boolean firstArg = true;
-            if (mArgIndex >= mArgs.length) mArgIndex = mArgs.length - 1;
-            for (int i = 0; i <= mArgIndex; i++) {
-                int value = mArgs[i];
-                if (value >= 0) {
-                    if (firstArg) {
-                        firstArg = false;
-                        buf.append(", args={");
-                    } else {
-                        buf.append(',');
-                    }
-                    buf.append(value);
+        StringBuilder buf = new StringBuilder();
+        buf.append(errorType);
+        buf.append(", escapeState=");
+        buf.append(mEscapeState);
+        boolean firstArg = true;
+        if (mArgIndex >= mArgs.length) mArgIndex = mArgs.length - 1;
+        for (int i = 0; i <= mArgIndex; i++) {
+            int value = mArgs[i];
+            if (value >= 0) {
+                if (firstArg) {
+                    firstArg = false;
+                    buf.append(", args={");
+                } else {
+                    buf.append(',');
                 }
+                buf.append(value);
             }
-            if (!firstArg) buf.append('}');
-            finishSequenceAndLogError(buf.toString());
         }
+        if (!firstArg) buf.append('}');
+        Logger.logWarn(mClient, LOG_TAG, buf.toString());
     }
 
     private void finishSequenceAndLogError(String error) {
-        if (LOG_ESCAPE_SEQUENCES) Logger.logWarn(mClient, LOG_TAG, error);
+        Logger.logWarn(mClient, LOG_TAG, error);
         finishSequence();
     }
 
