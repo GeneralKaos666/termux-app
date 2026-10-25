@@ -75,4 +75,22 @@ public class DecSetTest extends TerminalTestCase {
 		enterString("\033[?7hhij").assertLinesAre("abh", "ij ", "   ");
 	}
 
+	/** DECSET 1004, focus reporting, emits CSI I on focus-in and CSI O on focus-out. */
+	public void testFocusEventReporting() {
+		withTerminalSized(3, 3);
+
+		mTerminal.sendFocusEvent(true);
+		assertEquals("Focus events should be off by default", "", mOutput.getOutputAndClear());
+
+		enterString("\033[?1004h"); // Enable focus reporting.
+		mTerminal.sendFocusEvent(true);
+		assertEquals("\033[I", mOutput.getOutputAndClear());
+		mTerminal.sendFocusEvent(false);
+		assertEquals("\033[O", mOutput.getOutputAndClear());
+
+		enterString("\033[?1004l"); // Disable focus reporting.
+		mTerminal.sendFocusEvent(true);
+		assertEquals("", mOutput.getOutputAndClear());
+	}
+
 }

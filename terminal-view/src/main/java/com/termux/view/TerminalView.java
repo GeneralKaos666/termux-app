@@ -1614,6 +1614,12 @@ public final class TerminalView extends View {
         }
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasWindowFocus) {
+        super.onWindowFocusChanged(hasWindowFocus);
+        if (mEmulator != null) mEmulator.sendFocusEvent(hasWindowFocus);
+    }
+
 
 
     /**

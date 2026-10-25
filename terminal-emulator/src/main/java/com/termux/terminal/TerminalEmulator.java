@@ -207,7 +207,7 @@ public final class TerminalEmulator {
     private static final int DECSET_BIT_MOUSE_TRACKING_PRESS_RELEASE = 1 << 6;
     /** DECSET 1002 - like 1000, but report moving mouse while pressed. */
     private static final int DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT = 1 << 7;
-    /** DECSET 1004 - NOT implemented. */
+    /** DECSET 1004 - report focus-in/focus-out via CSI I / CSI O (see {@link #sendFocusEvent(boolean)}). */
     private static final int DECSET_BIT_SEND_FOCUS_EVENTS = 1 << 8;
     /** DECSET 1006 - SGR-like mouse protocol (the modern sane choice). */
     private static final int DECSET_BIT_MOUSE_PROTOCOL_SGR = 1 << 9;
@@ -603,6 +603,15 @@ public final class TerminalEmulator {
                 mSession.write(data, 0, data.length);
             }
         }
+    }
+
+    /**
+     * Report a focus change to the shell as {@code CSI I} (focused) or {@code CSI O} (unfocused),
+     * but only when DECSET 1004 focus reporting has been enabled.
+     */
+    public void sendFocusEvent(boolean focusGained) {
+        if (!isDecsetInternalBitSet(DECSET_BIT_SEND_FOCUS_EVENTS)) return;
+        mSession.write(focusGained ? "\033[I" : "\033[O");
     }
 
     public void resize(int columns, int rows, int cellWidthPixels, int cellHeightPixels) {
