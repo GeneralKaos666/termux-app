@@ -218,10 +218,10 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   accumulation did not exist. Resolved by the WS4 completion plan (commits above). Kept here as the
   cautionary record: a recorded status can overstate the code.
 - The bounded defects in §2.4.
-- `[open]` **`:termux-shared` has no `src/test` at all** — only `androidTest/.../ExampleInstrumentedTest.java`
-  boilerplate, with `testImplementation junit` declared but unused. (The 18 KB
-  `FileUtilsTests.java` that used to ship in the main source set was moved to the instrumented source
-  set in `c389a88d`.)
+- `[done 2026-10-25, a48ca5ae]` **`:termux-shared` has no `src/test` at all** — the `src/test` source set
+  now exists (`testOptions.unitTests.returnDefaultValues` enabled, `junit` exercised) and covers the
+  pure path helpers (`FileUtils` basename/dirname, `ShellUtils` argument setup). Android-touching
+  logic stays instrumented (`androidTest`). More pure helpers can be added over time.
 - `[open]` **no tests at all** for `:terminal-emulator` `TerminalBitmap`, `TerminalSixel`,
   `ITermImage`, `TerminalSession`; `:terminal-view` `TerminalView` (1,661 lines),
   text-selection controllers/handles; `:app` `TermuxService`,
