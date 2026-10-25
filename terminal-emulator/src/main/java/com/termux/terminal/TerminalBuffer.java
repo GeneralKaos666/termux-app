@@ -677,7 +677,7 @@ public final class TerminalBuffer {
      */
     public int getLinkIdAt(int externalRow, int column) {
         TerminalRow line = mLines[externalToInternalRow(externalRow)];
-        return (line == null) ? 0 : line.getLinkId(column);
+        return (line == null) ? 0 : line.getLinkIdResolvingWide(column);
     }
 
     /**

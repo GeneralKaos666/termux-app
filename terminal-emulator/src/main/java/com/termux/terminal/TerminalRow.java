@@ -371,6 +371,17 @@ public final class TerminalRow {
     }
 
     /**
+     * @return the hyperlink id at {@code column}, resolving the trailing half of a wide cell to the
+     * link of its base column. A wide cell stores its link only on the base column, so the trailing
+     * column reads {@code 0} even though the whole cell is a link.
+     */
+    public int getLinkIdResolvingWide(int column) {
+        int linkId = getLinkId(column);
+        if (linkId != 0 || column <= 0) return linkId;
+        return wideDisplayCharacterStartingAt(column - 1) ? getLinkId(column - 1) : 0;
+    }
+
+    /**
      * Sets the hyperlink id of a cell. A {@code 0} on a row that has never stored a link is a no-op,
      * so the {@link #mLinkIds} array stays {@code null} until a non-zero id is stored.
      */

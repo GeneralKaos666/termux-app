@@ -113,4 +113,13 @@ public class LinkRegistryTest extends TestCase {
 		assertEquals(id, screen.getLinkIdAt(0, 0));
 	}
 
+	public void testWideGlyphLinkResolvesOnBothColumns() {
+		TerminalBuffer screen = newScreen();
+		int id = screen.registerLink("https://example.com");
+		screen.setCurrentLinkId(id);
+		screen.setChar(0, 0, '\uFF31', 0); // FULLWIDTH LATIN CAPITAL LETTER Q, width 2.
+		assertEquals(id, screen.getLinkIdAt(0, 0));
+		assertEquals(id, screen.getLinkIdAt(0, 1));
+	}
+
 }
