@@ -277,16 +277,15 @@ Items 1–4 are done in this slice. Remaining items are **to do**; dependency re
 dependency, ascending blast radius, with `compose-bom` last and separate. R8/release build remains a
 separate architectural slice. Device checks are the final row and live in `manual-checks.md`.
 
-**Dependency refresh — attempted 2026-10-25, mostly blocked.** Only `annotation` bumped cleanly. The
-2026 androidx/LSPosed releases now require higher SDK levels than this repo's deliberate pins
-(`minSdkVersion=21`, `compileSdkVersion=36`): `window:1.5.1` and `appcompat:1.8.0` need minSdk 23,
-`hiddenapibypass:6.2` needs compileSdk 37. `robolectric:4.17` needs a new
-`android-all-instrumented` jar that cannot be fetched in this environment. The remaining androidx UI
-bumps (`material`, `activity-compose`, `lifecycle-runtime-compose`, `compose-bom`) pull `appcompat`
-transitively, so they inherit the minSdk-23 block. `desugar_jdk_libs` 1.x→2.x is a major desugaring
-change and is the prerequisite for `commons-io`/`guava` (and `commons-io` 2.22.0 also contradicts the
-`AGENTS.md` "must remain 2.5" note). Net: the refresh needs a prior decision to raise `minSdk`/`compileSdk`
-before most of these are bumpable.
+**Dependency refresh — 2026-10-25.** `minSdk` raised 21 → 23 (`34cb3d9d`), which unblocked the
+androidx bumps that only needed minSdk 23: `annotation` (`1dfb9203`), `window` (`e1264dea`),
+`appcompat` (`e28e386a`), `material` (`f3050cbc`), `activity-compose` (`4a046f5f`). The rest are gated
+on bigger changes: `core` 1.19.x, `lifecycle-runtime-compose` 2.11.x and `compose-bom` 2026.09.00 all
+require **AGP 9.1.0+** (repo is on 8.13.2); `hiddenapibypass:6.2` needs **compileSdk 37** (which breaks
+Robolectric 4.10's `ShadowActivity`, and Robolectric can't be bumped here — its `android-all` jar
+can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and the prerequisite for
+`commons-io`/`guava` (and `commons-io` 2.22.0 contradicts the `AGENTS.md` "must remain 2.5" note).
+`compileSdk` stays 36.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
@@ -312,16 +311,16 @@ before most of these are bumpable.
 | 20 | Dependency refresh — `desugar_jdk_libs` 1.1.5 → 2.1.5 | deferred | major desugaring change; prerequisite for `commons-io`/`guava` |
 | 21 | Dependency refresh — `commons-io` 2.5 → 2.22.0 | deferred | contradicts `AGENTS.md` "must remain 2.5"; needs `desugar_jdk_libs` 2.x |
 | 22 | Dependency refresh — `guava` 24.1-jre → 33.7.2-jre | deferred | keep `listenablefuture` shim; do after `desugar_jdk_libs` |
-| 23 | Dependency refresh — `androidx.window` 1.1.0 → 1.5.1 | blocked | `window-core-android:1.5.1` needs minSdk 23 (repo pins 21) |
-| 24 | Dependency refresh — `appcompat` 1.6.1 → 1.8.0 | blocked | `appcompat-resources:1.8.0` needs minSdk 23 |
-| 25 | Dependency refresh — `material` 1.12.0 → 1.14.0 | blocked | pulls `appcompat` → minSdk 23 |
-| 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | to do | not yet attempted; may also pull minSdk-23 androidx |
+| 23 | Dependency refresh — `androidx.window` 1.1.0 → 1.5.1 | done | `e1264dea` |
+| 24 | Dependency refresh — `appcompat` 1.6.1 → 1.8.0 | done | `e28e386a` |
+| 25 | Dependency refresh — `material` 1.12.0 → 1.14.0 | done | `f3050cbc` |
+| 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | blocked | needs AGP 9.1.0+ (repo on 8.13.2) |
 | 27 | Dependency refresh — `annotation` 1.9.0 → 1.11.0 | done | `1dfb9203` |
-| 28 | Dependency refresh — `activity-compose` 1.11.0 → 1.13.0 | blocked | pulls `appcompat` → minSdk 23 |
-| 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | blocked | pulls `appcompat` → minSdk 23 |
+| 28 | Dependency refresh — `activity-compose` 1.11.0 → 1.13.0 | done | `4a046f5f` |
+| 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | blocked | needs AGP 9.1.0+ |
 | 30 | Dependency refresh — `robolectric` 4.10 → 4.17 | blocked | new `android-all-instrumented` jar cannot be fetched here |
-| 31 | Dependency refresh — `hiddenapibypass` 6.1 → 6.2 | blocked | needs compileSdk 37 (repo pins 36) |
-| 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | blocked | **last and separate**; pulls minSdk-23 androidx |
+| 31 | Dependency refresh — `hiddenapibypass` 6.1 → 6.2 | blocked | needs compileSdk 37 (breaks Robolectric 4.10) |
+| 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | blocked | **last and separate**; Compose 1.12.1 needs AGP 9.1.0+ |
 | 33 | Device and manual checks | to do | **last overall** — `manual-checks.md` |
 
 ---
