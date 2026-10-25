@@ -24,7 +24,8 @@ verification attempted on device, with the outcome recorded · `[limitation]` ac
 
 1. **Diagnosed defects** — **done 2026-10-25** (3e0f1931, 0e37e230, d784313c, 980b29c6, ad380602):
    the five bounded items in §2.4 are resolved.
-2. **Engine remainder (§2)** — WS6 compatibility audit, then the rest of xterm conformance.
+2. **Engine remainder (§2)** — WS6 compatibility audit **done 2026-10-25** (backward-compatible, no
+   gaps); the rest of xterm conformance remains (unspecced, parked with WS5).
 3. **Code and test gaps (§3)** — god-class splits and the missing test surface.
 4. **Build and platform (§4)** — R8/release hardening, Java 17, CI, bootstrap caching, JitPack.
 5. **Epics that need a spec cycle (§5)** — session restore, Termux:Float, 256-colour palette,
@@ -123,7 +124,7 @@ drag-to-reorder, rename and close have all since shipped.
 | 3 | Text: run shaping / ligatures | **done**; spec `specs/2026-10-18-ws3-shaping-ligatures-design.md`; device evidence in `manual-checks.md` D-1 |
 | 4 | Graphics: unify sixel + iTerm2 + kitty as one placement layer | **done**; spec `specs/2026-10-18-ws4-graphics-placement-design.md`; D-2 passed 2026-10-19 |
 | 5 | Conformance + OSC 8 + underline styles | **done** (`SGR 58`, hyperlinks end-to-end); spec `specs/2026-10-17-osc8-hyperlinks-sgr58-underline-design.md` |
-| 6 | `:termux-shared` compat shims (threaded through all of the above) | **unspecced**; what remains is closer to an audit than a build — prove the public API stayed backward compatible and the delegating shims are real |
+| 6 | `:termux-shared` compat shims (threaded through all of the above) | **done (audit 2026-10-25)** — public API is backward compatible and the delegating shims are real; two follow-ups in §2.5 |
 | — | xterm-conformance remainder | **unspecced**, parked with WS5 |
 
 ### 2.3 WS3 / WS4 / WS5 delivery notes
@@ -189,6 +190,22 @@ covers the plugin apps' toolchains, not just this repo. `:termux-shared` also ca
 `ReportActivity`, `TextIOActivity`) and drags `:terminal-view` upward — noted, out of scope, don't
 regress it. Graphics must keep today's `TerminalSixel` / `ITermImage` behavior while the kitty path
 is unified.
+
+**Audit 2026-10-25 (WS6).** Verified the WS1–WS5 engine work kept the published surface intact:
+`ShellUtils`'s transcript accessors (`getEmulator` → `getScreen` →
+`getTranscriptTextWithFullLinesJoined`/`getTranscriptTextWithoutJoinedLines`) and
+`TermuxPropertyConstants`'s cursor/transcript constants are all still public and real, and the only
+interface callback the engine workstreams added (`TerminalViewClient.onLinkClicked`) is a `default`
+no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
+
+- `[open]` **`TerminalSessionClient` query methods are abstract, not `default`** —
+  `getTerminalCursorStyle()` (and the pre-existing `setTerminalShellPid`, `onPasteTextFromClipboard`)
+  were added as abstract methods; plugins are safe only because the `*Base` classes supply the
+  no-op/`null` defaults. A plugin implementing `TerminalSessionClient` directly would break. Not part
+  of the engine program; a convention inconsistency against the "new callbacks must be `default`" rule.
+- `[open]` **plugin-app `default`-method desugaring (minSdk 21)** — confirm the companion apps'
+  AGP/D8/R8 toolchains desugar Java 8 `default` methods, not just this repo. External build check,
+  not verifiable from this tree.
 
 ---
 
