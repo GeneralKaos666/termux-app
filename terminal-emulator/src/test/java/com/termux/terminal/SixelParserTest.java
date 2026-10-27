@@ -87,4 +87,40 @@ public class SixelParserTest {
         assertTrue(result.valid);
         assertEquals(-1, result.newArgsCapacity);
     }
+
+    // --- setup args -----------------------------------------------------------
+
+    private static SixelParser.Setup setup(String dcs) {
+        return SixelParser.parseSetupArgs(dcs, 0);
+    }
+
+    @Test
+    public void setupArgsPlainQ() {
+        SixelParser.Setup s = setup("q");
+        assertTrue(s.args != null);
+        assertFalse(s.definitivelyNotSixel);
+    }
+
+    @Test
+    public void setupArgsAllThreeParameters() {
+        SixelParser.Setup s = setup("12;34;56;q");
+        assertEquals(12, s.args[0]);
+        assertEquals(34, s.args[1]);
+        assertEquals(56, s.args[2]);
+        assertFalse(s.definitivelyNotSixel);
+    }
+
+    @Test
+    public void setupArgsPartialParameters() {
+        assertEquals(1, setup("1;q").args[0]);
+        assertEquals(2, setup("1;2;q").args[1]);
+        assertEquals(1, setup("1q").args[0]);
+    }
+
+    @Test
+    public void setupArgsMoreThanThreeIsDefinitivelyNotSixel() {
+        SixelParser.Setup s = setup("1;2;3;4q");
+        assertTrue(s.args == null);
+        assertTrue(s.definitivelyNotSixel);
+    }
 }

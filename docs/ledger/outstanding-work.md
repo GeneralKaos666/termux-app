@@ -254,11 +254,12 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
 - God classes: `TerminalEmulator.java` 3,876 lines, `TerminalView.java` 1,661, `FileUtils.java`
   2,044, `TermuxConstants.java` 1,338. Behavior-preserving splits only.
-  - `[done 2026-10-27]` first `TerminalEmulator` slice: the sixel DCS-data parser
-    (`processSixelDcs`, ~245 lines) moved to `SixelParser.process`, returning a
-    `SixelParser.Result` carrying the buffer-capacity hint; covered by `SixelParserTest`.
-    Remaining sequence in `docs/plans/2026-10-27-terminal-emulator-god-class-split.md`
-    (`getSixelDcsSetupArgs`/`startIfSixelDcs`, then kitty APC, then OSC 1337).
+  - `[done 2026-10-27]` sixel parsing extracted from `TerminalEmulator` into `SixelParser`:
+    `processSixelDcs` → `SixelParser.process` (returns a `Result` carrying the buffer-capacity
+    hint) and `getSixelDcsSetupArgs` → `SixelParser.parseSetupArgs` (returns a `Setup`
+    distinguishing "sixel" from "definitively not sixel"). Covered by `SixelParserTest`.
+    Remaining sequence in `docs/plans/2026-10-27-terminal-emulator-god-class-split.md` (kitty APC,
+    then OSC 1337).
 
 ---
 

@@ -28,6 +28,68 @@ final class SixelParser {
         }
     }
 
+    /**
+     * The outcome of {@link #parseSetupArgs}: the three optional setup parameters when the string is
+     * a sixel introducer, plus whether the string definitively is not sixel (so the caller can stop
+     * checking).
+     */
+    static final class Setup {
+        final int[] args; // non-null iff this is a sixel introducer
+        final boolean definitivelyNotSixel;
+
+        Setup(int[] args, boolean definitivelyNotSixel) {
+            this.args = args;
+            this.definitivelyNotSixel = definitivelyNotSixel;
+        }
+    }
+
+    /**
+     * Parse the optional {@code P1;P2;P3;} parameters of a Sixel DCS introducer ({@code DCS q} or
+     * {@code DCS P1;P2;P3; q}). Returns a {@link Setup} whose {@code args} are non-null for the
+     * accepted introducers, or null {@code args} with {@code definitivelyNotSixel} set when more than
+     * three parameters precede the data (i.e. this is some other DCS command).
+     */
+    static Setup parseSetupArgs(String dcs, int index) {
+        int[] args = {/* P1 */ 0, /* P2 */ 0, /* P3 */ 0};
+
+        if (dcs.charAt(index) == 'q') return new Setup(args, false);
+
+        char ch;
+        int arg = 0; boolean incArg = false;
+        while (index < dcs.length()) {
+            ch = dcs.charAt(index);
+            if (ch >= '0' && ch <= '9') {
+                if (incArg) { arg++; incArg = false; }
+                args[arg] = args[arg] * 10 + ch - '0';
+                if (args[arg] < 0) { // Overflow.
+                    break;
+                }
+                index++;
+            } else if (ch == ';') {
+                index++;
+                if (arg == 2) {
+                    if (index < dcs.length()) {
+                        if (dcs.charAt(index) == 'q') {
+                            return new Setup(args, false);
+                        } else {
+                            // More than three setup args: some other command, so no need to check again.
+                            return new Setup(null, true);
+                        }
+                    }
+                    break;
+                }
+                incArg = true;
+            } else if (ch == 'q') {
+                // Optional parameters not all passed, or a parameter did not end with `;` but is followed by `q`.
+                return new Setup(args, false);
+            } else {
+                break;
+            }
+        }
+
+        return new Setup(null, false);
+    }
+
     static Result process(String dcs, TerminalBuffer screen, TerminalSessionClient client,
                           String logTag, int terminalControlArgsMaxLength) {
         int index = 0;

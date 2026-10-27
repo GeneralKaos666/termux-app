@@ -16,8 +16,8 @@
 
 ## Extraction order (ascending risk)
 
-1. **`processSixelDcs` → `SixelParser.process`** — pure DCS-data parser; talks only to `TerminalBuffer.sixel*` (null-safe) and the logger. Low risk, no state-machine side effects beyond a returned buffer-capacity hint.
-2. **`getSixelDcsSetupArgs` + `startIfSixelDcs` → `SixelParser`** — has the subtle `ESC_DCS__CHECK_IF_SIXEL` side effect (must stay behavior-identical); do after step 1 settles.
+1. **`processSixelDcs` → `SixelParser.process`** — pure DCS-data parser; talks only to `TerminalBuffer.sixel*` (null-safe) and the logger. Low risk, no state-machine side effects beyond a returned buffer-capacity hint. **done 2026-10-27.**
+2. **`getSixelDcsSetupArgs` + `startIfSixelDcs` → `SixelParser`** — has the subtle `ESC_DCS__CHECK_IF_SIXEL` side effect (must stay behavior-identical); do after step 1 settles. **done 2026-10-27** (`parseSetupArgs` returns a `Setup` distinguishing "sixel" from "definitively not sixel"; `startIfSixelDcs` stays in the emulator as DCS-state orchestration).
 3. **Kitty APC block → `KittyGraphicsCommandHandler`** — larger; the `doKitty*` methods share the `KittyGraphicsTransfer` and reply path.
 4. **OSC 1337 block → `ITermImage`/`OscImageHandler`** — the `File=`/`MultipartFile=` inline block.
 

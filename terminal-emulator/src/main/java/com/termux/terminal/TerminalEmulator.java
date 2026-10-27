@@ -1419,8 +1419,8 @@ public final class TerminalEmulator {
 
 
     private void startIfSixelDcs() {
-        int[] sixelDcsSetupArgs = getSixelDcsSetupArgs(mTerminalControlArgs.toString(), 0);
-        if (sixelDcsSetupArgs != null) {
+        SixelParser.Setup setup = SixelParser.parseSetupArgs(mTerminalControlArgs.toString(), 0);
+        if (setup.args != null) {
             mIsFastPathDcs = true;
             ESC_DCS__SIXEL = true;
             ESC_DCS__CHECK_IF_SIXEL = false;
@@ -1431,55 +1431,13 @@ public final class TerminalEmulator {
             // command with image width and height to calculate expected capacity.
             mSixelArgsCapacity = SixelParser.SIXEL_ARGS__INITIAL_CAPACITY;
 
-            // The `P1; P2; P3;` arguements in `sixelDcsSetupArgs` are ignored as they are not supported currently (if ever).
+            // The `P1; P2; P3;` arguments are ignored as they are not supported currently (if ever).
             mScreen.sixelStart(100, 100);
             clearTerminalControlArgs();
+        } else if (setup.definitivelyNotSixel) {
+            // More than three setup args: some other DCS command, so stop checking.
+            ESC_DCS__CHECK_IF_SIXEL = false;
         }
-    }
-
-    private int[] getSixelDcsSetupArgs(String dcs, int index) {
-        int[] args = {/* `P1=0`/`2:1` */ 0, /* `P2=0` */ 0, /* `P3=0` */ 0};
-
-        if (dcs.charAt(index) == 'q') return args;
-
-        char ch;
-
-        int arg = 0; boolean incArg = false;
-        while (index < dcs.length()) {
-            ch = dcs.charAt(index);
-            if (ch >= '0' && ch <= '9') {
-                if (incArg) { arg++; incArg = false; }
-                args[arg] = args[arg] * 10 + ch - '0';
-                if (args[arg] < 0) { // Overflow.
-                    break;
-                }
-                index++;
-            } else if (ch == ';') {
-                index++;
-
-                if (arg == 2) {
-                    if (index < dcs.length()) {
-                        if (dcs.charAt(index) == 'q') {
-                            return args;
-                        } else {
-                            // Must be some other command, so no need to check again.
-                            ESC_DCS__CHECK_IF_SIXEL = false;
-                        }
-                    }
-                    break;
-                }
-
-                incArg = true;
-            } else if (ch == 'q') {
-                // If optional parameters `P1`, `P2` or `P3` are not all passed, or
-                // a parameter did not end with a `;`, but is followed by `q`.
-                return args;
-            } else {
-                break;
-            }
-        }
-
-        return null;
     }
 
     private int nextTabStop(int numTabs) {
