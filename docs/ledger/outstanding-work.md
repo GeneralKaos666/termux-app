@@ -237,6 +237,15 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
     device-only (native graphics unsupported on this aarch64 host).
   - `[open]` `TerminalBitmap` and `TerminalSession` remain untested: `TerminalBitmap`'s remaining
     surface is `Bitmap` pixel ops (native graphics) and `TerminalSession` is process/JNI-bound.
+  - `[limitation]` `:terminal-view` `TerminalView` + selection controllers: the pure seams are
+    already covered (`LinkUrisTest`, `ShapedRunPolicyTest`, `TerminalRendererRunTest`,
+    `TerminalViewLinkHitTest`); the rest is drawing/gesture/selection coordination that needs
+    Robolectric View infra, not JVM unit tests.
+  - `[limitation]` `:app` classes (`TermuxService`, `TermuxTerminalSessionActivityClient`,
+    `TermuxInstaller`, `RunCommandService`, `TermuxDocumentsProvider`, Compose screens): inspected
+    2026-10-27 — these are Intent/Service/Activity/ContentProvider/Compose glue that delegate to
+    `:termux-shared` (`IntentUtils`/`DataUtils`/`FileUtils`/`TermuxFileUtils`), so there is no
+    JVM-testable pure logic; Compose screens need Compose test infra. Not a JVM unit-test target.
 - `[done 2026-10-25]` commented-out assertions in live test files: removed the stale ones that
   referenced removed APIs (`getLine(0)`, `line.mText`) across `TerminalRowTest`, `TerminalTest`
   and `ScrollRegionTest`; restored the two that still held (`TerminalRowTest` unassigned-code-point
