@@ -222,13 +222,9 @@ def downloadBootstrap(String arch, String expectedChecksum, String version) {
     }
 }
 
-clean {
-    doLast {
-        def tree = fileTree(new File(projectDir, 'src/main/cpp'))
-        tree.include 'bootstrap-*.zip'
-        tree.each { it.delete() }
-    }
-}
+// The bootstrap zips in src/main/cpp/ are cached downloads, not build outputs, so they are left in
+// place by `clean`. downloadBootstrap() re-downloads any whose SHA-256 no longer matches the pinned
+// checksum, so the cache self-invalidates on a version bump without forcing a ~115 MB re-download.
 
 task downloadBootstraps() {
     doLast {

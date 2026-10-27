@@ -307,8 +307,11 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   decision, not a todo (it was mis-numbered as roadmap item 15 before the consolidation).
 - No lint baseline; suppressions are ad hoc, with `SharedPreferenceUtils` carrying eight
   `@SuppressLint("ApplySharedPref")` (synchronous `commit()` hidden on the main path).
-- `:app`'s `javaCompile` depends on downloading ~115 MB of bootstrap zips; `./gradlew clean` deletes
-  them (documented in `AGENTS.md`). Avoid the unnecessary re-download.
+- `[done 2026-10-27]` `:app`'s `javaCompile` depended on downloading ~115 MB of bootstrap zips, and
+  `./gradlew clean` deleted them, forcing a full re-download. The `clean` block that removed
+  `src/main/cpp/bootstrap-*.zip` is gone; the zips are cached downloads whose SHA-256 is checked by
+  `downloadBootstrap()`, so they self-invalidate on a version bump. Verified the four zips survive
+  `./gradlew :app:clean`.
 - Java source/target is 1.8 with core library desugaring; CI and JitPack pin Temurin 17 and this
   workspace runs Gradle on Java 21. Aligning the toolchain on 17 needs a desugaring check.
 - `terminal-view/build.gradle` now uses the AndroidX instrumentation runner (`823542d7`) — the former
@@ -353,7 +356,7 @@ can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and
 | 11 | Wide-glyph OSC 8 hit-test | done | `d784313c` |
 | 12 | Java 1.8 → 17 | to do | align toolchain; check desugaring |
 | 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | to do | workflows |
-| 14 | CI bootstrap re-download | to do | avoid re-downloading cached zips unnecessarily |
+| 14 | CI bootstrap re-download | done | avoid re-downloading cached zips unnecessarily |
 | 15 | JitPack versioning | done | library publishing/versioning |
 | 16 | Session restore | to do | restore sessions across process death (§5.1) |
 | 17 | Termux:Float (shape A vs B) | to do | not chosen yet (§5.2) |
