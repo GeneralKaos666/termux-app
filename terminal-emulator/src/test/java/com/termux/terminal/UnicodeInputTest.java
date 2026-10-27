@@ -49,12 +49,13 @@ public class UnicodeInputTest extends TerminalTestCase {
 		mTerminal.append(input, input.length);
 		assertLinesAre("\uFFFD    ", "     ");
 
-		// Disabled: 0xe0 0x80 now decodes as a single U+FFFD, not the two the Best-Practices note
-		// above requires — a decoder regression tracked in the ledger.
-		// withTerminalSized(5, 2);
-		// input = new byte[]{(byte) 0xe0, (byte) 0x80, 'a'};
-		// mTerminal.append(input, input.length);
-		// assertLinesAre("\uFFFD\uFFFDa  ", "     ");
+		// 0xe0 0x80 is ill-formed because its successor byte (0x80) is out of range for the 0xe0
+		// lead, so per the Best-Practices note above it decodes as two U+FFFDs (the maximal
+		// subpart is just the 0xe0 lead).
+		withTerminalSized(5, 2);
+		input = new byte[]{(byte) 0xe0, (byte) 0x80, 'a'};
+		mTerminal.append(input, input.length);
+		assertLinesAre("\uFFFD\uFFFDa  ", "     ");
 	}
 
 	public void testUnassignedCodePoint() throws UnsupportedEncodingException {
@@ -125,6 +126,33 @@ public class UnicodeInputTest extends TerminalTestCase {
 		// so should be replaced with the replacement char U+FFFD.
 		withTerminalSized(5, 5).mTerminal.append(new byte[]{(byte) 0xc0, (byte) 0xa0, 'Y'}, 3);
 		assertLineIs(0, "\uFFFDY   ");
+	}
+
+	public void testOutOfRangeSuccessorByteNotConsumed() throws Exception {
+		// A lead byte whose first successor is out of range (Unicode Table 3-7) must not consume
+		// that successor as part of the ill-formed sequence; the maximal subpart is just the lead.
+
+		// 0xe0 0x80 0x80: overlong 3-byte attempt with an out-of-range second byte.
+		withTerminalSized(5, 2);
+		mTerminal.append(new byte[]{(byte) 0xe0, (byte) 0x80, (byte) 0x80}, 3);
+		assertLinesAre("\uFFFD\uFFFD\uFFFD  ", "     ");
+
+		// 0xf0 0x80 0x80 0x80: overlong 4-byte attempt with an out-of-range second byte.
+		withTerminalSized(5, 2);
+		mTerminal.append(new byte[]{(byte) 0xf0, (byte) 0x80, (byte) 0x80, (byte) 0x80}, 4);
+		assertLinesAre("\uFFFD\uFFFD\uFFFD\uFFFD ", "     ");
+
+		// 0xf4 0x90 0x80 0x80: would decode above U+10FFFF (out-of-range second byte).
+		withTerminalSized(5, 2);
+		mTerminal.append(new byte[]{(byte) 0xf4, (byte) 0x90, (byte) 0x80, (byte) 0x80}, 4);
+		assertLinesAre("\uFFFD\uFFFD\uFFFD\uFFFD ", "     ");
+	}
+
+	public void testInRangeSuccessorByteStillDecodes() throws Exception {
+		// 0xe0 0xa0 0x80 is the first valid 3-byte sequence (U+0800); the range check leaves it alone.
+		withTerminalSized(5, 2);
+		mTerminal.append(new byte[]{(byte) 0xe0, (byte) 0xa0, (byte) 0x80}, 3);
+		assertLinesAre("\u0800    ", "     ");
 	}
 
 	public void testWideCharacterWithoutWrapping() throws Exception {

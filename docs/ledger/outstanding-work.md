@@ -242,10 +242,13 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   and `ScrollRegionTest`; restored the two that still held (`TerminalRowTest` unassigned-code-point
   width, `ResizeTest` background colour). Two stay disabled because they encode stale behaviour —
   one of them is the UTF-8 regression below.
-- `[open]` **UTF-8 decoder deviation** — `0xe0 0x80` (an overlong 3-byte lead whose successor is
-  out of range) now decodes to a single `U+FFFD`, but the "Best Practices" note in
-  `UnicodeInputTest` says it should decode to two. The disabled assertion at
-  `UnicodeInputTest.java:52-55` documents the expected behaviour; needs its own investigation.
+- `[done 2026-10-27]` **UTF-8 decoder deviation** — `0xe0 0x80` (an overlong 3-byte lead whose
+  successor is out of range) decoded to a single `U+FFFD` instead of the two the "Best Practices"
+  note requires. Fixed by validating the first successor byte's range for the restricted leads
+  `0xE0`/`0xF0`/`0xF4` (Unicode Table 3-7); an out-of-range successor is now emitted as its own
+  replacement rather than being consumed. Re-enabled the disabled assertion and added
+  `testOutOfRangeSuccessorByteNotConsumed` + `testInRangeSuccessorByteStillDecodes`. Surrogate
+  collapse (`0xED`) is deliberately unchanged.
 
 ### 3.2 Code-shape debt
 

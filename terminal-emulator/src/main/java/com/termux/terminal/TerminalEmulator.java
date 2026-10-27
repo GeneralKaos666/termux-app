@@ -737,6 +737,17 @@ public final class TerminalEmulator {
         if (mUtf8ToFollow > 0) {
             if ((byteToProcess & 0b11000000) == 0b10000000) {
                 // 10xxxxxx, a continuation byte.
+                // Some lead bytes restrict the range of their first successor byte (Unicode
+                // Table 3-7): 0xE0, 0xF0 and 0xF4. An out-of-range successor is not consumed as
+                // part of this ill-formed sequence; the maximal subpart is just the lead byte, so
+                // per the Unicode "Best Practices for Using U+FFFD" emit one replacement and
+                // re-read the byte as the start of a new sequence.
+                if (mUtf8Index == 1 && !isValidSecondByte(mUtf8InputBuffer[0], byteToProcess)) {
+                    mUtf8Index = mUtf8ToFollow = 0;
+                    emitCodePoint(UNICODE_REPLACEMENT_CHAR);
+                    processByte(byteToProcess);
+                    return;
+                }
                 mUtf8InputBuffer[mUtf8Index++] = byteToProcess;
                 if (--mUtf8ToFollow == 0) {
                     byte firstByteMask = (byte) (mUtf8Index == 2 ? 0b00011111 : (mUtf8Index == 3 ? 0b00001111 : 0b00000111));
@@ -796,6 +807,21 @@ public final class TerminalEmulator {
             }
             mUtf8InputBuffer[mUtf8Index++] = byteToProcess;
         }
+    }
+
+    /**
+     * Returns true when {@code second} (already known to be a {@code 10xxxxxx} continuation byte)
+     * is a valid first successor byte for the given UTF-8 lead byte. The 0xE0, 0xF0 and 0xF4 leads
+     * restrict that range to avoid overlong and out-of-range code points; every other lead accepts
+     * any continuation byte. See Unicode Table 3-7 (well-formed UTF-8 byte sequences).
+     */
+    private static boolean isValidSecondByte(byte lead, byte second) {
+        int l = lead & 0xff;
+        int s = second & 0xff;
+        if (l == 0xE0) return s >= 0xA0 && s <= 0xBF;
+        if (l == 0xF0) return s >= 0x90 && s <= 0xBF;
+        if (l == 0xF4) return s >= 0x80 && s <= 0x8F;
+        return true;
     }
 
     public void processCodePoint(int b) {
