@@ -260,6 +260,11 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
     distinguishing "sixel" from "definitively not sixel"). Covered by `SixelParserTest`.
     Remaining sequence in `docs/plans/2026-10-27-terminal-emulator-god-class-split.md` (kitty APC,
     then OSC 1337).
+  - `[done 2026-10-27]` kitty graphics APC block extracted into `KittyGraphicsHandler` (owns the
+    transfer state, decoder and image store; emulator keeps the APC dispatch + decoder test seam).
+    `mSession`/`setCursorCol`/`doLinefeed` relaxed to package-private for the handler. The
+    21-test `TerminalEmulatorKittyTest` suite stays green. Remaining: OSC 1337 (last step of the
+    plan).
 
 ---
 
