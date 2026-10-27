@@ -263,8 +263,12 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   - `[done 2026-10-27]` kitty graphics APC block extracted into `KittyGraphicsHandler` (owns the
     transfer state, decoder and image store; emulator keeps the APC dispatch + decoder test seam).
     `mSession`/`setCursorCol`/`doLinefeed` relaxed to package-private for the handler. The
-    21-test `TerminalEmulatorKittyTest` suite stays green. Remaining: OSC 1337 (last step of the
-    plan).
+    21-test `TerminalEmulatorKittyTest` suite stays green.
+  - `[deferred 2026-10-27]` OSC 1337 (`File=`/`MultipartFile=` inline block) left in `doOsc`. It is
+    untested end-to-end (the inline-placement path needs native graphics, unavailable on this
+    host) and its `case 1337` control flow (break/fall-through/`return` plus the cross-command
+    `mITermImage` state) makes a faithful extraction risky for marginal gain — `ITermImage` already
+    holds the image state machine.
 
 ---
 
