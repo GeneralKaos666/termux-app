@@ -229,6 +229,14 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   `TermuxDocumentsProvider`, and every Compose screen. (`TerminalColors` covered by
   `TerminalColorsTest` `c7ec9c33`; `TerminalColorScheme` and `getPerceivedBrightnessOfColor` covered
   by `TerminalColorSchemeTest` `3b4cc11e`.)
+  - `[done 2026-10-27]` `ITermImage` now covered by `ITermImageTest` (15 tests: the OSC 1337 state
+    machine, `readArguments` key parsing incl. `inline`/`preserveAspectRatio`/`width`/`height`
+    units, singlepart + multipart read flow, and base64 decode/`FAILED` transitions).
+  - `[done 2026-10-27]` `TerminalSixel` colour logic covered by `TerminalSixelTest` (initial
+    palette, `setColor` bounds, `setRGBColor` 0-100→ARGB scaling + clamping). `readData` stays
+    device-only (native graphics unsupported on this aarch64 host).
+  - `[open]` `TerminalBitmap` and `TerminalSession` remain untested: `TerminalBitmap`'s remaining
+    surface is `Bitmap` pixel ops (native graphics) and `TerminalSession` is process/JNI-bound.
 - `[done 2026-10-25]` commented-out assertions in live test files: removed the stale ones that
   referenced removed APIs (`getLine(0)`, `line.mText`) across `TerminalRowTest`, `TerminalTest`
   and `ScrollRegionTest`; restored the two that still held (`TerminalRowTest` unassigned-code-point
