@@ -100,7 +100,7 @@ afterEvaluate {
                 from components.default
                 groupId = 'com.termux'
                 artifactId = 'termux-shared'
-                version = '0.118.0'
+                version = System.getenv("VERSION") ?: '0.118.0'
                 artifact(sourceJar)
             }
         }

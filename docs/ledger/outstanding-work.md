@@ -317,7 +317,10 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 ### 4.2 Toolchain and CI
 
 - CI hardening: lint, release build, dependabot for Gradle, dependency verification.
-- JitPack versioning for the published library modules.
+- `[done 2026-10-27]` JitPack versioning: the three library modules now read their publication
+  version from the `VERSION` env var (`System.getenv("VERSION") ?: '0.118.0'`), so a JitPack build
+  publishes with the requested tag/commit instead of the hardcoded default. Verified by generating
+  the POM with `VERSION` set.
 
 ### 4.3 Upgrade roadmap
 
@@ -351,7 +354,7 @@ can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and
 | 12 | Java 1.8 → 17 | to do | align toolchain; check desugaring |
 | 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | to do | workflows |
 | 14 | CI bootstrap re-download | to do | avoid re-downloading cached zips unnecessarily |
-| 15 | JitPack versioning | to do | library publishing/versioning |
+| 15 | JitPack versioning | done | library publishing/versioning |
 | 16 | Session restore | to do | restore sessions across process death (§5.1) |
 | 17 | Termux:Float (shape A vs B) | to do | not chosen yet (§5.2) |
 | 18 | 256-colour palette | to do | full 256-colour support (§5.3) |
