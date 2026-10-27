@@ -35,7 +35,6 @@ import java.nio.file.LinkOption;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -69,26 +68,7 @@ public class FileUtils {
      * @return Returns the {@code canonical path}.
      */
     public static String getCanonicalPath(String path, final String prefixForNonAbsolutePath) {
-        if (path == null) path = "";
-
-        String absolutePath;
-
-        // If path is already an absolute path
-        if (path.startsWith("/")) {
-            absolutePath = path;
-        } else {
-            if (prefixForNonAbsolutePath != null)
-                absolutePath = prefixForNonAbsolutePath + "/" + path;
-            else
-                absolutePath = "/" + path;
-        }
-
-        try {
-            return new File(absolutePath).getCanonicalPath();
-        } catch(Exception e) {
-        }
-
-        return absolutePath;
+        return FilePaths.getCanonicalPath(path, prefixForNonAbsolutePath);
     }
 
     /**
@@ -101,16 +81,7 @@ public class FileUtils {
      */
     @Nullable
     public static String normalizePath(String path) {
-        if (path == null) return null;
-
-        path = path.replaceAll("/+", "/");
-        path = path.replaceAll("\\./", "");
-
-        if (path.endsWith("/")) {
-            path = path.replaceAll("/+$", "");
-        }
-
-        return path;
+        return FilePaths.normalizePath(path);
     }
 
     /**
@@ -123,17 +94,7 @@ public class FileUtils {
      * @return Returns the {@code sanitized name}.
      */
     public static String sanitizeFileName(String fileName, boolean sanitizeWhitespaces, boolean toLower) {
-        if (fileName == null) return null;
-
-        if (sanitizeWhitespaces)
-            fileName = fileName.replaceAll("[\\\\/:*?\"<>| \t\n]", "_");
-        else
-            fileName = fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
-
-        if (toLower)
-            return fileName.toLowerCase();
-        else
-            return fileName;
+        return FilePaths.sanitizeFileName(fileName, sanitizeWhitespaces, toLower);
     }
 
     /**
@@ -147,7 +108,7 @@ public class FileUtils {
      * @return Returns {@code true} if path in {@code dirPath}, otherwise returns {@code false}.
      */
     public static boolean isPathInDirPath(String path, final String dirPath, final boolean ensureUnder) {
-        return isPathInDirPaths(path, Collections.singletonList(dirPath), ensureUnder);
+        return FilePaths.isPathInDirPath(path, dirPath, ensureUnder);
     }
 
     /**
@@ -161,28 +122,7 @@ public class FileUtils {
      * @return Returns {@code true} if path in {@code dirPaths}, otherwise returns {@code false}.
      */
     public static boolean isPathInDirPaths(String path, final List<String> dirPaths, final boolean ensureUnder) {
-        if (path == null || path.isEmpty() || dirPaths == null || dirPaths.size() < 1) return false;
-
-        try {
-            path = new File(path).getCanonicalPath();
-        } catch(Exception e) {
-            return false;
-        }
-
-        boolean isPathInDirPaths;
-
-        for (String dirPath : dirPaths) {
-            String normalizedDirPath = normalizePath(dirPath);
-
-            if (ensureUnder)
-                isPathInDirPaths = !path.equals(normalizedDirPath) && path.startsWith(normalizedDirPath + "/");
-            else
-                isPathInDirPaths = path.startsWith(normalizedDirPath + "/");
-
-            if (isPathInDirPaths) return true;
-        }
-
-        return false;
+        return FilePaths.isPathInDirPaths(path, dirPaths, ensureUnder);
     }
 
 
@@ -2011,9 +1951,7 @@ public class FileUtils {
      * @return Returns the file dirname if not {@code null}.
      */
     public static String getFileDirname(String filePath) {
-        if (DataUtils.isNullOrEmpty(filePath)) return null;
-        int lastSlash = filePath.lastIndexOf('/');
-        return (lastSlash == -1) ? null : filePath.substring(0, lastSlash);
+        return FilePaths.getFileDirname(filePath);
     }
 
     /**
@@ -2023,9 +1961,7 @@ public class FileUtils {
      * @return Returns the file basename if not {@code null}.
      */
     public static String getFileBasename(String filePath) {
-        if (DataUtils.isNullOrEmpty(filePath)) return null;
-        int lastSlash = filePath.lastIndexOf('/');
-        return (lastSlash == -1) ? filePath : filePath.substring(lastSlash + 1);
+        return FilePaths.getFileBasename(filePath);
     }
 
     /**
@@ -2035,10 +1971,7 @@ public class FileUtils {
      * @return Returns the file basename without extension if not {@code null}.
      */
     public static String getFileBasenameWithoutExtension(String filePath) {
-        String fileBasename = getFileBasename(filePath);
-        if (DataUtils.isNullOrEmpty(fileBasename)) return null;
-        int lastDot = fileBasename.lastIndexOf('.');
-        return (lastDot == -1) ? fileBasename : fileBasename.substring(0, lastDot);
+        return FilePaths.getFileBasenameWithoutExtension(filePath);
     }
 
 }

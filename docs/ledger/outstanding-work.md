@@ -269,6 +269,19 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
     host) and its `case 1337` control flow (break/fall-through/`return` plus the cross-command
     `mITermImage` state) makes a faithful extraction risky for marginal gain — `ITermImage` already
     holds the image state machine.
+  - `[done 2026-10-27]` `FileUtils` path/name helpers extracted into a package-private `FilePaths`
+    (`getCanonicalPath`, `normalizePath`, `sanitizeFileName`, `isPathInDirPath(s)`,
+    `getFileDirname`/`getFileBasename`/`getFileBasenameWithoutExtension`); `FileUtils` keeps the
+    public methods as delegating shims. Covered by `FilePathsTest`.
+  - `[deferred]` rest of `FileUtils` (create/copy/move/delete/read-write/permissions, ~1,800 lines)
+    left in place — filesystem-side-effect-heavy and in the published `:termux-shared` surface;
+    split it only after those paths get unit coverage.
+  - `[non-goal]` `TermuxConstants` is a deliberately-centralized constants registry (the
+    companion-app integration surface resolves against it, per `AGENTS.md`), not a behavior god
+    class; splitting it fragments that surface for no behavior gain.
+  - `[open]` `TerminalView` (1,661 lines) — Android-bound; a behavior-preserving split needs the
+    `:terminal-view`/`:app` Robolectric suites and a clean seam (it is already partly decomposed
+    via `TerminalRenderer`/`GestureAndScaleRecognizer`/`TextSelectionCursorController`).
 
 ---
 
