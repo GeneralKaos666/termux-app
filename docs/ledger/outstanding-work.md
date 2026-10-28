@@ -318,8 +318,12 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   `src/main/cpp/bootstrap-*.zip` is gone; the zips are cached downloads whose SHA-256 is checked by
   `downloadBootstrap()`, so they self-invalidate on a version bump. Verified the four zips survive
   `./gradlew :app:clean`.
-- Java source/target is 1.8 with core library desugaring; CI and JitPack pin Temurin 17 and this
-  workspace runs Gradle on Java 21. Aligning the toolchain on 17 needs a desugaring check.
+- `[done 2026-10-27]` Java source/target raised 1.8 → 17 (and Kotlin `jvmTarget` 1.8 → 17) across
+  all four modules, aligning the bytecode with the Temurin-17 CI/JitPack toolchain. Core-library
+  desugaring stays enabled (it backports `java.*` APIs on minSdk 21–23 and is independent of the
+  source/target level). `./gradlew test` and `:app:assembleRelease` both pass at 17. The published
+  `:termux-shared` AAR now carries Java-17 bytecode, so companion apps need a D8/R8 that desugars it
+  (see the §2.5 companion-app desugaring note).
 - `terminal-view/build.gradle` now uses the AndroidX instrumentation runner (`823542d7`) — the former
   audit entry about `android.support.test.runner.AndroidJUnitRunner` is closed.
 
@@ -360,7 +364,7 @@ can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and
 | 9 | Focus events (DECSET 1004) never emitted | done | `980b29c6` |
 | 10 | Wallpaper-mode palette repaint | done | `ad380602` |
 | 11 | Wide-glyph OSC 8 hit-test | done | `d784313c` |
-| 12 | Java 1.8 → 17 | to do | align toolchain; check desugaring |
+| 12 | Java 1.8 → 17 | done | align toolchain; check desugaring |
 | 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | to do | workflows |
 | 14 | CI bootstrap re-download | done | avoid re-downloading cached zips unnecessarily |
 | 15 | JitPack versioning | done | library publishing/versioning |
