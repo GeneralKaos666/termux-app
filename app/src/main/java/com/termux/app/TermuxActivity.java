@@ -1,5 +1,6 @@
 package com.termux.app;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.WallpaperManager;
 import android.content.BroadcastReceiver;
@@ -1044,6 +1045,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
+    // Deliberately does not call super.onBackPressed(): the finish-if-not-finishing guard below is
+    // the intended back behavior and calling super would finish() unconditionally.
+    @SuppressLint("MissingSuperCall")
     @Override
     public void onBackPressed() {
         finishActivityIfNotFinishing();

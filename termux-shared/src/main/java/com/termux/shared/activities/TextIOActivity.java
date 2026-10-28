@@ -232,6 +232,8 @@ public class TextIOActivity extends AppCompatActivity {
         return false;
     }
 
+    // Deliberately does not call super.onBackPressed(): back confirms the text instead of finishing.
+    @SuppressLint("MissingSuperCall")
     @Override
     public void onBackPressed() {
         confirm();

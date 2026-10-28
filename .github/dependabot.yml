@@ -7,3 +7,9 @@ updates:
   commit-message:
     # Prefix all commit messages with "Changed: "
     prefix: "Changed"
+- package-ecosystem: gradle
+  directory: /
+  schedule:
+    interval: daily
+  commit-message:
+    prefix: "Changed"

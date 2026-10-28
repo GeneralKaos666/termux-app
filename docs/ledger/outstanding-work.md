@@ -329,7 +329,12 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
 ### 4.2 Toolchain and CI
 
-- CI hardening: lint, release build, dependabot for Gradle, dependency verification.
+- `[done 2026-10-27]` CI hardening (mostly): added a `gradle` dependabot ecosystem, a `lint` step to
+  the unit-tests workflow, and a release-build job (`assembleRelease`, exercises R8) to the build
+  workflow. Fixed the three pre-existing lint errors that would have failed CI (two
+  `onBackPressed` `MissingSuperCall` overrides now `@SuppressLint`-annotated; the
+  `CoreLibDesugaringV1` error is suppressed pending the deferred `desugar_jdk_libs` 2.x upgrade).
+- `[deferred]` dependency verification (Gradle `verification-metadata.xml`) — still to generate.
 - `[done 2026-10-27]` JitPack versioning: the three library modules now read their publication
   version from the `VERSION` env var (`System.getenv("VERSION") ?: '0.118.0'`), so a JitPack build
   publishes with the requested tag/commit instead of the hardcoded default. Verified by generating
@@ -365,7 +370,7 @@ can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and
 | 10 | Wallpaper-mode palette repaint | done | `ad380602` |
 | 11 | Wide-glyph OSC 8 hit-test | done | `d784313c` |
 | 12 | Java 1.8 → 17 | done | align toolchain; check desugaring |
-| 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | to do | workflows |
+| 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | done | workflows (dependency verification deferred) |
 | 14 | CI bootstrap re-download | done | avoid re-downloading cached zips unnecessarily |
 | 15 | JitPack versioning | done | library publishing/versioning |
 | 16 | Session restore | to do | restore sessions across process death (§5.1) |

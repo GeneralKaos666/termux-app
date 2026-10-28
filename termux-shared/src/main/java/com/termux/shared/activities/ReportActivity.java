@@ -1,5 +1,7 @@
 package com.termux.shared.activities;
 
+import android.annotation.SuppressLint;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
@@ -203,6 +205,8 @@ public class ReportActivity extends AppCompatActivity {
         return true;
     }
 
+    // Deliberately does not call super.onBackPressed(): back removes the task from recents instead.
+    @SuppressLint("MissingSuperCall")
     @Override
     public void onBackPressed() {
         // Remove activity from recents menu on back button press

@@ -124,6 +124,8 @@ android {
 
     lint {
         disable 'ProtectedPermissions'
+        // desugar_jdk_libs 1.1.5 is pinned pending the deferred 2.x upgrade (outstanding-work.md §4.3).
+        disable 'CoreLibDesugaringV1'
     }
 
     testOptions {
