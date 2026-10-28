@@ -172,11 +172,22 @@ drag-to-reorder, rename and close have all since shipped.
   `58;5;256` means "default foreground".
 - `[declined]` a `CellAttributes` value type for the travelling `style`/`linkId`/`underlineColor`
   triple, and moving the link lookup out of the pure static resolver — both wider than WS5.
-- `[open]` inherited markers worth a decision, not necessarily a fix: `ITermImage.java:273`
-  (name/size keys unsupported), `TerminalEmulator.java:3062` (iTerm2 file-saving to Downloads
-  dropped), `:1837` (reverse wrap-around TODO), `:2299-2302` (ECH clears attributes?),
-  `TerminalRow.java:296` (unassigned characters get width 0), `:3497` (cursor field threading), plus
-  a long tail of `// Ignore.` branches on purpose-skipped controls. All predate this work.
+- `[decided 2026-10-27]` inherited markers, triaged (all predate this work):
+  - `ITermImage` `name`/`size` keys — **intentional ignore**: optional iTerm2 labels Termux doesn't
+    need (no file save, size hint redundant with the image data).
+  - iTerm2 file-saving to Downloads — **intentional limitation**: a non-inline (`inline=0`) image is
+    dropped; saving to disk isn't supported. Removed the empty `else {}` (cosmetic).
+  - Reverse wrap-around (`DECSET 45`) — **not implementing**: niche mode, grouped with the other
+    ignored modes (80→132); xterm itself deprecated it.
+  - `ECH` clears attributes — **open (conformance)**: ECH fills with the current style but the spec
+    says it should reset attributes; parks with the xterm-conformance remainder (WS5).
+  - `TerminalRow` "unassigned get width 0" — **defensive note**: unassigned code points are already
+    replaced with `U+FFFD` in `processByte` before reaching `setChar`, so the note is effectively
+    unreachable; left as a guard comment.
+  - Cursor-field threading — **decided**: the emulator runs on the main thread (documented in
+    `TerminalSession`); the defensive `if (column < 0)` guards a past
+    `ArrayIndexOutOfBoundsException` and stays.
+  - The long tail of `// Ignore.` branches — **intentional**: purpose-skipped control characters.
 
 ### 2.5 Compatibility crux (why this is a program, not one spec)
 

@@ -2787,8 +2787,7 @@ public final class TerminalEmulator {
                             }
                             mCursorCol = col;
                         }
-                        // Saving files in downloads folder is not supported currently.
-                        else {}
+                        // Saving a non-inline image to disk is not supported, so it is dropped.
                     }
                     break;
                 } else if (controlCommandPrefix.startsWith("ReportCellSize")) {
