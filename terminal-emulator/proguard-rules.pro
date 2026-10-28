@@ -9,6 +9,10 @@
 
 # Add any project specific keep options here:
 
+# The terminal emulator is a published library; keep its API (incl. the JNI class com.termux.terminal.JNI)
+# intact in consuming builds.
+-keep class com.termux.terminal.** { *; }
+
 # If your project uses WebView with JS, uncomment the following
 # and specify the fully qualified class name to the JavaScript interface
 # class:

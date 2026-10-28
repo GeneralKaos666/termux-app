@@ -300,9 +300,15 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
 - `app/build.gradle` carries a keystore password in plaintext next to the committed
   `testkey_untrusted.jks` (upstream inheritance; debug-only, still unappealing).
-- `-dontobfuscate` in both ProGuard rule files makes release `minifyEnabled true` mostly inert.
-  R8/release hardening needs keep rules for the `:termux-shared` public API, JNI entry points and
-  Compose — a separate slice because it affects the published artifact.
+- `[done 2026-10-27]` R8/release hardening: removed `-dontobfuscate` so release `minifyEnabled true`
+  now actually obfuscates. The three published library modules ship `-keep class com.termux.{shared,view,terminal}.**`
+  as `consumerProguardFiles` (the old `proguardFiles` in the release build type did not get packaged
+  as consumer rules), so the companion-app integration surface and Java-serialized models keep their
+  names. The app keeps JNI entry points; manifest components and the default native-method rule cover
+  the rest. Verified `:app:assembleRelease` builds and the mapping keeps library source classes
+  (`Error -> Error`) while obfuscating `com.termux.app.**` (359 classes). Compose needed no explicit
+  rules (the Compose compiler + AGP handle it). Device verification of the obfuscated APK is
+  `manual-checks.md` D-11.
 - `targetSdkVersion=28` while `compileSdkVersion=36`. Raising `targetSdkVersion` is a **dropped**
   decision, not a todo (it was mis-numbered as roadmap item 15 before the consolidation).
 - No lint baseline; suppressions are ad hoc, with `SharedPreferenceUtils` carrying eight
@@ -347,7 +353,7 @@ can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and
 | 2 | Move `FileUtilsTests` out of the published artifact (instrumented) | done | `c389a88d` |
 | 3 | AndroidX instrumentation test runner (`terminal-view`) | done | `823542d7` |
 | 4 | Docs re-homing (`docs/ideas/` → `docs/ledger/`) | done | `26388328`, consolidated 2026-10-24 |
-| 5 | R8/release build hardening (keep rules for `:termux-shared` public API, JNI entry points, Compose) | to do | separate slice, affects published artifact |
+| 5 | R8/release build hardening (keep rules for `:termux-shared` public API, JNI entry points, Compose) | done | separate slice, affects published artifact |
 | 6 | God-class splits (§3.2) | to do | behavior-preserving |
 | 7 | `:termux-shared` unit tests (§3.1) | to do | expand beyond the instrumented harness |
 | 8 | `LOG_ESCAPE_SEQUENCES = false` silent protocol errors | done | `3e0f1931` |

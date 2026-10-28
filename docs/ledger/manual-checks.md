@@ -27,6 +27,7 @@ between sessions; rediscover it before a run. `input text` is unreliable on this
 | D-8 | B1 onboarding edges (cancel/retry, rotation mid-install, back key) | pending | `docs/plans/2026-10-10-shell-sessions.md` C1b/B1 gate |
 | D-9 | A2 multi-window split-pane stability | pending (system placement ran clean; a stable focused split pane was not automatable) | `docs/plans/2026-10-10-shell-sessions.md` A2 results |
 | D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` | pending, only if float is picked up | `outstanding-work.md` §5.2 |
+| D-11 | Obfuscated release APK runs (R8 hardening) | pending | `outstanding-work.md` §4.1 |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -175,3 +176,16 @@ Only if Termux:Float is picked up (`outstanding-work.md` §5.2).
 - [ ] Verify `Settings.canDrawOverlays()` under `sharedUserId` on a device. The float service
       currently catches the failure instead of checking, with the comment that it "always returns
       false, perhaps due to sharedUserId". Do not "fix" this blindly.
+
+## 12. D-11 — obfuscated release APK runs
+
+The release build now obfuscates `com.termux.app.**` (R8 hardening, `outstanding-work.md` §4.1). The
+published library surface, JNI entry points and manifest components are kept, but a release build has
+not been exercised on a device since the change.
+
+- [ ] Install a release APK and confirm the bootstrap install completes (exercises
+      `TermuxInstaller.getZip()` JNI).
+- [ ] Open a session and run a command (exercises the terminal-emulator `JNI` subprocess path).
+- [ ] Run a `termux-am` / local-socket command (exercises `LocalSocketManager` JNI).
+- [ ] Confirm a companion-app round-trip still works (e.g. Termux:API clipboard or a `RUN_COMMAND`
+      intent), proving the kept `com.termux.shared.**` surface deserializes `Error`/`ResultData`.

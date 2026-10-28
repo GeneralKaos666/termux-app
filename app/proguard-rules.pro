@@ -7,6 +7,10 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
--dontobfuscate
+# Keep JNI entry points (native methods are resolved by name from C as Java_<pkg>_<Class>_<method>),
+# e.g. com.termux.app.TermuxInstaller.getZip().
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
 #-renamesourcefileattribute SourceFile
 #-keepattributes SourceFile,LineNumberTable
