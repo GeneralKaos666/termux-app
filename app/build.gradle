@@ -250,7 +250,9 @@ task downloadBootstraps() {
 }
 
 afterEvaluate {
-    android.applicationVariants.all { variant ->
-        variant.javaCompileProvider.get().dependsOn(downloadBootstraps)
-    }
+    // The bootstrap zips are .incbin'd by the native build (termux-bootstrap-zip.S), which runs
+    // before javaCompile, so wiring downloadBootstraps to javaCompile left a window where the NDK
+    // build ran without the zips (release builds failed with "Could not find incbin file"). Anchor it
+    // on preBuild, the earliest task, so the zips exist before any native or Java compilation.
+    tasks.named('preBuild').configure { dependsOn downloadBootstraps }
 }
