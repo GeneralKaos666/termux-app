@@ -77,7 +77,8 @@ drag-to-reorder, rename and close have all since shipped.
   now Display / Keyboard / Advanced, all 13 leaf `app:key` values are frozen, and no migration is
   needed. Commits `de9ed98b`..`9077b5f6`; spec `specs/2026-10-16-settings-ia-design.md`, plan
   `plans/2026-10-16-settings-ia.md`; final review clean.
-- The remaining onboarding and settings checks are device-only: `manual-checks.md` D-7 and D-8.
+- The onboarding and settings checks in `manual-checks.md` D-7 and D-8 are closed (D-7 measured
+  2026-11-02; D-8 on the maintainer's verdict, since exercising the edges needs a data wipe).
 
 ### 1.4 Appearance — shipped, one device pass outstanding
 
@@ -150,6 +151,36 @@ drag-to-reorder, rename and close have all since shipped.
 
 ### 2.4 Known defects and bounded leftovers
 
+- `[open 2026-11-02, D-12]` **the in-app floating terminal crashes on creation** — choosing
+  "New floating session" throws
+  `java.lang.IllegalStateException: ViewTreeLifecycleOwner not found from androidx.compose.ui.platform.ComposeView`
+  when `FloatController` adds the overlay `ComposeView` from the `TermuxService` context
+  (`showWindow()`, `FloatController.kt:170`; the bubble at line 266 has the same problem). There is no
+  Activity to provide `ViewTreeLifecycleOwner`/`ViewTreeSavedStateRegistryOwner` for an
+  `APPLICATION_OVERLAY` added by a service. Two identical `data_app_crash` records in dropbox
+  (02:21:52 and 02:23:29, build `2.0.0-beta+792b9f7`). Fix: give both overlay views a lifecycle and
+  saved-state owner (e.g. a `LifecycleService`/`SavedStateRegistryOwner` owned by the controller, or
+  `ComposeView.setViewTreeLifecycleOwner(...)` + `setViewTreeSavedStateRegistryOwner(...)` before
+  `addView`). Evidence in `~/.tmp/opencode/device-checks-2026-11-02.md` D-12.
+- `[open 2026-11-02, D-4]` **renderer fans out weight-2 grapheme continuations** — the emulator
+  absorbs a ZWJ sequence into one 2-column cluster (`GraphemeClusters`, `TerminalRow.setChar`,
+  `TerminalBuffer.getWidthForWrite`), but `TerminalRenderer.onDraw` still advances its `column`
+  cursor by `WcWidth.width()` for every code point and only eats zero-width continuations
+  (`charsForColumns`); the width-2 continuations (ZWJ members) are therefore counted as fresh cells.
+  On device `A👨‍👩‍👧B` draws the three members at columns 1/3/5 and `B` over ruler column 7
+  instead of 3 (4-column drift). Evidence in `~/.tmp/opencode/device-checks-2026-11-02.md` D-4.
+  Fix belongs in `:terminal-view` (walk clusters with `GraphemeClusters.clusterEnd/clusterWidth`
+  in the run loop and `charsForColumns`); no `:terminal-emulator` change is needed.
+- `[open 2026-11-02, D-5 capture]` **OOM on rotate at the minimum font size** — rotating a long-lived
+  instance portrait → landscape at font 10 px (354 columns) threw
+  `java.lang.OutOfMemoryError` at `TerminalRow.<init>` ← `TerminalBuffer.resize` ←
+  `TerminalEmulator.resizeScreen`. `TerminalBuffer.resize` allocates all 10,000 transcript rows at the
+  new column width whenever the column count changes, so a wide grid multiplies the transcript
+  footprint (354 × 10,000 cells) on top of the live screen. One `data_app_crash` record in dropbox at
+  2026-11-02 02:44:26 (PID 19366, uptime 705 s, build `2.0.0-beta+792b9f7`); it did **not** reproduce
+  after a fresh start, so it is heap-pressure dependent (the capture run had produced a dozen
+  screenshots in the same process lifetime). Not a correctness bug in `resize` — a bounded-memory
+  question for very wide grids. Evidence in `~/.tmp/opencode/device-checks-2026-11-02.md` D-5.
 - `[done 2026-10-25, ad380602]` **palette changes with no other output** — the simple fix was chosen:
   `updateBackgroundColor()` now invalidates the terminal view even in wallpaper/custom-image mode, so
   a palette-only change repaints. The robust palette-version signal remains deferred (§5.4).
@@ -319,7 +350,8 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   the rest. Verified `:app:assembleRelease` builds and the mapping keeps library source classes
   (`Error -> Error`) while obfuscating `com.termux.app.**` (359 classes). Compose needed no explicit
   rules (the Compose compiler + AGP handle it). Device verification of the obfuscated APK is
-  `manual-checks.md` D-11.
+  `manual-checks.md` D-11, closed 2026-11-02 on the maintainer's verdict (the bootstrap path needs a
+  wiped-data install, which was declined).
 - `targetSdkVersion=28` while `compileSdkVersion=36`. Raising `targetSdkVersion` is a **dropped**
   decision, not a todo (it was mis-numbered as roadmap item 15 before the consolidation).
 - No lint baseline; suppressions are ad hoc, with `SharedPreferenceUtils` carrying eight

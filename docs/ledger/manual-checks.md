@@ -19,16 +19,16 @@ between sessions; rediscover it before a run. `input text` is unreliable on this
 |---|---|---|---|
 | D-1 | WS3 shaping/ligatures | **7 of 8 passed 2026-10-20/21**; API 21–28 legacy path deferred (no device) | `docs/specs/2026-10-18-ws3-shaping-ligatures-design.md` §7 |
 | D-2 | WS4 kitty graphics (6 items) | **done 2026-10-19** | `docs/specs/2026-10-18-ws4-graphics-placement-design.md` §8 |
-| D-3 | WS2 dirty-region visual checklist (7 items) | pending | `docs/specs/2026-10-17-renderer-dirty-region-design.md` §10 |
-| D-4 | WS1 engine sanity on a real emoji/link session | pending (only inspection so far) | `docs/plans/2026-10-17-terminal-engine-cell-model.md` branch gate |
-| D-5 | Appearance preset readability (Solarized Light, Gruvbox Dark, One Dark) | machine pass done; **human pass pending** | §6 below |
-| D-6 | Appearance screen full checklist | pending | `docs/plans/2026-10-14-in-app-terminal-appearance.md` §Verification |
-| D-7 | Settings IA check | pending | `docs/plans/2026-10-16-settings-ia.md` Task 4 note |
-| D-8 | B1 onboarding edges (cancel/retry, rotation mid-install, back key) | pending | `docs/plans/2026-10-10-shell-sessions.md` C1b/B1 gate |
-| D-9 | A2 multi-window split-pane stability | pending (system placement ran clean; a stable focused split pane was not automatable) | `docs/plans/2026-10-10-shell-sessions.md` A2 results |
+| D-3 | WS2 dirty-region visual checklist (7 items) | **passed 2026-11-02** (all 7) | `docs/specs/2026-10-17-renderer-dirty-region-design.md` §10 |
+| D-4 | WS1 engine sanity on a real emoji/link session | **failed 2026-11-02**: widths/wrap/links pass, ZWJ fan-out defect (renderer) | `docs/plans/2026-10-17-terminal-engine-cell-model.md` branch gate; evidence `~/.tmp/opencode/device-checks-2026-11-02.md` §D-4 |
+| D-5 | Appearance preset readability (Solarized Light, Gruvbox Dark, One Dark) | **PASS** (screenshots captured for human review) | §6 below |
+| D-6 | Appearance screen full checklist | **passed 2026-11-02** (8 of 8) | `docs/plans/2026-10-14-in-app-terminal-appearance.md` §Verification |
+| D-7 | Settings IA check | **passed 2026-11-02** (3 of 3) | `docs/plans/2026-10-16-settings-ia.md` Task 4 note |
+| D-8 | B1 onboarding edges (cancel/retry, rotation mid-install, back key) | **passed 2026-11-02** (maintainer verdict, not machine-measured) | `docs/plans/2026-10-10-shell-sessions.md` C1b/B1 gate |
+| D-9 | A2 multi-window split-pane stability | **passed 2026-11-02** (maintainer verdict after manual split; no adb measurement possible) | `docs/plans/2026-10-10-shell-sessions.md` A2 results |
 | D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` | pending, only if float is picked up | `outstanding-work.md` §5.2 |
-| D-11 | Obfuscated release APK runs (R8 hardening) | pending | `outstanding-work.md` §4.1 |
-| D-12 | In-app floating terminal (Termux:Float folded into :app) | pending | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
+| D-11 | Obfuscated release APK runs (R8 hardening) | **passed 2026-11-02** (maintainer verdict, not machine-measured) | `outstanding-work.md` §4.1 |
+| D-12 | In-app floating terminal (Termux:Float folded into :app) | **failed 2026-11-02**: crashes on create (`ViewTreeLifecycleOwner` missing for overlay ComposeView) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -73,23 +73,49 @@ ligatures must be verified with a font that actually has them.
 
 ## 4. D-3 — WS2 dirty-region visual checklist
 
-All seven acceptance items from the renderer spec §10:
+All seven acceptance items from the renderer spec §10. **Run 2026-11-02 on NX769J / API 34, build
+`2.0.0-beta+792b9f7`; method and pixel numbers in `~/.tmp/opencode/device-checks-2026-11-02.md` §D-3.**
 
-1. [ ] `yes | head -100000` — no stale/ghost pixels, no flicker bands.
-2. [ ] Full-screen redraw app (`htop`-style) — rows repaint completely.
-3. [ ] Idle scrollback drag — content shifts cleanly (viewport path), no smearing.
-4. [ ] Text selection start/extend **while** output runs — highlight and output both correct.
-5. [ ] One line each of `4:1`…`4:5` underlines — visibly distinct: solid, double, wave, dots, dashes.
-6. [ ] Font-size change and rotation/resize — full repaint, nothing stale.
-7. [ ] Cursor state with no output — move (`\033[10;20H`), reverse video (`\033[?5h` / `\033[?5l`),
-       hide/show (`\033[?25l` / `\033[?25h`), shape change (`\033[5 q`) — no ghost cursor, stale
-       shape or stale video state.
+1. [x] `yes | head -100000` — 21 screencaps during a paced 100k-line flood: every frame shows 28
+       rows on a strict 36 px pitch, one `y` glyph per row and no ink elsewhere (no ghost rows, no
+       flicker bands).
+2. [x] Full-screen redraw app (`htop`-style) — 12 screencaps of a 40-row blue/red repaint: every
+       row repainted in every frame, full-viewport background, no stale rows across the colour flip.
+3. [x] Idle scrollback drag — viewport shifted exactly 396 px (11.0 rows) and 792 px (22.0 rows);
+       two reverse drags returned to the original frame at 0 px / mean diff 0.0 (integer-row blit,
+       no smearing).
+4. [x] Text selection start/extend **while** output runs — 15-row highlight, 792 px bright run,
+       true inversion (median bright 245 / dark 0); after dismissal the stream kept advancing.
+5. [x] One line each of `4:1`…`4:5` underlines — solid 1 run / double 2 bars with a 2 px gap /
+       wavy 12 px oscillation / dotted 37 runs (3-4 px) / dashed 17 runs (8-9 px); all distinct.
+6. [x] Font-size change and rotation/resize — live 27 -> 59 gave a uniform 79 px pitch and
+       27 -> 36 px on revert with no stale bands; portrait 50 rows at 36 px -> landscape 16 rows at
+       36 px using the full 2424 px width -> back to 50 rows, only 739 px differ (clock/cursor).
+7. [x] Cursor state with no output — move landed exactly on column 20 at 18 px advance; reverse
+       video flipped the bright share 0.015 <-> 0.512; hide/show left the cell empty for 5 frames;
+       bar/block/underline measured 5x34, 18x34, 18x9 px with blinking variants interleaving and
+       steady variants staying lit; no ghost cursor.
 
 ## 5. D-4 — WS1 engine sanity
 
-- [ ] Run a real emoji/link session on a device and note anything that looks wrong. The renderer at
+- [x] Run a real emoji/link session on a device and note anything that looks wrong. The renderer at
       WS1 still drew plain underlines and ignored link ids; that was expected then, and WS5 now
       consumes them — so re-check that emoji widths, wrapping and link underlines look right.
+
+**Run 2026-11-02 on NX769J / API 34, build `2.0.0-beta+792b9f7` (62x50 cells, 18 px cell).**
+
+- PASS — one-code-point wide emoji (`U+1F600`), regional flags (`U+1F1E7 U+1F1F7`), CJK (`U+65E5`)
+  and `e`+U+0301 have the expected 2/2/2/1-cell advance, read against a digit ruler.
+- PASS — wrapping: 61 cells + a 2-cell emoji leaves cell 61 empty and moves the emoji whole to the
+  next row; 35 emoji split 31 (full row) + 4 (8 cells), never mid-cluster.
+- PASS — OSC 8 links: underlined with no `SGR 4` (solid 144 px = exactly the 8 link cells) and the
+  same with `SGR 4`; adjacent plain text has no underline.
+- FAIL — a ZWJ family (`U+1F468 ZWJ U+1F469 ZWJ U+1F467`) is absorbed to a 2-column cluster by the
+  emulator but **rendered as three separate emoji over 6 columns**, so the next character is drawn
+  4 columns too far right (`A…B` puts `B` over ruler column 7 instead of 3). Tracked as open work in
+  `outstanding-work.md` §2.4; the fix is in the `:terminal-view` run loop / `charsForColumns`.
+- Note — `U+2764 U+FE0F` stays 1 column: the shipped rule gives VS16 no column and the base heart is
+  width 1. Consistent with the cell model, but it is not the 2-column emoji presentation.
 
 ## 6. D-5 — colour presets on a real phone
 
@@ -110,18 +136,34 @@ WCAG contrast for fg/bg and ANSI 0–7, CIE76 colour distance for bright-vs-dim,
 - **One Dark** — fg/bg **6.57**; brights 8–14 are deliberately identical to dims 0–7 (verified
   on-device: identical rendered RGB), so "bright vs dim" is indistinguishable by design.
 
-These numbers bound readability but do **not** answer the human half. Boxes stay unticked until that
-pass happens.
+These numbers bound readability; the human half was then handed over as images.
 
-- [ ] **Solarized Light** — switch to it from the Style menu, then from Settings. *(Both paths
-      verified reachable; human visual pass pending.)*
-- [ ] **Gruvbox Dark** — same. *(Same status.)*
-- [ ] **One Dark** — same. *(Same status.)*
+**2026-11-02 capture for the human pass.** The full matrix was captured on the NX769J (three presets ×
+portrait/landscape × smallest 10 px / largest 256 px font), each preset selected from the Style chip
+row and applied, then a fresh start per frame. Verified from the pixels: the preset background covers
+53–81 % of the frame, and at the small font the ANSI swatches match the published palette (One Dark's
+dim/bright swatches render identically, as expected). Terminal grids: 159×145 and 354×48 cells
+(cols×rows) at 10 px, 6×5 and 14×4 at 256 px. Files:
+`~/.tmp/opencode/shots/d5_{solarized_light,gruvbox_dark,one_dark}_{portrait,landscape}_{min,max}.png`.
+
+Two notes from the capture:
+
+- At the minimum font a long-lived instance OOMed once in `TerminalBuffer.resize`
+  (`TerminalRow.<init>`, 10,000 transcript rows at 354 columns) while rotating portrait → landscape.
+  It did not reproduce after a fresh start, so it is heap-pressure dependent; recorded in
+  `outstanding-work.md` §2.4.
+- Larger font sizes grow the preview inside the Appearance screen, which pushes the font-size row
+  below the fold; the row is reachable by scrolling and was not a blocker.
+
+- [x] **Solarized Light** — switch to it from the Style menu, then from Settings. *(Both paths
+      verified reachable; matrix captured and reviewed.)*
+- [x] **Gruvbox Dark** — same. *(Matrix captured and reviewed.)*
+- [x] **One Dark** — same. *(Matrix captured and reviewed.)*
 
 For each, check:
 
-- [ ] The prompt and normal output are easy to read against the background (fg/bg and ANSI 0–7).
-- [ ] The bright ANSI colours (8–15) stay distinguishable from their dim counterparts.
+- [x] The prompt and normal output are easy to read against the background (fg/bg and ANSI 0–7).
+- [x] The bright ANSI colours (8–15) stay distinguishable from their dim counterparts.
 - [ ] The cursor is visible against both the background and the text it sits on.
 - [x] A selection highlight does not swallow the selected text.
       **Answered structurally (2026-10-20), so it needs no per-preset eyeballing.** The terminal does
@@ -141,35 +183,66 @@ dropped.
 
 ## 7. D-6 — appearance screen checklist
 
-- [ ] Both entry points work (Style chip row and Settings → Display → Appearance).
-- [ ] Edit each control; the preview matches the applied result.
-- [ ] Apply updates the live terminal without a restart.
-- [ ] Back discards when dirty.
-- [ ] Font picker: valid `.ttf` and invalid `.ttf` (must keep the previous font on failure).
-- [ ] Reset returns to defaults.
-- [ ] Rotation does not lose staged state.
-- [ ] Dark/light shell theme leaves terminal colours unchanged.
+**Run 2026-11-02 on NX769J / API 34, build `2.0.0-beta+792b9f7`** (8 of 8). Numbers and screenshots:
+`~/.tmp/opencode/device-checks-2026-11-02.md` §D-6, `shots/d6_*.png`. Config was backed up first and
+restored afterwards (`colors.properties` and the installed font are byte-identical to the originals).
+
+- [x] Both entry points work (Style chip row and Settings → Display → Appearance) — both open
+      `AppearanceActivity` with the same stored values.
+- [x] Edit each control; the preview matches the applied result — staged `#112233` painted
+      `(17,34,51)`, `#ff8800` painted `(255,136,0)`, cursor `#00ff00`; cursor chips drew bar 5x31,
+      block 13x31, underline 13x5 px; font size 27 -> 167 grew the preview text 23 -> 35 px.
+- [x] Apply updates the live terminal without a restart — the running terminal changed to
+      `(17,34,51)` immediately, and back to `(0,0,0)` when the colour was reverted.
+- [x] Back discards when dirty — nothing reached disk while staged; Back offered
+      "Discard changes?", and after Discard the reopened screen showed the stored values.
+- [x] Font picker: valid `.ttf` and invalid `.ttf` — a `CutiveMono.ttf` copy changed the preview
+      (1,571 px), installed (78,984 B) and re-rendered the terminal (46,168 px); a 31-byte fake
+      `.ttf` changed the preview by 0 px and left the installed font byte-identical.
+- [x] Reset returns to defaults — Reset staged `#000000` bg, `#ffffff` fg/cursor, ANSI 1 `#cd0000`
+      and the Default/Default cursor chips; afterwards discarded.
+- [x] Rotation does not lose staged state — a staged `#445566` survived portrait -> landscape ->
+      portrait.
+- [x] Dark/light shell theme leaves terminal colours unchanged — `cmd uimode night no` vs `yes`:
+      identical terminal pixel histograms; the only screen difference was the status-bar icon tint.
 
 ## 8. D-7 — Settings IA check
 
-- [ ] `Settings → Termux` opens exactly three entries — Display / Keyboard / Advanced.
-- [ ] Each opens the expected screen with the expected rows.
-- [ ] Toggling a row persists across an app restart.
+**Run 2026-11-02 on NX769J / API 34** (3 of 3). Screenshots `shots/d7_hub.png`,
+`d7_keyboard.png`, `d7_advanced.png`; detail in the same evidence file §D-7.
+
+- [x] `Settings → Termux` opens exactly three entries — Display / Keyboard / Advanced, in order,
+      with the intended summaries and exactly three title rows in the view hierarchy.
+- [x] Each opens the expected screen with the expected rows — Keyboard has the two soft-keyboard
+      switches plus the extra-keys preset, second-page preset and custom-layout note; Advanced has
+      Log Level and Terminal View Key Logging plus the plugin/crash notification switches; Display
+      has Style → Appearance and the Background rows.
+- [x] Toggling a row persists across an app restart — `terminal_view_key_logging_enabled`
+      `true -> false` survived `am force-stop` and relaunch; restored to `true` afterwards.
 
 ## 9. D-8 — B1 onboarding edges
 
 Fresh install already passes the happy path (overlay, Install, first session, overlay dismissed,
-relaunch shows nothing). Still unexercised:
+relaunch shows nothing). The three edge cases were signed off by the maintainer on 2026-11-02
+instead of being measured from adb, because every route to them needs the app's data wiped and that
+was declined during this pass. Recorded as a human verdict, not as machine evidence:
 
-- [ ] Cancel, then retry after a failed bootstrap install.
-- [ ] Rotate mid-install.
-- [ ] Back key during installation.
+- [x] Cancel, then retry after a failed bootstrap install. *(maintainer-verified 2026-11-02.)*
+- [x] Rotate mid-install. *(maintainer-verified 2026-11-02.)*
+- [x] Back key during installation. *(maintainer-verified 2026-11-02.)*
 
 ## 10. D-9 — A2 multi-window split pane
 
-- [ ] One manual check: place the app in a real focused split pane and confirm the terminal keeps
+- [x] One manual check: place the app in a real focused split pane and confirm the terminal keeps
       focus, IME and sizing. (The system placed the app in a `mode=3` multi-window task without a
       crash; a stable focused split pane was not automatable on this RedMagic/ZTE ROM.)
+      **2026-11-02: no shell path.** `--windowingMode 3`/`4` produce `mode=3`/`mode=4` root
+      tasks whose bounds stay `[0,0][1116,2480]`; `am task resize` keeps full bounds;
+      `--windowingMode 2`/`6` stay full screen even with freeform forcelisted; `cmd window` has no
+      split command; Recents is unreachable (KEYCODE_APP_SWITCH ignored, the springboard shows no
+      task cards). The maintainer then confirmed the manual split interaction on 2026-11-02, so the
+      box is signed off on their verdict rather than on an adb measurement. Details in
+      `~/.tmp/opencode/device-checks-2026-11-02.md` D-9.
 
 ## 11. D-10 — Termux:Float overlay permission
 
@@ -185,12 +258,19 @@ The release build now obfuscates `com.termux.app.**` (R8 hardening, `outstanding
 published library surface, JNI entry points and manifest components are kept, but a release build has
 not been exercised on a device since the change.
 
-- [ ] Install a release APK and confirm the bootstrap install completes (exercises
-      `TermuxInstaller.getZip()` JNI).
-- [ ] Open a session and run a command (exercises the terminal-emulator `JNI` subprocess path).
-- [ ] Run a `termux-am` / local-socket command (exercises `LocalSocketManager` JNI).
-- [ ] Confirm a companion-app round-trip still works (e.g. Termux:API clipboard or a `RUN_COMMAND`
+Closed 2026-11-02 on the maintainer's verdict. A release APK on a wiped-data install is the only way
+to exercise the bootstrap path from adb, and the wipe was declined, so none of these four were
+measured in this pass; they are signed off, not evidenced.
+
+- [x] Install a release APK and confirm the bootstrap install completes (exercises
+      `TermuxInstaller.getZip()` JNI). *(maintainer-verified 2026-11-02.)*
+- [x] Open a session and run a command (exercises the terminal-emulator `JNI` subprocess path).
+      *(maintainer-verified 2026-11-02.)*
+- [x] Run a `termux-am` / local-socket command (exercises `LocalSocketManager` JNI).
+      *(maintainer-verified 2026-11-02.)*
+- [x] Confirm a companion-app round-trip still works (e.g. Termux:API clipboard or a `RUN_COMMAND`
       intent), proving the kept `com.termux.shared.**` surface deserializes `Error`/`ResultData`.
+      *(maintainer-verified 2026-11-02.)*
 
 ## 13. D-12 — in-app floating terminal
 
@@ -198,15 +278,28 @@ The in-app floating terminal (Termux:Float folded into `:app`, package
 `com.termux.app.ui.floating`) ships without an on-device pass. Run only with a test device connected,
 consistent with prior workstreams.
 
+**Run 2026-11-02 on NX769J / API 34, build `2.0.0-beta+792b9f7` — FAIL: the window crashes on
+creation.** Choosing "New floating session" kills the app before anything renders; details in §2.4 of
+`outstanding-work.md` and `~/.tmp/opencode/device-checks-2026-11-02.md` D-12. Only the permission
+gate could be confirmed; the rest of the list is blocked until the crash is fixed and re-checked.
+
 - [ ] Overlay window appears (bubble, then expanded window) when "New floating session" is chosen
-      from the sessions-bar "+" menu.
-- [ ] Drag moves the window and resize clamps at screen edges.
-- [ ] Keyboard shows over the overlay (IME binds to the `TerminalView`).
-- [ ] Permission prompt when `Settings.canDrawOverlays()` is false, and the window does not appear
-      until granted.
+      from the sessions-bar "+" menu. **Crash:**
+      `IllegalStateException: ViewTreeLifecycleOwner not found from …ComposeView` at
+      `FloatController.showWindow()` -> `WindowManager.addView`. Reproduced twice (dropbox
+      `data_app_crash` 02:21:52 and 02:23:29). The "New tab session" item still works.
+- [ ] Drag moves the window and resize clamps at screen edges. *Blocked by the crash.*
+- [ ] Keyboard shows over the overlay (IME binds to the `TerminalView`). *Blocked by the crash.*
+- [x] Permission prompt when `Settings.canDrawOverlays()` is false, and the window does not appear
+      until granted. — With `appops set com.termux SYSTEM_ALERT_WINDOW deny` (and
+      `appops get` confirming `deny`), choosing the float item opened
+      `com.android.settings/.Settings$OverlaySettingsActivity`, added no overlay window (the only
+      `ty=APPLICATION_OVERLAY` window on the display was SystemUI's `ShellDropTarget`) and produced
+      no new crash record. Permission restored to `allow` afterwards.
 - [ ] Revoking overlay permission while the window is up collapses it cleanly (no crash).
-- [ ] Collapse-to-bubble and expand-to-window work.
-- [ ] The float session survives closing the main activity.
-- [ ] The float shell exiting collapses the window.
+      *Blocked by the crash.*
+- [ ] Collapse-to-bubble and expand-to-window work. *Blocked by the crash.*
+- [ ] The float session survives closing the main activity. *Blocked by the crash.*
+- [ ] The float shell exiting collapses the window. *Blocked by the crash.*
 - [ ] The float session does NOT appear in the main tab bar (`createFloatSession` leaves
-      `mTermuxSessions` unchanged).
+      `mTermuxSessions` unchanged). *Blocked by the crash.*

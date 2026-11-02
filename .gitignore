@@ -50,3 +50,5 @@ Thumbs.db
 
 # Idea notes — local only, not tracked (directory itself stays visible)
 docs/ideas/*.md
+.opencode
+.specify
