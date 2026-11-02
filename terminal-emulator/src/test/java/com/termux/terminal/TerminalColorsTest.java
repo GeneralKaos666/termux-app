@@ -68,4 +68,40 @@ public class TerminalColorsTest extends TestCase {
         colors.reset(7);
         assertEquals(TerminalColors.COLOR_SCHEME.mDefaultColors[7], colors.mCurrentColors[7]);
     }
+
+    public void testChangeCounterBumpsOnlyOnRealChange() {
+        TerminalColors colors = new TerminalColors();
+        int initial = colors.getChangeCounter();
+
+        colors.tryParseColor(1, "#ff0000");
+        assertEquals(initial + 1, colors.getChangeCounter());
+
+        // Re-applying the same value is a no-op, so the counter must not move.
+        colors.tryParseColor(1, "#ff0000");
+        assertEquals(initial + 1, colors.getChangeCounter());
+
+        // An unparseable value is also a no-op.
+        colors.tryParseColor(2, "invalid");
+        assertEquals(initial + 1, colors.getChangeCounter());
+    }
+
+    public void testChangeCounterBumpsOnReset() {
+        TerminalColors colors = new TerminalColors();
+        colors.tryParseColor(7, "#123456");
+        int changed = colors.getChangeCounter();
+
+        colors.reset(7);
+        assertEquals(changed + 1, colors.getChangeCounter());
+
+        // Resetting an entry already at its default is a no-op.
+        colors.reset(7);
+        assertEquals(changed + 1, colors.getChangeCounter());
+    }
+
+    public void testChangeCounterStableOnNoopFullReset() {
+        TerminalColors colors = new TerminalColors();
+        int before = colors.getChangeCounter();
+        colors.reset();
+        assertEquals(before, colors.getChangeCounter());
+    }
 }

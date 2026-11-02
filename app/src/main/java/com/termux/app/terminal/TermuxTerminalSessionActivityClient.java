@@ -563,8 +563,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             // The decor background is the wallpaper/image, not the terminal palette, so it must not be
             // repainted. Still repaint the terminal view: a palette-only change (OSC 4/10/11/12) neither
             // dirties a row nor ticks the change counter, so this callback is its only repaint signal.
+            // The view compares its palette change counter and only invalidates on an actual change.
             TerminalView terminalView = mActivity.getTerminalView();
-            if (terminalView != null) terminalView.invalidate();
+            if (terminalView != null) terminalView.onPaletteChanged();
             return;
         }
         TerminalSession session = mActivity.getCurrentSession();

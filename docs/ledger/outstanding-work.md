@@ -483,11 +483,16 @@ the colour picker title repeats that label plus the hex. The store reads/writes 
 round-tripping keys it does not manage. `colorLabel`, the extended palette, and the store round-trip
 are unit-tested.
 
-### 5.4 Palette-version signal — `[non-goal]`
+### 5.4 Palette-version signal — `[done]`
 
-Decided 2026-11-01: not needed. It was contingent on choosing the "robust" wallpaper-repaint fix,
-which was declined in favour of the simple `invalidate()`-on-`onColorsChanged` fix (`ad380602`). A
-version-tracked repaint would be a micro-optimization over that working fix.
+Reversed from the earlier `[non-goal]`. `TerminalColors` now carries a monotonic change counter,
+bumped only when a colour actually changes value (`tryParseColor`, `reset(int)`, `reset()`, all
+guarded against no-ops). `TerminalView` records the counter after each draw and folds it into its
+`overlayChanged` check, and a new `onPaletteChanged()` invalidates only when the counter differs
+from the last drawn value. `updateBackgroundColor()` now calls `onPaletteChanged()` instead of a
+blanket `invalidate()`, so a palette-only change still repaints but a no-op colour write (a theme
+re-applying the same 256-colour palette every prompt) does not. The counter behaviour is unit-tested
+in `TerminalColorsTest`.
 
 ---
 

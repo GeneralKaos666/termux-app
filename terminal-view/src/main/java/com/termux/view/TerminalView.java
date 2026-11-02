@@ -105,6 +105,8 @@ public final class TerminalView extends View {
     private boolean mLastCursorVisible;
     /** Cursor shape painted by the last draw; {@code DECSCUSR} changes no cell. */
     private int mLastCursorStyle = -1;
+    /** Palette change counter as of the last completed draw, or {@code -1} before the first draw. */
+    private int mLastPaletteChangeCounter = -1;
     /** Reused to avoid allocating a {@link Rect} on every {@link #onDraw(Canvas)}. */
     private final Rect mClipBounds = new Rect();
 
@@ -537,7 +539,8 @@ public final class TerminalView extends View {
             || mEmulator.getCursorCol() != mLastCursorCol
             || mEmulator.isReverseVideo() != mLastReverseVideo
             || mEmulator.shouldCursorBeVisible() != mLastCursorVisible
-            || mEmulator.getCursorStyle() != mLastCursorStyle;
+            || mEmulator.getCursorStyle() != mLastCursorStyle
+            || mEmulator.mColors.getChangeCounter() != mLastPaletteChangeCounter;
 
         RowInvalidation.Decision decision = RowInvalidation.decide(mLastSeenChangeCounter,
             screen.getChangeCounter(), topRowChanged || overlayChanged,
@@ -552,6 +555,19 @@ public final class TerminalView extends View {
         // Result.NONE: nothing visible changed, so deliberately do not invalidate.
 
         if (mAccessibilityEnabled) setContentDescription(getText());
+    }
+
+    /**
+     * Repaints when the palette changed since the last draw, and is a no-op otherwise. A palette-only
+     * change (OSC 4/10/11/12/104) dirties no row and ticks no change counter, so it never reaches
+     * {@link #onScreenUpdated(boolean)}; the hosting activity calls this from its
+     * {@code onColorsChanged} path instead of a blanket {@link #invalidate()}.
+     */
+    public void onPaletteChanged() {
+        if (mEmulator == null) return;
+        if (mEmulator.mColors.getChangeCounter() != mLastPaletteChangeCounter) {
+            invalidate();
+        }
     }
 
     /** This must be called by the hosting activity in {@link Activity#onContextMenuClosed(Menu)}
@@ -1153,6 +1169,7 @@ public final class TerminalView extends View {
             mLastReverseVideo = mEmulator.isReverseVideo();
             mLastCursorVisible = mEmulator.shouldCursorBeVisible();
             mLastCursorStyle = mEmulator.getCursorStyle();
+            mLastPaletteChangeCounter = mEmulator.mColors.getChangeCounter();
 
             // render the text selection handles
             renderTextSelection();
@@ -1175,6 +1192,7 @@ public final class TerminalView extends View {
         mLastReverseVideo = false;
         mLastCursorVisible = true;
         mLastCursorStyle = -1;
+        mLastPaletteChangeCounter = -1;
     }
 
     public TerminalSession getCurrentSession() {

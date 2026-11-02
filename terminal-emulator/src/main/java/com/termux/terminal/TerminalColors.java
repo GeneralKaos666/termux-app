@@ -2,6 +2,8 @@ package com.termux.terminal;
 
 import android.graphics.Color;
 
+import java.util.Arrays;
+
 /** Current terminal colors (if different from default). */
 public final class TerminalColors {
 
@@ -14,19 +16,37 @@ public final class TerminalColors {
      */
     public final int[] mCurrentColors = new int[TextStyle.NUM_INDEXED_COLORS];
 
+    /**
+     * Bumped whenever the palette actually changes value, and never on a no-op write. The terminal view
+     * compares this against the value it last drew so a palette-only change (which dirties no row) can
+     * repaint without a blanket invalidation.
+     */
+    private int mChangeCounter;
+
     /** Create a new instance with default colors from the theme. */
     public TerminalColors() {
         reset();
     }
 
+    /** @return the palette change counter; higher means "changed since the last time the view drew". */
+    public int getChangeCounter() {
+        return mChangeCounter;
+    }
+
     /** Reset a particular indexed color with the default color from the color theme. */
     public void reset(int index) {
-        mCurrentColors[index] = COLOR_SCHEME.mDefaultColors[index];
+        int defaultColor = COLOR_SCHEME.mDefaultColors[index];
+        if (mCurrentColors[index] != defaultColor) {
+            mCurrentColors[index] = defaultColor;
+            mChangeCounter++;
+        }
     }
 
     /** Reset all indexed colors with the default color from the color theme. */
     public void reset() {
+        if (Arrays.equals(mCurrentColors, COLOR_SCHEME.mDefaultColors)) return;
         System.arraycopy(COLOR_SCHEME.mDefaultColors, 0, mCurrentColors, 0, TextStyle.NUM_INDEXED_COLORS);
+        mChangeCounter++;
     }
 
     /**
@@ -72,7 +92,10 @@ public final class TerminalColors {
     /** Try parse a color from a text parameter and into a specified index. */
     public void tryParseColor(int intoIndex, String textParameter) {
         int c = parse(textParameter);
-        if (c != 0) mCurrentColors[intoIndex] = c;
+        if (c != 0 && c != mCurrentColors[intoIndex]) {
+            mCurrentColors[intoIndex] = c;
+            mChangeCounter++;
+        }
     }
 
     /**
