@@ -29,6 +29,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -131,19 +133,20 @@ private fun FloatingWindowHeader(
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.weight(1f))
-        HeaderButton(WindowIcons.Minimize, onClick = onCollapse)
-        HeaderButton(WindowIcons.Keyboard, onClick = onToggleKeyboard)
-        HeaderButton(WindowIcons.Close, onClick = onClose)
+        HeaderButton(WindowIcons.Minimize, contentDescription = "Collapse", onClick = onCollapse)
+        HeaderButton(WindowIcons.Keyboard, contentDescription = "Keyboard", onClick = onToggleKeyboard)
+        HeaderButton(WindowIcons.Close, contentDescription = "Close", onClick = onClose)
     }
 }
 
 /** A compact header action button: a plain clickable icon rather than a Material `IconButton`. */
 @Composable
-private fun HeaderButton(icon: ImageVector, onClick: () -> Unit) {
+private fun HeaderButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit) {
     val view = LocalView.current
     Icon(
         imageVector = icon,
-        contentDescription = null,
+        // TODO(localize): swap for a string resource in Task 7.
+        contentDescription = contentDescription,
         tint = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .clickable {
@@ -168,6 +171,8 @@ private fun ResizeHandle(
     Box(
         modifier = modifier
             .size(ResizeHandleSize)
+            // TODO(localize): swap for a string resource in Task 7.
+            .semantics { contentDescription = "Resize" }
             .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
                     change.consume()

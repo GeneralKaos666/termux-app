@@ -53,7 +53,8 @@ fun FloatingBubble(
         ) {
             Icon(
                 imageVector = BubbleIcons.Terminal,
-                contentDescription = null,
+                // TODO(localize): swap for a string resource in Task 7.
+                contentDescription = "Open terminal",
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(24.dp),
             )
