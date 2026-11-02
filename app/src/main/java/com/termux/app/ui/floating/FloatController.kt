@@ -145,16 +145,23 @@ class FloatController @JvmOverloads constructor(
         if (shown) return
 
         val state = prefs.read()
+        val metrics = context.resources.displayMetrics
+        // Clamp the stored (or default) geometry so the window always lands fully on screen: the
+        // default 300x420dp at x=200dp would otherwise open with its right edge off a phone screen.
+        val width = FloatWindowGeometry.clampWidth(dp(state.width), dp(MIN_WIDTH_DP), metrics.widthPixels)
+        val height = FloatWindowGeometry.clampHeight(dp(state.height), dp(MIN_HEIGHT_DP), metrics.heightPixels)
+        val x = FloatWindowGeometry.clampX(dp(state.x), width, metrics.widthPixels)
+        val y = FloatWindowGeometry.clampY(dp(state.y), height, metrics.heightPixels)
         val params = WindowManager.LayoutParams(
-            dp(state.width),
-            dp(state.height),
+            width,
+            height,
             FloatWindowGeometry.windowType(Build.VERSION.SDK_INT),
             0,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dp(state.x)
-            y = dp(state.y)
+            this.x = x
+            this.y = y
         }
         windowParams = params
 
