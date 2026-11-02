@@ -1,4 +1,4 @@
-package com.termux.app.ui.float
+package com.termux.app.ui.floating
 
 import com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase
 import com.termux.terminal.TerminalSession

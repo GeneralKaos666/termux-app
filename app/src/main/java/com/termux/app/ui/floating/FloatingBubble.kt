@@ -1,4 +1,4 @@
-package com.termux.app.ui.float
+package com.termux.app.ui.floating
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures

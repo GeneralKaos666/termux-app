@@ -1,4 +1,4 @@
-package com.termux.app.ui.float
+package com.termux.app.ui.floating
 
 /**
  * Pure geometry helpers for the in-app floating terminal window. No Android dependencies: the

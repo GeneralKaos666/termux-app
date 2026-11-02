@@ -1,4 +1,4 @@
-package com.termux.app.ui.float
+package com.termux.app.ui.floating
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
