@@ -570,9 +570,51 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         return createTermuxSession(executionCommand);
     }
 
-    /** Create a {@link TermuxSession}. */
+    /** Create a {@link TermuxSession} and add it to the sessions list. */
     @Nullable
     public synchronized TermuxSession createTermuxSession(ExecutionCommand executionCommand) {
+        TermuxSession newTermuxSession = executeTermuxSession(executionCommand, getTermuxTerminalSessionClient());
+        if (newTermuxSession == null) return null;
+
+        mShellManager.mTermuxSessions.add(newTermuxSession);
+
+        // Remove the execution command from the pending plugin execution commands list since it has
+        // now been processed
+        if (executionCommand.isPluginExecutionCommand)
+            mShellManager.mPendingPluginExecutionCommands.remove(executionCommand);
+
+        // Notify the activity that the sessions list has been updated if it is in the foreground
+        if (mTermuxTerminalSessionActivityClient != null)
+            mTermuxTerminalSessionActivityClient.termuxSessionListNotifyUpdated();
+
+        updateNotification();
+
+        // No need to recreate the activity since it likely just started and theme should already have applied
+        TermuxActivity.updateTermuxActivityStyling(this, false);
+
+        return newTermuxSession;
+    }
+
+    /**
+     * Create a {@link TermuxSession} for the in-app floating terminal using the supplied
+     * {@code terminalSessionClient}, without adding it to the sessions list, updating the
+     * notification, or applying activity styling.
+     */
+    @Nullable
+    public synchronized TermuxSession createFloatSession(TerminalSessionClient terminalSessionClient) {
+        ExecutionCommand executionCommand = new ExecutionCommand(TermuxShellManager.getNextShellId(),
+            null, null, null, null, Runner.TERMINAL_SESSION.getName(), false);
+        return executeTermuxSession(executionCommand, terminalSessionClient);
+    }
+
+    /**
+     * Execute a {@link TermuxSession} for the given {@code executionCommand} using the supplied
+     * {@code terminalSessionClient}. Does not add the session to the sessions list or fire any
+     * notification/styling side effects; those are the caller's responsibility.
+     */
+    @Nullable
+    private TermuxSession executeTermuxSession(ExecutionCommand executionCommand,
+                                               TerminalSessionClient terminalSessionClient) {
         if (executionCommand == null) return null;
 
         Logger.logDebug(LOG_TAG, "Creating \"" + executionCommand.getCommandIdAndLabelLogString() + "\" TermuxSession");
@@ -591,7 +633,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         // If the execution command was started for a plugin, only then will the stdout be set
         // Otherwise if command was manually started by the user like by adding a new terminal session,
         // then no need to set stdout
-        TermuxSession newTermuxSession = TermuxSession.execute(this, executionCommand, getTermuxTerminalSessionClient(),
+        TermuxSession newTermuxSession = TermuxSession.execute(this, executionCommand, terminalSessionClient,
             this, new TermuxShellEnvironment(), null, executionCommand.isPluginExecutionCommand);
         if (newTermuxSession == null) {
             Logger.logError(LOG_TAG, "Failed to execute new TermuxSession command for:\n" + executionCommand.getCommandIdAndLabelLogString());
@@ -604,22 +646,6 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
             }
             return null;
         }
-
-        mShellManager.mTermuxSessions.add(newTermuxSession);
-
-        // Remove the execution command from the pending plugin execution commands list since it has
-        // now been processed
-        if (executionCommand.isPluginExecutionCommand)
-            mShellManager.mPendingPluginExecutionCommands.remove(executionCommand);
-
-        // Notify the activity that the sessions list has been updated if it is in the foreground
-        if (mTermuxTerminalSessionActivityClient != null)
-            mTermuxTerminalSessionActivityClient.termuxSessionListNotifyUpdated();
-
-        updateNotification();
-
-        // No need to recreate the activity since it likely just started and theme should already have applied
-        TermuxActivity.updateTermuxActivityStyling(this, false);
 
         return newTermuxSession;
     }
