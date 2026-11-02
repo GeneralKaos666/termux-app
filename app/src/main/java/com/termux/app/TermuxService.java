@@ -22,6 +22,8 @@ import com.termux.R;
 import com.termux.app.event.SystemEventReceiver;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalSessionServiceClient;
+import com.termux.app.ui.floating.FloatController;
+import com.termux.app.ui.floating.FloatSessionSource;
 import com.termux.shared.termux.plugins.TermuxPluginUtils;
 import com.termux.shared.data.IntentUtils;
 import com.termux.shared.net.uri.UriUtils;
@@ -65,7 +67,7 @@ import java.util.List;
  * Optionally may hold a wake and a wifi lock, in which case that is shown in the notification - see
  * {@link #buildNotification()}.
  */
-public final class TermuxService extends Service implements AppShell.AppShellClient, TermuxSession.TermuxSessionClient {
+public final class TermuxService extends Service implements AppShell.AppShellClient, TermuxSession.TermuxSessionClient, FloatSessionSource {
 
     /** This service is only bound from inside the same process and never uses IPC. */
     class LocalBinder extends Binder {
@@ -104,6 +106,9 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     /** If the user has executed the {@link TERMUX_SERVICE#ACTION_STOP_SERVICE} intent. */
     boolean mWantsToStop = false;
+
+    /** Lazily built orchestrator for the in-app floating terminal overlay and its session. */
+    private FloatController mFloatController;
 
     private static final String LOG_TAG = "TermuxService";
 
@@ -605,6 +610,17 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         ExecutionCommand executionCommand = new ExecutionCommand(TermuxShellManager.getNextShellId(),
             null, null, null, null, Runner.TERMINAL_SESSION.getName(), false);
         return executeTermuxSession(executionCommand, terminalSessionClient);
+    }
+
+    /**
+     * Lazily builds and returns the {@link FloatController} that owns the in-app floating terminal
+     * overlay and its dedicated session, using this service as the {@link FloatSessionSource}.
+     */
+    @NonNull
+    public FloatController getFloatController() {
+        if (mFloatController == null)
+            mFloatController = new FloatController(this, this);
+        return mFloatController;
     }
 
     /**
