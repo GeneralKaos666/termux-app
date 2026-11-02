@@ -51,7 +51,9 @@ class FloatViewClient : TermuxTerminalViewClientBase()
 class FloatController @JvmOverloads constructor(
     private val context: Context,
     private val sessionSource: FloatSessionSource,
-    private val canDrawOverlays: () -> Boolean = { Settings.canDrawOverlays(context) },
+    private val canDrawOverlays: () -> Boolean = {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) true else Settings.canDrawOverlays(context)
+    },
 ) : FloatSessionClient.Listener {
 
     /** The dedicated float session, exposed for the test to observe the listener clearing it. */
@@ -140,7 +142,7 @@ class FloatController @JvmOverloads constructor(
             state.width,
             state.height,
             FloatWindowGeometry.windowType(Build.VERSION.SDK_INT),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            0,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
