@@ -274,6 +274,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         @Override
+        public void onNewFloatSession() {
+            TermuxService service = getTermuxService();
+            if (service != null) service.getFloatController().showNewSession();
+        }
+
+        @Override
         public void onExtraKeysViewCreated(int page, ExtraKeysView extraKeysView) {
             if (page == ExtraKeysState.PAGE_KEYS_2) setExtraKeysView2(extraKeysView);
             else setExtraKeysView(extraKeysView);

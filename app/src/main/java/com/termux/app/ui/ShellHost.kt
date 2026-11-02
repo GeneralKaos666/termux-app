@@ -70,6 +70,9 @@ interface ShellHostCallbacks {
     /** Start a new session. */
     fun onNewSession()
 
+    /** Start a new floating session. */
+    fun onNewFloatSession()
+
     /**
      * Wire the given [view] for pager [page] to its client and load that page's key layout. Called
      * once per creation, and once per key-grid page (both grids stay composed together).
@@ -205,6 +208,7 @@ private fun TerminalShellHost(
                             onClose = callbacks::onSessionClose,
                             onMove = callbacks::onSessionMoved,
                             onNewSession = callbacks::onNewSession,
+                            onNewFloatSession = callbacks::onNewFloatSession,
                             onCollapse = { sessionsBarExpanded = false },
                             backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
                         )

@@ -75,6 +75,7 @@ fun SessionsBar(
     onClose: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onNewSession: () -> Unit,
+    onNewFloatSession: () -> Unit,
     onCollapse: () -> Unit,
     backgroundAlpha: Float = 1f,
     modifier: Modifier = Modifier,
@@ -85,7 +86,10 @@ fun SessionsBar(
 
     val startSessionLabel = stringResource(R.string.action_start_session)
     val newSessionLabel = stringResource(R.string.action_new_session)
+    val newTabSessionLabel = stringResource(R.string.action_new_tab_session)
+    val newFloatSessionLabel = stringResource(R.string.action_new_float_session)
     val collapseLabel = stringResource(R.string.action_hide_sessions_bar)
+    var newSessionMenuExpanded by remember { mutableStateOf(false) }
 
     // Horizontal extent of each tab in the root coordinate space, keyed by session id, recorded by
     // the tab itself once it has been laid out. Only read from gesture callbacks, never during
@@ -166,16 +170,39 @@ fun SessionsBar(
             }
 
             // Plain clickable icons rather than IconButtons: Material3's IconButton enforces a
-            // 48dp minimum interactive size, which alone would keep the bar that tall.
-            Icon(
-                imageVector = SessionIcons.Plus,
-                contentDescription = newSessionLabel,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .clickable(onClick = onNewSession)
-                    .padding(2.dp)
-                    .size(24.dp),
-            )
+            // 48dp minimum interactive size, which alone would keep the bar that tall. Tapping the
+            // "+" opens a menu offering a new tab session or a new floating session.
+            Box {
+                Icon(
+                    imageVector = SessionIcons.Plus,
+                    contentDescription = newSessionLabel,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .clickable { newSessionMenuExpanded = true }
+                        .padding(2.dp)
+                        .size(24.dp),
+                )
+
+                DropdownMenu(
+                    expanded = newSessionMenuExpanded,
+                    onDismissRequest = { newSessionMenuExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(newTabSessionLabel) },
+                        onClick = {
+                            newSessionMenuExpanded = false
+                            onNewSession()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(newFloatSessionLabel) },
+                        onClick = {
+                            newSessionMenuExpanded = false
+                            onNewFloatSession()
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -473,6 +500,7 @@ private fun SessionsBarPreview() {
             onClose = {},
             onMove = { _, _ -> },
             onNewSession = {},
+            onNewFloatSession = {},
             onCollapse = {},
         )
     }
@@ -489,6 +517,7 @@ private fun SessionsBarEmptyPreview() {
             onClose = {},
             onMove = { _, _ -> },
             onNewSession = {},
+            onNewFloatSession = {},
             onCollapse = {},
         )
     }
