@@ -73,6 +73,18 @@ class FloatControllerTest {
         assertFalse(controller.isShown())
     }
 
+    @Test
+    fun `a second showNewSession reuses the existing session instead of creating another`() {
+        val source = FakeSource(newTermuxSession())
+        val controller = FloatController(context(), source, canDrawOverlays = { true })
+        controller.showNewSession()
+
+        controller.showNewSession()
+
+        assertEquals(1, source.calls)
+        assertTrue(controller.isShown())
+    }
+
     /**
      * Builds a [TermuxSession] around a real [TerminalSession] without spawning a shell process.
      * [TermuxSession] has no public constructor (it is only produced by `TermuxSession.execute`),

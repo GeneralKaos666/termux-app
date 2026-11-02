@@ -87,6 +87,10 @@ class FloatController @JvmOverloads constructor(
      * system manage-overlay screen and does nothing else.
      */
     fun showNewSession() {
+        if (floatSession != null) {
+            show()
+            return
+        }
         if (!canDrawOverlays()) {
             launchOverlayPermission()
             return
