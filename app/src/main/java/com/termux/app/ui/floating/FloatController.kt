@@ -8,9 +8,11 @@ import android.os.Build
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.termux.R
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession
 import com.termux.shared.termux.terminal.TermuxTerminalViewClientBase
 import com.termux.shared.view.KeyboardUtils
@@ -170,7 +172,9 @@ class FloatController @JvmOverloads constructor(
                 FloatingWindow(
                     terminalView = terminalView,
                     onDrag = { onWindowDrag(it) },
+                    onDragEnd = { onWindowDragEnd() },
                     onResize = { onWindowResize(it) },
+                    onResizeEnd = { onWindowResizeEnd() },
                     onCollapse = { collapseToBubble() },
                     onClose = { stop() },
                     onToggleKeyboard = { toggleKeyboard() },
@@ -199,7 +203,10 @@ class FloatController @JvmOverloads constructor(
         params.x = clamped.x
         params.y = clamped.y
         windowView?.let { windowManager?.updateViewLayout(it, params) }
-        persistGeometry(params)
+    }
+
+    private fun onWindowDragEnd() {
+        windowParams?.let(::persistGeometry)
     }
 
     private fun onWindowResize(delta: IntSize) {
@@ -210,7 +217,10 @@ class FloatController @JvmOverloads constructor(
         params.x = FloatWindowGeometry.clampX(params.x, params.width, metrics.widthPixels)
         params.y = FloatWindowGeometry.clampY(params.y, params.height, metrics.heightPixels)
         windowView?.let { windowManager?.updateViewLayout(it, params) }
-        persistGeometry(params)
+    }
+
+    private fun onWindowResizeEnd() {
+        windowParams?.let(::persistGeometry)
     }
 
     private fun persistGeometry(params: WindowManager.LayoutParams) {
@@ -286,6 +296,11 @@ class FloatController @JvmOverloads constructor(
     // --- permission --------------------------------------------------------------------------
 
     private fun launchOverlayPermission() {
+        Toast.makeText(
+            context,
+            context.getString(R.string.float_overlay_permission_explainer),
+            Toast.LENGTH_LONG,
+        ).show()
         val intent = Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             Uri.parse("package:${context.packageName}"),

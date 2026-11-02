@@ -1,6 +1,8 @@
 package com.termux.app.activities;
 
 import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 
@@ -10,6 +12,7 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
 import com.termux.R;
+import com.termux.app.TermuxService;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.models.ReportInfo;
@@ -84,8 +87,20 @@ public class SettingsActivity extends AppCompatActivity {
         private void configureTermuxFloatPreference(@NonNull Context context) {
             Preference termuxFloatPreference = findPreference("termux_float");
             if (termuxFloatPreference != null) {
-                // The float is now in-app (no com.termux.window dependency), so always show its entry.
+                // The float is now in-app (no com.termux.window dependency): always show its entry, and make
+                // it toggle the floating terminal rather than open a (now-empty) preferences screen.
                 termuxFloatPreference.setVisible(true);
+                termuxFloatPreference.setOnPreferenceClickListener(preference -> {
+                    Context appContext = context.getApplicationContext();
+                    Intent toggleIntent = new Intent(appContext, TermuxService.class)
+                        .setAction(TermuxService.ACTION_TOGGLE_FLOAT);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        appContext.startForegroundService(toggleIntent);
+                    } else {
+                        appContext.startService(toggleIntent);
+                    }
+                    return true;
+                });
             }
         }
 

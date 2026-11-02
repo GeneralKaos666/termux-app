@@ -168,7 +168,16 @@
     <string name="notification_action_exit">Exit</string>
     <string name="notification_action_wake_lock">Acquire wakelock</string>
     <string name="notification_action_wake_unlock">Release wakelock</string>
-    <string name="notif_float">Float</string>
+    <string name="notification_action_float">Float</string>
+
+
+    <!-- Floating terminal -->
+    <string name="float_open_terminal">Open terminal</string>
+    <string name="float_collapse">Collapse</string>
+    <string name="float_keyboard">Keyboard</string>
+    <string name="float_close">Close</string>
+    <string name="float_resize">Resize</string>
+    <string name="float_overlay_permission_explainer">Grant \"Display over other apps\" permission to show the floating terminal.</string>
 
 
 
@@ -341,8 +350,8 @@
 
 
     <!-- Termux:Float App Preferences -->
-    <string name="termux_float_preferences_title">&TERMUX_FLOAT_APP_NAME;</string>
-    <string name="termux_float_preferences_summary">Preferences for &TERMUX_FLOAT_APP_NAME; app</string>
+    <string name="termux_float_preferences_title">Floating terminal</string>
+    <string name="termux_float_preferences_summary">Show or hide the floating terminal window</string>
 
 
 

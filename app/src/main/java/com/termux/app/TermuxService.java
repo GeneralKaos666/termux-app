@@ -112,8 +112,13 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     private static final String LOG_TAG = "TermuxService";
 
-    /** Action for the foreground notification's "Float" button, toggling the in-app floating terminal. */
-    private static final String ACTION_TOGGLE_FLOAT = "com.termux.service_toggle_float";
+    /**
+     * Action for the foreground notification's "Float" button, toggling the in-app floating terminal.
+     * Deliberately an {@code :app} constant (not in {@code TermuxConstants.TERMUX_SERVICE}) because the float
+     * is {@code :app}-only while {@code TERMUX_SERVICE} lives in the published {@code :termux-shared} library.
+     * Public so the Settings entry can drive the same toggle.
+     */
+    public static final String ACTION_TOGGLE_FLOAT = "com.termux.service_toggle_float";
 
     @Override
     public void onCreate() {
@@ -912,8 +917,8 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
         // Set Float button action to toggle the in-app floating terminal
         Intent toggleFloatIntent = new Intent(this, TermuxService.class).setAction(ACTION_TOGGLE_FLOAT);
-        builder.addAction(android.R.drawable.ic_menu_view, res.getString(R.string.notif_float),
-            PendingIntent.getService(this, TermuxConstants.TERMUX_FLOAT_APP_NOTIFICATION_ID, toggleFloatIntent, 0));
+        builder.addAction(android.R.drawable.ic_menu_view, res.getString(R.string.notification_action_float),
+            PendingIntent.getService(this, 0, toggleFloatIntent, 0));
 
 
         return builder.build();

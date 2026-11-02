@@ -14,8 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.termux.R
 import com.termux.app.ui.materialIcon
 import com.termux.app.ui.theme.TermuxShellTheme
 import kotlin.math.roundToInt
@@ -40,6 +46,10 @@ fun FloatingBubble(
                 .size(BubbleDiameter)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer)
+                .semantics {
+                    role = Role.Button
+                    onClick { onTap(); true }
+                }
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = { onTap() })
                 }
@@ -53,8 +63,7 @@ fun FloatingBubble(
         ) {
             Icon(
                 imageVector = BubbleIcons.Terminal,
-                // TODO(localize): swap for a string resource in Task 7.
-                contentDescription = "Open terminal",
+                contentDescription = stringResource(R.string.float_open_terminal),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(24.dp),
             )

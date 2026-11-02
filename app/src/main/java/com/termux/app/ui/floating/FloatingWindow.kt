@@ -29,12 +29,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.termux.R
 import com.termux.app.ui.materialIcon
 import com.termux.app.ui.theme.TermuxShellTheme
 import kotlin.math.roundToInt
@@ -57,7 +59,9 @@ import kotlin.math.roundToInt
 fun FloatingWindow(
     terminalView: View,
     onDrag: (IntOffset) -> Unit,
+    onDragEnd: () -> Unit,
     onResize: (IntSize) -> Unit,
+    onResizeEnd: () -> Unit,
     onCollapse: () -> Unit,
     onClose: () -> Unit,
     onToggleKeyboard: () -> Unit,
@@ -74,6 +78,7 @@ fun FloatingWindow(
         ) {
             FloatingWindowHeader(
                 onDrag = onDrag,
+                onDragEnd = onDragEnd,
                 onCollapse = onCollapse,
                 onToggleKeyboard = onToggleKeyboard,
                 onClose = onClose,
@@ -88,6 +93,7 @@ fun FloatingWindow(
 
                 ResizeHandle(
                     onResize = onResize,
+                    onResizeEnd = onResizeEnd,
                     modifier = Modifier.align(Alignment.BottomEnd),
                 )
             }
@@ -108,6 +114,7 @@ fun FloatingWindow(
 @Composable
 private fun FloatingWindowHeader(
     onDrag: (IntOffset) -> Unit,
+    onDragEnd: () -> Unit,
     onCollapse: () -> Unit,
     onToggleKeyboard: () -> Unit,
     onClose: () -> Unit,
@@ -118,7 +125,9 @@ private fun FloatingWindowHeader(
             .height(HeaderHeight)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
+                detectDragGestures(
+                    onDragEnd = { onDragEnd() },
+                ) { change, dragAmount ->
                     change.consume()
                     onDrag(IntOffset(dragAmount.x.roundToInt(), dragAmount.y.roundToInt()))
                 }
@@ -133,9 +142,9 @@ private fun FloatingWindowHeader(
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.weight(1f))
-        HeaderButton(WindowIcons.Minimize, contentDescription = "Collapse", onClick = onCollapse)
-        HeaderButton(WindowIcons.Keyboard, contentDescription = "Keyboard", onClick = onToggleKeyboard)
-        HeaderButton(WindowIcons.Close, contentDescription = "Close", onClick = onClose)
+        HeaderButton(WindowIcons.Minimize, contentDescription = stringResource(R.string.float_collapse), onClick = onCollapse)
+        HeaderButton(WindowIcons.Keyboard, contentDescription = stringResource(R.string.float_keyboard), onClick = onToggleKeyboard)
+        HeaderButton(WindowIcons.Close, contentDescription = stringResource(R.string.float_close), onClick = onClose)
     }
 }
 
@@ -145,7 +154,6 @@ private fun HeaderButton(icon: ImageVector, contentDescription: String, onClick:
     val view = LocalView.current
     Icon(
         imageVector = icon,
-        // TODO(localize): swap for a string resource in Task 7.
         contentDescription = contentDescription,
         tint = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
@@ -165,16 +173,19 @@ private fun HeaderButton(icon: ImageVector, contentDescription: String, onClick:
 @Composable
 private fun ResizeHandle(
     onResize: (IntSize) -> Unit,
+    onResizeEnd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val gripColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val resizeDescription = stringResource(R.string.float_resize)
     Box(
         modifier = modifier
             .size(ResizeHandleSize)
-            // TODO(localize): swap for a string resource in Task 7.
-            .semantics { contentDescription = "Resize" }
+            .semantics { contentDescription = resizeDescription }
             .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
+                detectDragGestures(
+                    onDragEnd = { onResizeEnd() },
+                ) { change, dragAmount ->
                     change.consume()
                     onResize(IntSize(dragAmount.x.roundToInt(), dragAmount.y.roundToInt()))
                 }

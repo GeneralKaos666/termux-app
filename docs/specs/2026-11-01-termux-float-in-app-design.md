@@ -54,8 +54,8 @@ driven by the existing `TermuxService` and the Compose shell.
   - **"New tab session"** → existing `onNewSession()` (`TermuxTerminalSessionActivityClient.addNewSession(false, null)`).
   - **"New floating session"** → new `ShellHostCallbacks.onNewFloatSession()`, which asks
     `TermuxService` to create the float session and show the float.
-- New string resources for the two menu labels. The float option is hidden (not shown) if overlay
-  permission is missing until the user grants it (see §7).
+- New string resources for the two menu labels. The float option is always shown; if overlay
+  permission is missing, tapping it launches the permission screen with a short explainer (see §7).
 
 ## 6. Overlay & chrome
 
@@ -68,9 +68,9 @@ driven by the existing `TermuxService` and the Compose shell.
   `LayoutParams.width/height`, clamped to a min size. Position/size are persisted in **app-local**
   preferences (a new app-local file, not `TermuxFloatAppSharedPreferences`, which reads the
   `com.termux.window` package that no longer exists).
-- **Show/hide:** a "Float" action on `TermuxService`'s existing foreground notification (reusing the
-  existing `TERMUX_FLOAT_APP_NOTIFICATION_CHANNEL_ID` / `_ID` 1339), plus the already-wired hidden
-  `termux_float` Settings entry toggles the feature on/off. No second service is introduced.
+- **Show/hide:** a "Float" action on `TermuxService`'s existing foreground notification, plus the
+  `termux_float` Settings entry — both toggle the float via the same
+  `TermuxService.ACTION_TOGGLE_FLOAT` service action. No second service is introduced.
 
 ## 7. Permissions & error handling
 
