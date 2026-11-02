@@ -1,8 +1,7 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <Preference
-        app:title="@string/termux_debugging_preferences_title"
-        app:summary="@string/termux_debugging_preferences_summary"
-        app:fragment="com.termux.app.fragments.settings.termux_float.DebuggingPreferencesFragment"/>
+    <!-- The float is now in-app; its live position/size is edited by dragging (FloatWindowPrefs),
+         so the upstream Termux:Float debugging screen (log level / key logging) is out of scope and
+         intentionally left unreachable. -->
 
 </PreferenceScreen>

@@ -37,7 +37,7 @@ public class DebuggingPreferencesFragment extends PreferenceFragmentCompat {
 
         ListPreference logLevelListPreference = findPreference("log_level");
         if (logLevelListPreference != null) {
-            TermuxFloatAppSharedPreferences preferences = TermuxFloatAppSharedPreferences.build(context, true);
+            TermuxFloatAppSharedPreferences preferences = TermuxFloatAppSharedPreferences.build(context, false);
             if (preferences == null) return;
 
             com.termux.app.fragments.settings.termux.DebuggingPreferencesFragment.
@@ -56,7 +56,7 @@ class DebuggingPreferencesDataStore extends PreferenceDataStore {
 
     private DebuggingPreferencesDataStore(Context context) {
         mContext = context;
-        mPreferences = TermuxFloatAppSharedPreferences.build(context, true);
+        mPreferences = TermuxFloatAppSharedPreferences.build(context, false);
     }
 
     public static synchronized DebuggingPreferencesDataStore getInstance(Context context) {
