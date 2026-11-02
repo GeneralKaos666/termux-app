@@ -385,7 +385,7 @@ can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and
 | 14 | CI bootstrap re-download | done | avoid re-downloading cached zips unnecessarily |
 | 15 | JitPack versioning | done | library publishing/versioning |
 | 16 | Session restore | to do | restore sessions across process death (§5.1) |
-| 17 | Termux:Float (shape A vs B) | to do | not chosen yet (§5.2) |
+| 17 | Termux:Float (shape A vs B) | done | in-app float via `:app` (§5.2) |
 | 18 | 256-colour palette | done | full 256-colour support (§5.3) |
 | 19 | xterm conformance + WS6 audit | to do | conformance/shim gaps (§2.2) |
 | 20 | Dependency refresh — `desugar_jdk_libs` 1.1.5 → 2.1.5 | deferred | major desugaring change; prerequisite for `commons-io`/`guava` |
@@ -415,62 +415,18 @@ as more complicated than the value it provides right now (persistence layer + re
 dropped permanently — revisit only if a simpler shape (e.g. reopen the same commands without a new
 persistence model) becomes worth it.
 
-### 5.2 Termux:Float — `[deferred]`, shape not chosen
+### 5.2 Termux:Float — `[done]`
 
-**Probed 2026-10-16** against a shallow clone of `https://github.com/termux/termux-float` at `master`
-(`75352bd`). The probe clone was kept outside the repo and has since been deleted; re-clone if this
-is picked up. Nothing in this repo was modified.
-
-Why a plain clone does not work: it is a whole separate Gradle build (`include ':app'`, AGP 8.7.3,
-its own wrapper and `gradle.properties`), so a nested project is never built by this repo's Gradle
-and the nested `.git` becomes an embedded repo. It links published Maven artifacts
-(`termux-shared`/`terminal-view` `8aca6dbbf4`), so a real port must rewrite those two lines to
-`project(':termux-shared')` / `project(':terminal-view')`. It pins Java 11 + desugaring against this
-repo's Java 1.8 / AGP 8.13.2. Licensing is **not** a blocker (GPLv3 on both sides).
-
-What already ships here: `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE`, `VIBRATE` and `WAKE_LOCK` in
-the manifest; matching debug signing (`testkey_untrusted.jks`, alias `alias`) so `sharedUserId` works
-for debug; the whole float contract in `TermuxConstants` (`TERMUX_FLOAT_PACKAGE_NAME`
-`com.termux.window`, activity/service names, `ACTION_SHOW/HIDE/STOP_SERVICE`, properties paths,
-notification channel/id `1339`) plus `TermuxFloatAppSharedPreferences`; the matching
-`TermuxSession.execute(...)` signature; both float client base classes; and the hidden
-`termux_float` Settings entry, which starts working as soon as `com.termux.window` is installed.
-
-What is genuinely missing: `TermuxFloatActivity`, `TermuxFloatService`, `TermuxFloatView`, the float
-view client, any `WindowManager` overlay usage, `include ':float'`, and a counterpart to
-`TermuxFloatAppSharedProperties`.
-
-Move inventory (9 Java files, ~750 LOC): `TermuxFloatView` 359, `TermuxFloatViewClient` 263,
-`TermuxFloatService` 255, `TermuxFloatSessionClient` 191, `FloatingBubbleManager` 149,
-`TermuxFloatApplication` 39, `TermuxFloatAppSharedProperties` 36, `TermuxFloatPermissionActivity` 34,
-`TermuxFloatActivity` 21; plus 3 layouts, ~9 drawables, `values/{dimens,strings,styles}.xml`, 4
-notification PNGs and `testkey_untrusted.jks`; manifest adds 2 activities + 1 service.
-
-Shapes (neither chosen):
-
-- **A — new `:float` module, faithful port.** `include ':float'`, move the sources, point the two
-  deps at the local projects, per-module `minSdkVersion 24`, carry over `manifestPlaceholders`, keep
-  `applicationId com.termux.window` + `sharedUserId`. A plugin-style second APK, cheapest (order of a
-  day), still re-syncable with upstream; costs a second APK in CI and a copy to maintain.
-- **B — fold float into `:app`** as a first-class floating terminal over the existing
-  `TermuxService` sessions. No second APK or `sharedUserId`, better fit for the Compose shell host,
-  but real design work (overlay chrome, which session, IME/insets) and it drifts from upstream.
-
-Recommendation recorded at the time: A if the goal is "have Termux:Float again without maintaining a
-separate repo"; B only if floating terminals become part of this fork's UX.
-
-Gotchas to verify during design: per-module minSdk override; `TermuxFloatView.initFloatView()` calls
-`TermuxFloatAppSharedPreferences.build(getContext(), true)`, which exits the app when
-`applicationId != com.termux.window` (B must swap it); `TermuxFloatService.initializeFloatView()`
-catches the overlay failure instead of checking `Settings.canDrawOverlays()` ("always returns false,
-perhaps due to sharedUserId") — do not "fix" blindly, verify on device (`manual-checks.md` D-10);
-port `outputFileName`, `packagingOptions` exclusion, desugaring and the
-`TERMUX_FLOAT_APP__BUILD_APP_VERSION_NAME` / `_APK_VERSION_TAG` env overrides with their semver
-validation; release signing must match too, not just debug; CI must decide what to attach to releases;
-adding a module is a deliberate deviation from the `AGENTS.md` "concentrate changes in `:app`" rule.
-
-To resume: confirm the goal and pick A or B (A recommended), then run the normal brainstorming →
-spec → plan cycle.
+Shape B chosen: fold float into `:app` as a first-class floating terminal — no `com.termux.window`
+APK, no `sharedUserId`, no new Gradle module. Ships under package `com.termux.app.ui.floating` (spec
+`specs/2026-11-01-termux-float-in-app-design.md`, plan `plans/2026-11-01-termux-float-in-app.md`): a
+draggable bubble that expands into a movable/resizable window over the fork's `TerminalView`, running
+a dedicated float session created by `TermuxService.createFloatSession(...)` and held by a
+`FloatController` (not added to the tab list). Entered from the sessions-bar "+" menu ("New floating
+session"), and toggled via a "Float" action on the foreground notification plus the hidden
+`termux_float` Settings entry. Overlay permission is checked before showing
+(`ACTION_MANAGE_OVERLAY_PERMISSION` when missing) rather than swallowed, as upstream did. Device
+checks are deferred to `manual-checks.md` D-12.
 
 ### 5.3 256-colour palette — `[done]`
 

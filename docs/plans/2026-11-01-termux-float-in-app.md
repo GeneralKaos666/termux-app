@@ -4,7 +4,7 @@
 
 **Goal:** Add a draggable floating bubble that expands into a movable/resizable terminal window running a dedicated shell session, entered from the sessions-bar "+" menu.
 
-**Architecture:** New Compose/Kotlin package `com.termux.app.ui.float` inside `:app`. A `FloatController` (held by `TermuxService`) owns the overlay windows and the dedicated `TermuxSession` (created via a new `TermuxService.createFloatSession(...)` that does *not* add to the tab list). The terminal is the fork's existing `TerminalView`, embedded via `AndroidView`. Pure geometry and callback routing are extracted so they are JVM-testable; overlay/IME behaviour is device-checked.
+**Architecture:** New Compose/Kotlin package `com.termux.app.ui.floating` inside `:app`. A `FloatController` (held by `TermuxService`) owns the overlay windows and the dedicated `TermuxSession` (created via a new `TermuxService.createFloatSession(...)` that does *not* add to the tab list). The terminal is the fork's existing `TerminalView`, embedded via `AndroidView`. Pure geometry and callback routing are extracted so they are JVM-testable; overlay/IME behaviour is device-checked.
 
 **Tech Stack:** Kotlin + Jetpack Compose, `WindowManager` overlays, `TerminalView`/`TerminalSession` from the existing modules, Robolectric for `:app` unit tests.
 
@@ -60,14 +60,14 @@
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.float.FloatWindowGeometryTest" --console=plain`
+Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.floating.FloatWindowGeometryTest" --console=plain`
 Expected: FAIL — `FloatWindowGeometry` unresolved.
 
 - [ ] **Step 3: Implement `FloatWindowGeometry` as a pure `object`** with the five functions above. `windowType` returns `TYPE_APPLICATION_OVERLAY` when `sdkInt >= 26` else `TYPE_PHONE`. `clampX`/`clampY` clamp to `[0, max - size]` (floor at 0); `clampWidth`/`clampHeight` clamp to `[min, max]`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.float.FloatWindowGeometryTest" --console=plain`
+Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.floating.FloatWindowGeometryTest" --console=plain`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -92,14 +92,14 @@ git commit -S -m "Added(float): Add pure float window geometry helpers"
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.float.FloatSessionClientTest" --console=plain`
+Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.floating.FloatSessionClientTest" --console=plain`
 Expected: FAIL — `FloatSessionClient` unresolved.
 
 - [ ] **Step 3: Implement `FloatSessionClient`** extending `com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase`, forwarding the four overrides to the injected `Listener`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.float.FloatSessionClientTest" --console=plain`
+Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.floating.FloatSessionClientTest" --console=plain`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -125,14 +125,14 @@ git commit -S -m "Added(float): Add FloatSessionClient callback routing"
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.float.FloatWindowPrefsTest" --console=plain`
+Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.floating.FloatWindowPrefsTest" --console=plain`
 Expected: FAIL — `FloatWindowPrefs` unresolved.
 
 - [ ] **Step 3: Implement `FloatWindowPrefs`** over keys `window_x`, `window_y`, `window_width`, `window_height`, defaulting to `FloatWindowState.DEFAULT` per key.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.float.FloatWindowPrefsTest" --console=plain`
+Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.floating.FloatWindowPrefsTest" --console=plain`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -190,14 +190,14 @@ git commit -S -m "Changed(terminal): Add createFloatSession without tab-list sid
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.float.FloatControllerTest" --console=plain`
+Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.floating.FloatControllerTest" --console=plain`
 Expected: FAIL — `FloatController` unresolved.
 
 - [ ] **Step 3: Implement `FloatController`** — constructor takes `(context, service, canDrawOverlays: () -> Boolean = { Settings.canDrawOverlays(context) })`. `showNewSession()` checks overlay permission first; if missing, launches `ACTION_MANAGE_OVERLAY_PERMISSION` and returns. Otherwise creates the session via `service.createFloatSession(sessionClient)` (a `FloatSessionClient` wired to this controller's listener), stores it in `mFloatSession`, binds it to a `TerminalView`, and shows the `FloatingWindow` (via `WindowManager`, using `FloatWindowGeometry.windowType(Build.VERSION.SDK_INT)`). `hide()` removes the window; `stop()` removes window + finishes the session; `onSessionFinished()` collapses and clears `mFloatSession`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.float.FloatControllerTest" --console=plain`
+Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.floating.FloatControllerTest" --console=plain`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**

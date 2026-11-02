@@ -24,7 +24,7 @@ driven by the existing `TermuxService` and the Compose shell.
 - **Device checks:** deferred to `docs/ledger/manual-checks.md` (pending), run only when a test
   device is connected — the same policy as earlier workstreams.
 
-## 3. Components (new, in `com.termux.app.ui.float`)
+## 3. Components (new, in `com.termux.app.ui.floating`)
 
 | Component | Responsibility |
 |---|---|
