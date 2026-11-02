@@ -123,6 +123,9 @@ class FloatController @JvmOverloads constructor(
     /** Whether the expanded window overlay is currently up. */
     fun isShown(): Boolean = shown
 
+    /** Whether a dedicated float session is currently running. */
+    fun isSessionRunning(): Boolean = floatSession != null
+
     // --- FloatSessionClient.Listener ---------------------------------------------------------
 
     override fun onTextChanged() = Unit
@@ -143,15 +146,15 @@ class FloatController @JvmOverloads constructor(
 
         val state = prefs.read()
         val params = WindowManager.LayoutParams(
-            state.width,
-            state.height,
+            dp(state.width),
+            dp(state.height),
             FloatWindowGeometry.windowType(Build.VERSION.SDK_INT),
             0,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = state.x
-            y = state.y
+            x = dp(state.x)
+            y = dp(state.y)
         }
         windowParams = params
 
@@ -181,8 +184,13 @@ class FloatController @JvmOverloads constructor(
 
     private fun onWindowDrag(delta: IntOffset) {
         val params = windowParams ?: return
-        params.x += delta.x
-        params.y += delta.y
+        val metrics = context.resources.displayMetrics
+        val clamped = clampDragPosition(
+            params.x, params.y, params.width, params.height,
+            delta, metrics.widthPixels, metrics.heightPixels,
+        )
+        params.x = clamped.x
+        params.y = clamped.y
         windowView?.let { windowManager?.updateViewLayout(it, params) }
         persistGeometry(params)
     }
@@ -190,14 +198,23 @@ class FloatController @JvmOverloads constructor(
     private fun onWindowResize(delta: IntSize) {
         val params = windowParams ?: return
         val metrics = context.resources.displayMetrics
-        params.width = FloatWindowGeometry.clampWidth(params.width + delta.width, MIN_WIDTH, metrics.widthPixels)
-        params.height = FloatWindowGeometry.clampHeight(params.height + delta.height, MIN_HEIGHT, metrics.heightPixels)
+        params.width = FloatWindowGeometry.clampWidth(params.width + delta.width, dp(MIN_WIDTH_DP), metrics.widthPixels)
+        params.height = FloatWindowGeometry.clampHeight(params.height + delta.height, dp(MIN_HEIGHT_DP), metrics.heightPixels)
+        params.x = FloatWindowGeometry.clampX(params.x, params.width, metrics.widthPixels)
+        params.y = FloatWindowGeometry.clampY(params.y, params.height, metrics.heightPixels)
         windowView?.let { windowManager?.updateViewLayout(it, params) }
         persistGeometry(params)
     }
 
     private fun persistGeometry(params: WindowManager.LayoutParams) {
-        prefs.write(FloatWindowState(params.x, params.y, params.width, params.height))
+        prefs.write(
+            FloatWindowState(
+                x = pxToDp(params.x),
+                y = pxToDp(params.y),
+                width = pxToDp(params.width),
+                height = pxToDp(params.height),
+            ),
+        )
     }
 
     private fun toggleKeyboard() {
@@ -249,8 +266,13 @@ class FloatController @JvmOverloads constructor(
 
     private fun onBubbleDrag(delta: IntOffset) {
         val params = bubbleParams ?: return
-        params.x += delta.x
-        params.y += delta.y
+        val metrics = context.resources.displayMetrics
+        val clamped = clampDragPosition(
+            params.x, params.y, params.width, params.height,
+            delta, metrics.widthPixels, metrics.heightPixels,
+        )
+        params.x = clamped.x
+        params.y = clamped.y
         bubbleView?.let { windowManager?.updateViewLayout(it, params) }
     }
 
@@ -267,10 +289,29 @@ class FloatController @JvmOverloads constructor(
 
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).roundToInt()
 
+    private fun pxToDp(value: Int): Int = (value / context.resources.displayMetrics.density).roundToInt()
+
     private companion object {
         const val PREFS_NAME = "termux_float_window"
         const val BUBBLE_SIZE_DP = 56
-        const val MIN_WIDTH = 200
-        const val MIN_HEIGHT = 200
+        const val MIN_WIDTH_DP = 200
+        const val MIN_HEIGHT_DP = 200
     }
 }
+
+/**
+ * Applies a drag [delta] to a position and clamps the result so the view stays fully on screen.
+ * Pure (no window manager) so the drag clamp path can be unit tested directly.
+ */
+internal fun clampDragPosition(
+    x: Int,
+    y: Int,
+    width: Int,
+    height: Int,
+    delta: IntOffset,
+    maxX: Int,
+    maxY: Int,
+): IntOffset = IntOffset(
+    FloatWindowGeometry.clampX(x + delta.x, width, maxX),
+    FloatWindowGeometry.clampY(y + delta.y, height, maxY),
+)

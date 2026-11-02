@@ -1,6 +1,7 @@
 package com.termux.app.ui.floating
 
 import android.content.Context
+import androidx.compose.ui.unit.IntOffset
 import com.termux.shared.shell.command.ExecutionCommand
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession
 import com.termux.terminal.TerminalSession
@@ -83,6 +84,23 @@ class FloatControllerTest {
 
         assertEquals(1, source.calls)
         assertTrue(controller.isShown())
+    }
+
+    @Test
+    fun `drag clamps position so the window cannot be moved off screen`() {
+        // 400x400 screen, 200x200 window: the on-screen position is bounded to [0, 200].
+        assertEquals(
+            IntOffset(200, 0),
+            clampDragPosition(100, 100, 200, 200, IntOffset(1000, -500), 400, 400),
+        )
+    }
+
+    @Test
+    fun `drag applies an in-bounds delta unchanged`() {
+        assertEquals(
+            IntOffset(150, 175),
+            clampDragPosition(100, 100, 200, 200, IntOffset(50, 75), 400, 400),
+        )
     }
 
     /**

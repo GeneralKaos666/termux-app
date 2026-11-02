@@ -187,6 +187,8 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         if (!mWantsToStop)
             killAllTermuxExecutionCommands();
 
+        stopFloatController();
+
         TermuxShellManager.onAppExit(this);
 
         SystemEventReceiver.unregisterPackageUpdateEvents(this);
@@ -233,6 +235,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     /** Process action to stop service. */
     private void actionStopService() {
         mWantsToStop = true;
+        stopFloatController();
         killAllTermuxExecutionCommands();
         requestStopService();
     }
@@ -641,6 +644,17 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         return mFloatController;
     }
 
+    /** Stop the in-app floating terminal if it exists, finishing its session and removing overlays. */
+    private void stopFloatController() {
+        if (mFloatController != null)
+            mFloatController.stop();
+    }
+
+    /** Whether the in-app floating terminal currently has a running session. */
+    private boolean isFloatSessionRunning() {
+        return mFloatController != null && mFloatController.isSessionRunning();
+    }
+
     /**
      * Execute a {@link TermuxSession} for the given {@code executionCommand} using the supplied
      * {@code terminalSessionClient}. Does not add the session to the sessions list or fire any
@@ -914,8 +928,9 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     /** Update the shown foreground service notification after making any changes that affect it. */
     private synchronized void updateNotification() {
-        if (mWakeLock == null && mShellManager.mTermuxSessions.isEmpty() && mShellManager.mTermuxTasks.isEmpty()) {
-            // Exit if we are updating after the user disabled all locks with no sessions or tasks running.
+        if (mWakeLock == null && mShellManager.mTermuxSessions.isEmpty() && mShellManager.mTermuxTasks.isEmpty()
+                && !isFloatSessionRunning()) {
+            // Exit if we are updating after the user disabled all locks with no sessions, tasks or float running.
             requestStopService();
         } else {
             ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(TermuxConstants.TERMUX_APP_NOTIFICATION_ID, buildNotification());

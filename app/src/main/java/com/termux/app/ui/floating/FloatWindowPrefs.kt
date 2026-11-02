@@ -2,7 +2,7 @@ package com.termux.app.ui.floating
 
 import android.content.SharedPreferences
 
-/** The position and size of the in-app floating terminal window, in pixels. */
+/** The position and size of the in-app floating terminal window, in dp. */
 data class FloatWindowState(
     val x: Int,
     val y: Int,
@@ -10,7 +10,7 @@ data class FloatWindowState(
     val height: Int,
 ) {
     companion object {
-        /** The position and size used when no window geometry has been stored yet. */
+        /** The position and size used when no window geometry has been stored yet, in dp. */
         val DEFAULT = FloatWindowState(200, 200, 300, 420)
     }
 }
