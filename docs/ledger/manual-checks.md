@@ -28,6 +28,7 @@ between sessions; rediscover it before a run. `input text` is unreliable on this
 | D-9 | A2 multi-window split-pane stability | pending (system placement ran clean; a stable focused split pane was not automatable) | `docs/plans/2026-10-10-shell-sessions.md` A2 results |
 | D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` | pending, only if float is picked up | `outstanding-work.md` §5.2 |
 | D-11 | Obfuscated release APK runs (R8 hardening) | pending | `outstanding-work.md` §4.1 |
+| D-12 | In-app floating terminal (Termux:Float folded into :app) | pending | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -41,6 +42,7 @@ pixels, including a scrolled-back hit-test and a link-without-`SGR 4` control).
 4. **D-8, D-9** — fresh-install and multi-window edges; these may need a reinstall or a second window.
 5. **D-1 remaining** — only if an API 21–28 device becomes available.
 6. **D-10** — only if Termux:Float gets picked up.
+7. **D-12** — only if the in-app floating terminal gets picked up (alongside the other pending appearance/float checks).
 
 ## 3. D-1 — WS3 shaping and ligatures
 
@@ -189,3 +191,22 @@ not been exercised on a device since the change.
 - [ ] Run a `termux-am` / local-socket command (exercises `LocalSocketManager` JNI).
 - [ ] Confirm a companion-app round-trip still works (e.g. Termux:API clipboard or a `RUN_COMMAND`
       intent), proving the kept `com.termux.shared.**` surface deserializes `Error`/`ResultData`.
+
+## 13. D-12 — in-app floating terminal
+
+The in-app floating terminal (Termux:Float folded into `:app`, package
+`com.termux.app.ui.floating`) ships without an on-device pass. Run only with a test device connected,
+consistent with prior workstreams.
+
+- [ ] Overlay window appears (bubble, then expanded window) when "New floating session" is chosen
+      from the sessions-bar "+" menu.
+- [ ] Drag moves the window and resize clamps at screen edges.
+- [ ] Keyboard shows over the overlay (IME binds to the `TerminalView`).
+- [ ] Permission prompt when `Settings.canDrawOverlays()` is false, and the window does not appear
+      until granted.
+- [ ] Revoking overlay permission while the window is up collapses it cleanly (no crash).
+- [ ] Collapse-to-bubble and expand-to-window work.
+- [ ] The float session survives closing the main activity.
+- [ ] The float shell exiting collapses the window.
+- [ ] The float session does NOT appear in the main tab bar (`createFloatSession` leaves
+      `mTermuxSessions` unchanged).
