@@ -407,9 +407,13 @@ can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and
 
 ## 5. Epics and open decisions
 
-### 5.1 Session restore
+### 5.1 Session restore — `[deferred]`
 
-See §1.1 — needs its own cycle (snapshot + opt-in respawn).
+See §1.1 — would need its own cycle (snapshot + opt-in respawn). **Deferred 2026-11-01**: assessed
+as more complicated than the value it provides right now (persistence layer + respawn wiring across
+`TermuxService`/`TermuxShellManager` + a setting, with no real process-state recovery possible). Not
+dropped permanently — revisit only if a simpler shape (e.g. reopen the same commands without a new
+persistence model) becomes worth it.
 
 ### 5.2 Termux:Float — `[deferred]`, shape not chosen
 
