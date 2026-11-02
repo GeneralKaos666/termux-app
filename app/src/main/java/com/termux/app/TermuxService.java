@@ -112,6 +112,9 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     private static final String LOG_TAG = "TermuxService";
 
+    /** Action for the foreground notification's "Float" button, toggling the in-app floating terminal. */
+    private static final String ACTION_TOGGLE_FLOAT = "com.termux.service_toggle_float";
+
     @Override
     public void onCreate() {
         Logger.logVerbose(LOG_TAG, "onCreate");
@@ -158,6 +161,10 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
                 case TERMUX_SERVICE.ACTION_SERVICE_EXECUTE:
                     Logger.logDebug(LOG_TAG, "ACTION_SERVICE_EXECUTE intent received");
                     actionServiceExecute(intent);
+                    break;
+                case ACTION_TOGGLE_FLOAT:
+                    Logger.logDebug(LOG_TAG, "ACTION_TOGGLE_FLOAT intent received");
+                    actionToggleFloat();
                     break;
                 default:
                     Logger.logError(LOG_TAG, "Invalid action: \"" + action + "\"");
@@ -228,6 +235,17 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         mWantsToStop = true;
         killAllTermuxExecutionCommands();
         requestStopService();
+    }
+
+    /** Process action to toggle the in-app floating terminal overlay: hide it when shown, otherwise
+     * create and show a new float session. */
+    private void actionToggleFloat() {
+        FloatController floatController = getFloatController();
+        if (floatController.isShown()) {
+            floatController.hide();
+        } else {
+            floatController.showNewSession();
+        }
     }
 
     /** Kill all TermuxSessions and TermuxTasks by sending SIGKILL to their processes.
@@ -876,6 +894,12 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         String actionTitle = res.getString(wakeLockHeld ? R.string.notification_action_wake_unlock : R.string.notification_action_wake_lock);
         int actionIcon = wakeLockHeld ? android.R.drawable.ic_lock_idle_lock : android.R.drawable.ic_lock_lock;
         builder.addAction(actionIcon, actionTitle, PendingIntent.getService(this, 0, toggleWakeLockIntent, 0));
+
+
+        // Set Float button action to toggle the in-app floating terminal
+        Intent toggleFloatIntent = new Intent(this, TermuxService.class).setAction(ACTION_TOGGLE_FLOAT);
+        builder.addAction(android.R.drawable.ic_menu_view, res.getString(R.string.notif_float),
+            PendingIntent.getService(this, TermuxConstants.TERMUX_FLOAT_APP_NOTIFICATION_ID, toggleFloatIntent, 0));
 
 
         return builder.build();

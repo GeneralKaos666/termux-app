@@ -36,7 +36,9 @@ class TermuxFloatPreferencesDataStore extends PreferenceDataStore {
 
     private TermuxFloatPreferencesDataStore(Context context) {
         mContext = context;
-        mPreferences = TermuxFloatAppSharedPreferences.build(context, true);
+        // Do not exit the app when com.termux.window is absent: the float is now in-app, so fall
+        // back to a null backing rather than terminating.
+        mPreferences = TermuxFloatAppSharedPreferences.build(context, false);
     }
 
     public static synchronized TermuxFloatPreferencesDataStore getInstance(Context context) {

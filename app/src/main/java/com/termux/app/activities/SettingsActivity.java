@@ -17,7 +17,6 @@ import com.termux.app.models.UserAction;
 import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.android.PackageUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAPIAppSharedPreferences;
-import com.termux.shared.termux.settings.preferences.TermuxFloatAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
 import com.termux.shared.android.AndroidUtils;
@@ -85,9 +84,8 @@ public class SettingsActivity extends AppCompatActivity {
         private void configureTermuxFloatPreference(@NonNull Context context) {
             Preference termuxFloatPreference = findPreference("termux_float");
             if (termuxFloatPreference != null) {
-                TermuxFloatAppSharedPreferences preferences = TermuxFloatAppSharedPreferences.build(context, false);
-                // If failed to get app preferences, then likely app is not installed, so do not show its preference
-                termuxFloatPreference.setVisible(preferences != null);
+                // The float is now in-app (no com.termux.window dependency), so always show its entry.
+                termuxFloatPreference.setVisible(true);
             }
         }
 
