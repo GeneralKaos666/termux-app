@@ -106,10 +106,31 @@ object ColorSchemes {
             foreground = hex(name, foreground),
             background = hex(name, background),
             cursor = hex(name, cursor),
-            ansi = ansi.map { hex(name, it) },
+            // Presets only author the 16 ANSI colours; the extended palette is always the engine's
+            // default 6×6×6 cube plus grayscale ramp.
+            ansi = ansi.map { hex(name, it) } + defaultExtendedPalette(),
         ),
     )
 
     private fun hex(scheme: String, value: String): Int =
         requireNotNull(parseColor(value)) { "$scheme has an invalid color literal: $value" }
+
+    /**
+     * The engine's default extended palette (indices 16..255): the 6×6×6 RGB cube at levels
+     * 0/95/135/175/215/255, then the 24-step grayscale ramp (8..238). Matches the values in the
+     * engine's `TerminalColorScheme` so a fresh extended palette round-trips unchanged.
+     */
+    private fun defaultExtendedPalette(): List<Int> {
+        val levels = intArrayOf(0, 95, 135, 175, 215, 255)
+        val cube = buildList(216) {
+            for (red in levels) for (green in levels) for (blue in levels) {
+                add(0xff000000.toInt() or (red shl 16) or (green shl 8) or blue)
+            }
+        }
+        val grayscale = (0 until 24).map { step ->
+            val gray = 8 + 10 * step
+            0xff000000.toInt() or (gray shl 16) or (gray shl 8) or gray
+        }
+        return cube + grayscale
+    }
 }

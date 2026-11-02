@@ -102,8 +102,8 @@ object FontValidator {
  * Reads and writes the appearance the engine consumes: `colors.properties` for colors, `font.ttf`
  * for the font family, plus the font-size and cursor preferences.
  *
- * The colors file is edited line by line, so keys this screen does not manage (`color16`..`color255`
- * and anything hand-added) survive a write untouched.
+ * The colors file is edited line by line, so keys this screen does not manage (anything other than
+ * `foreground`/`background`/`cursor` and `color0`..`color255`) survive a write untouched.
  */
 class AppearanceStore(
     private val colorsFile: File,
@@ -132,7 +132,7 @@ class AppearanceStore(
             foreground = document.color("foreground") ?: defaults.foreground,
             background = background,
             cursor = document.color("cursor") ?: cursorColorFor(background),
-            ansi = List(ANSI_COLOR_COUNT) { index -> document.color("color$index") ?: defaults.ansi[index] },
+            ansi = List(INDEXED_COLOR_COUNT) { index -> document.color("color$index") ?: defaults.ansi[index] },
         )
 
         return TerminalAppearance(
@@ -163,7 +163,7 @@ class AppearanceStore(
         document.set("foreground", colorToHex(colors.foreground))
         document.set("background", colorToHex(colors.background))
         document.set("cursor", colorToHex(colors.cursor))
-        for (index in 0 until ANSI_COLOR_COUNT) {
+        for (index in 0 until INDEXED_COLOR_COUNT) {
             document.set("color$index", colorToHex(colors.ansi[index]))
         }
 

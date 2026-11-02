@@ -27,7 +27,7 @@ class AppearanceStateTest {
             foreground = foreground,
             background = 0xff000000.toInt(),
             cursor = 0xffffffff.toInt(),
-            ansi = List(16) { it },
+            ansi = List(256) { it },
         ),
         fontPath = fontPath,
         fontSize = fontSize,
@@ -119,24 +119,59 @@ class AppearanceStateTest {
     fun `set ansi color replaces only the addressed index`() {
         val state = AppearanceState(appearance())
         state.setAnsiColor(5, 0xff00ff00.toInt())
+        state.setAnsiColor(200, 0xff00ff00.toInt())
 
         assertEquals(0xff00ff00.toInt(), state.draft.colors.ansi[5])
+        assertEquals(0xff00ff00.toInt(), state.draft.colors.ansi[200])
         assertEquals(4, state.draft.colors.ansi[4])
-        assertEquals(16, state.draft.colors.ansi.size)
+        assertEquals(INDEXED_COLOR_COUNT, state.draft.colors.ansi.size)
     }
 
     @Test
     fun `set ansi color rejects an out of range index`() {
         val state = AppearanceState(appearance())
-        assertThrows(IllegalArgumentException::class.java) { state.setAnsiColor(16, 0xff000000.toInt()) }
+        assertThrows(IllegalArgumentException::class.java) { state.setAnsiColor(256, 0xff000000.toInt()) }
         assertThrows(IllegalArgumentException::class.java) { state.setAnsiColor(-1, 0xff000000.toInt()) }
     }
 
     @Test
-    fun `a color set requires exactly sixteen ansi colors`() {
+    fun `a color set requires exactly two hundred fifty six indexed colors`() {
         assertThrows(IllegalArgumentException::class.java) {
-            TerminalColorSet(0xff000000.toInt(), 0xff000000.toInt(), 0xff000000.toInt(), List(15) { 0 })
+            TerminalColorSet(0xff000000.toInt(), 0xff000000.toInt(), 0xff000000.toInt(), List(255) { 0 })
         }
+    }
+
+    // --- colour labels -----------------------------------------------------------------------
+
+    @Test
+    fun `color label names the ANSI colours`() {
+        assertEquals("ANSI 0 · Black", colorLabel(0))
+        assertEquals("ANSI 1 · Red", colorLabel(1))
+        assertEquals("ANSI 7 · White", colorLabel(7))
+        assertEquals("ANSI 8 · Bright Black", colorLabel(8))
+        assertEquals("ANSI 9 · Bright Red", colorLabel(9))
+        assertEquals("ANSI 15 · Bright White", colorLabel(15))
+    }
+
+    @Test
+    fun `color label describes the RGB cube by coordinate`() {
+        assertEquals("RGB cube · red=0 green=0 blue=0", colorLabel(16))
+        assertEquals("RGB cube · red=0 green=0 blue=5", colorLabel(21))
+        assertEquals("RGB cube · red=2 green=3 blue=4", colorLabel(16 + 2 * 36 + 3 * 6 + 4))
+        assertEquals("RGB cube · red=5 green=5 blue=5", colorLabel(231))
+    }
+
+    @Test
+    fun `color label describes the grayscale ramp`() {
+        assertEquals("Grayscale · step 1 of 24", colorLabel(232))
+        assertEquals("Grayscale · step 4 of 24", colorLabel(235))
+        assertEquals("Grayscale · step 24 of 24", colorLabel(255))
+    }
+
+    @Test
+    fun `color label rejects an out of range index`() {
+        assertThrows(IllegalArgumentException::class.java) { colorLabel(-1) }
+        assertThrows(IllegalArgumentException::class.java) { colorLabel(256) }
     }
 
     @Test

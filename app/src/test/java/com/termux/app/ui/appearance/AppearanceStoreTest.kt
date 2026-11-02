@@ -73,7 +73,7 @@ class AppearanceStoreTest {
         cursorBlinkRate: Int? = 600,
         ligatures: Boolean = true,
     ) = TerminalAppearance(
-        colors = TerminalColorSet(foreground, background, cursor, List(16) { 0xff000000.toInt() + it }),
+        colors = TerminalColorSet(foreground, background, cursor, List(256) { 0xff000000.toInt() + it }),
         fontPath = null,
         fontSize = fontSize,
         cursorStyle = cursorStyle,
@@ -114,16 +114,24 @@ class AppearanceStoreTest {
     }
 
     @Test
-    fun `read tolerates unmanaged color keys such as the extended palette`() {
+    fun `read parses the extended palette keys`() {
         colorsFile.writeText(
             """
             foreground=#ff0000
             color16=#121212
+            color231=#abcabc
             color255=#eeeeee
             """.trimIndent() + "\n",
         )
 
-        assertEquals(0xffff0000.toInt(), store().read().colors.foreground)
+        val colors = store().read().colors
+
+        assertEquals(0xffff0000.toInt(), colors.foreground)
+        assertEquals(0xff121212.toInt(), colors.ansi[16])
+        assertEquals(0xffabcabc.toInt(), colors.ansi[231])
+        assertEquals(0xffeeeeee.toInt(), colors.ansi[255])
+        // An unset extended key falls back to the engine default cube/ramp value.
+        assertEquals(ColorSchemes.TERMUX_DEFAULT.colors.ansi[17], colors.ansi[17])
     }
 
     @Test
@@ -197,14 +205,13 @@ class AppearanceStoreTest {
     }
 
     @Test
-    fun `write preserves comments and unmanaged keys`() {
+    fun `write preserves comments and non-color lines`() {
         colorsFile.writeText(
             """
             # my hand written theme
-            color16=#121212
             foreground=#ff0000
 
-            color255=#eeeeee
+            # another comment
             """.trimIndent() + "\n",
         )
 
@@ -212,10 +219,18 @@ class AppearanceStoreTest {
 
         val lines = colorsFile.readLines()
         assertTrue(lines.contains("# my hand written theme"))
-        assertTrue(lines.contains("color16=#121212"))
-        assertTrue(lines.contains("color255=#eeeeee"))
+        assertTrue(lines.contains("# another comment"))
         assertTrue(lines.contains("foreground=#112233"))
         assertEquals(1, lines.count { it.startsWith("foreground=") })
+    }
+
+    @Test
+    fun `write serializes the extended palette keys`() {
+        store().write(appearance())
+
+        val text = colorsFile.readText()
+        assertTrue(text, text.contains("color16=#000010"))
+        assertTrue(text, text.contains("color255=#0000ff"))
     }
 
     @Test
@@ -223,7 +238,7 @@ class AppearanceStoreTest {
         store().write(appearance())
 
         val lines = colorsFile.readLines().filter { it.isNotBlank() }
-        val managed = listOf("foreground", "background", "cursor") + (0..15).map { "color$it" }
+        val managed = listOf("foreground", "background", "cursor") + (0..255).map { "color$it" }
         assertEquals(managed, lines.map { it.substringBefore('=') })
         assertEquals(managed.size, lines.size)
     }

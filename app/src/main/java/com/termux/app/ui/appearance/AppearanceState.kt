@@ -6,8 +6,11 @@ import androidx.compose.runtime.setValue
 import com.termux.terminal.TerminalEmulator
 import java.util.Locale
 
-/** Number of ANSI palette entries the appearance screen manages (indices `color0`..`color15`). */
+/** The 16 named ANSI colours (indices 0..15), shown as the quick swatches. */
 const val ANSI_COLOR_COUNT = 16
+
+/** Every indexed colour the terminal supports (0..255): the 16 ANSI colours plus the 240-colour extended palette. */
+const val INDEXED_COLOR_COUNT = 256
 
 /** Cursor shapes the terminal engine understands. */
 enum class CursorStyle(val value: Int) {
@@ -34,16 +37,17 @@ object CursorBlink {
     fun sanitize(rate: Int): Int = if (rate == 0 || rate in MIN_RATE..MAX_RATE) rate else 0
 }
 
-/** The 18 colors the appearance screen manages: 16 ANSI entries plus foreground, background, cursor. */
+/** The 259 colors the appearance screen manages: all 256 indexed colours plus foreground, background, cursor. */
 data class TerminalColorSet(
     val foreground: Int,
     val background: Int,
     val cursor: Int,
+    /** The indexed colours `color0`..`color255` in the order the engine indexes them. */
     val ansi: List<Int>,
 ) {
     init {
-        require(ansi.size == ANSI_COLOR_COUNT) {
-            "expected $ANSI_COLOR_COUNT ANSI colors but got ${ansi.size}"
+        require(ansi.size == INDEXED_COLOR_COUNT) {
+            "expected $INDEXED_COLOR_COUNT indexed colors but got ${ansi.size}"
         }
     }
 }
@@ -109,6 +113,28 @@ fun parseColor(text: String): Int? {
 /** Renders a color as the `#rrggbb` form written into `colors.properties`. */
 fun colorToHex(color: Int): String = String.format(Locale.ROOT, "#%06x", color and 0x00ffffff)
 
+/** The standard names of the 16 ANSI colours; entries 8..15 are the bright variants of 0..7. */
+private val ANSI_COLOR_NAMES = listOf("Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "White")
+
+/**
+ * The human description of indexed colour [index] (0..255): the ANSI name for 0..15, the cube
+ * coordinate for 16..231, or the grayscale step for 232..255. Purely a function of the index, so the
+ * screen and its tests share one source of truth.
+ */
+fun colorLabel(index: Int): String = when {
+    index in 0..7 -> "ANSI $index · ${ANSI_COLOR_NAMES[index]}"
+    index in 8..15 -> "ANSI $index · Bright ${ANSI_COLOR_NAMES[index - 8]}"
+    index in 16..231 -> {
+        val cube = index - 16
+        val red = cube / 36
+        val green = cube / 6 % 6
+        val blue = cube % 6
+        "RGB cube · red=$red green=$green blue=$blue"
+    }
+    index in 232..255 -> "Grayscale · step ${index - 231} of 24"
+    else -> throw IllegalArgumentException("indexed color index out of range: $index")
+}
+
 /**
  * Compose-observable staged appearance edits. [loaded] is what was last read from (or written to)
  * the store, [draft] is what the screen shows; [isDirty] is the difference the user must apply or
@@ -168,7 +194,7 @@ class AppearanceState(private val defaultAppearance: TerminalAppearance) {
     }
 
     fun setAnsiColor(index: Int, color: Int) {
-        require(index in 0 until ANSI_COLOR_COUNT) { "ANSI color index out of range: $index" }
+        require(index in 0 until INDEXED_COLOR_COUNT) { "indexed color index out of range: $index" }
         val ansi = draft.colors.ansi.toMutableList()
         ansi[index] = color
         draft = draft.copy(colors = draft.colors.copy(ansi = ansi))

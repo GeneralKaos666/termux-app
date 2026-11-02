@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -166,6 +170,8 @@ fun AppearanceScreen(
     val draft = state.draft
     var colorTarget by remember { mutableStateOf<ColorTarget?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var extendedExpanded by remember { mutableStateOf(false) }
+    var selectedColorIndex by remember { mutableStateOf<Int?>(null) }
 
     BackHandler(enabled = controller.hasUnsavedChanges) { confirmDiscard = true }
 
@@ -196,6 +202,16 @@ fun AppearanceScreen(
                 colorTarget = CursorColorTarget
             }
             AnsiSwatches(draft.colors) { colorTarget = AnsiTarget(it) }
+            ExtendedPalette(
+                colors = draft.colors,
+                expanded = extendedExpanded,
+                selectedIndex = selectedColorIndex,
+                onToggle = { extendedExpanded = !extendedExpanded },
+                onSelect = { index ->
+                    selectedColorIndex = index
+                    colorTarget = AnsiTarget(index)
+                },
+            )
 
             SectionTitle(stringResource(R.string.appearance_section_cursor))
             CursorStyleRow(draft.cursorStyle) { state.setCursorStyle(it) }
@@ -221,11 +237,19 @@ fun AppearanceScreen(
     }
 
     colorTarget?.let { target ->
+        val color = target.current(draft.colors)
+        val label = when (target) {
+            is BackgroundTarget -> stringResource(R.string.appearance_color_background)
+            is ForegroundTarget -> stringResource(R.string.appearance_color_foreground)
+            is CursorColorTarget -> stringResource(R.string.appearance_color_cursor)
+            is AnsiTarget -> colorLabel(target.index)
+        }
         ColorPickerDialog(
-            initialColor = target.current(draft.colors),
+            initialColor = color,
+            title = "$label · ${colorToHex(color)}",
             onDismiss = { colorTarget = null },
-            onConfirm = { color ->
-                target.stage(state, color)
+            onConfirm = { picked ->
+                target.stage(state, picked)
                 colorTarget = null
             },
         )
@@ -304,7 +328,7 @@ private fun PreviewPane(appearance: TerminalAppearance, cursorStyle: CursorStyle
         )
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            colors.ansi.forEach { ansi ->
+            colors.ansi.take(ANSI_COLOR_COUNT).forEach { ansi ->
                 Box(
                     modifier = Modifier
                         .size(16.dp)
@@ -401,6 +425,75 @@ private fun AnsiSwatches(colors: TerminalColorSet, onSelect: (Int) -> Unit) {
             }
         }
         Spacer(Modifier.height(6.dp))
+    }
+}
+
+/**
+ * The collapsible 256-colour palette: a 16×16 grid of swatches (0..255). Each cell is just the
+ * swatch; the full verbose description of the last-tapped swatch is shown on the line under the
+ * header, and the picker dialog repeats it. Tapping a swatch opens the colour picker.
+ */
+@Composable
+private fun ExtendedPalette(
+    colors: TerminalColorSet,
+    expanded: Boolean,
+    selectedIndex: Int?,
+    onToggle: () -> Unit,
+    onSelect: (Int) -> Unit,
+) {
+    Spacer(Modifier.height(4.dp))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.appearance_section_extended),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = if (expanded) "▾" else "▸",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (expanded) {
+        val description = selectedIndex
+            ?.let { "${colorLabel(it)} · ${colorToHex(colors.ansi[it])}" }
+            ?: stringResource(R.string.appearance_extended_hint)
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(16),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(320.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            items(INDEXED_COLOR_COUNT) { index ->
+                val swatchColor = colors.ansi[index]
+                val description = "${colorLabel(index)} · ${colorToHex(swatchColor)}"
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(1f)
+                        .clip(RectangleShape)
+                        .background(Color(swatchColor))
+                        .clickable { onSelect(index) }
+                        .semantics {
+                            contentDescription = description
+                            role = Role.Button
+                        },
+                )
+            }
+        }
     }
 }
 

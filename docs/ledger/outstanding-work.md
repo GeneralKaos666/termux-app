@@ -386,7 +386,7 @@ can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and
 | 15 | JitPack versioning | done | library publishing/versioning |
 | 16 | Session restore | to do | restore sessions across process death (§5.1) |
 | 17 | Termux:Float (shape A vs B) | to do | not chosen yet (§5.2) |
-| 18 | 256-colour palette | to do | full 256-colour support (§5.3) |
+| 18 | 256-colour palette | done | full 256-colour support (§5.3) |
 | 19 | xterm conformance + WS6 audit | to do | conformance/shim gaps (§2.2) |
 | 20 | Dependency refresh — `desugar_jdk_libs` 1.1.5 → 2.1.5 | deferred | major desugaring change; prerequisite for `commons-io`/`guava` |
 | 21 | Dependency refresh — `commons-io` 2.5 → 2.22.0 | deferred | contradicts `AGENTS.md` "must remain 2.5"; needs `desugar_jdk_libs` 2.x |
@@ -472,15 +472,22 @@ adding a module is a deliberate deviation from the `AGENTS.md` "concentrate chan
 To resume: confirm the goal and pick A or B (A recommended), then run the normal brainstorming →
 spec → plan cycle.
 
-### 5.3 256-colour palette
+### 5.3 256-colour palette — `[done]`
 
-Undecided. The appearance screen exposes only `color0`..`color15` today; unmanaged keys are preserved
-untouched. The question is whether to surface the extended palette.
+Reversed from the earlier `[non-goal]`: the appearance screen now exposes all 256 indexed colours.
+`TerminalColorSet.ansi` holds `color0`..`color255`; presets author only the 16 ANSI colours and take
+the engine-default extended palette (6×6×6 cube + grayscale ramp). The screen adds a collapsible
+"256-colour palette" section — a 16×16 grid of swatches whose last-tapped swatch is described verbosely
+(`ANSI n · name`, `RGB cube · red=… green=… blue=…`, `Grayscale · step …`) via `colorLabel(index)`, and
+the colour picker title repeats that label plus the hex. The store reads/writes the full 256 and keeps
+round-tripping keys it does not manage. `colorLabel`, the extended palette, and the store round-trip
+are unit-tested.
 
-### 5.4 Palette-version signal
+### 5.4 Palette-version signal — `[non-goal]`
 
-Only needed if the robust fix for the wallpaper-mode repaint (§2.4) is chosen; then it needs its own
-spec cycle.
+Decided 2026-11-01: not needed. It was contingent on choosing the "robust" wallpaper-repaint fix,
+which was declined in favour of the simple `invalidate()`-on-`onColorsChanged` fix (`ad380602`). A
+version-tracked repaint would be a micro-optimization over that working fix.
 
 ---
 

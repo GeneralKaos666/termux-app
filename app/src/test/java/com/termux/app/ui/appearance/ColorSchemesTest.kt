@@ -13,7 +13,7 @@ class ColorSchemesTest {
     fun `every preset is complete and serializable`() {
         ColorSchemes.presets.forEach { preset ->
             assertTrue("preset name is blank", preset.name.isNotBlank())
-            assertEquals("${preset.name} ansi count", 16, preset.colors.ansi.size)
+            assertEquals("${preset.name} ansi count", INDEXED_COLOR_COUNT, preset.colors.ansi.size)
 
             val all = listOf(preset.colors.foreground, preset.colors.background, preset.colors.cursor) +
                 preset.colors.ansi
@@ -60,6 +60,20 @@ class ColorSchemesTest {
         assertEquals(0xff7f7f7f.toInt(), colors.ansi[8])
         assertEquals(0xff5c5cff.toInt(), colors.ansi[12])
         assertEquals(0xffffffff.toInt(), colors.ansi[15])
+    }
+
+    @Test
+    fun `the extended palette is the engine default cube and grayscale ramp`() {
+        val ansi = ColorSchemes.TERMUX_DEFAULT.colors.ansi
+        // First cube entry is pure black; the last cube entry is pure white.
+        assertEquals(0xff000000.toInt(), ansi[16])
+        assertEquals(0xffffffff.toInt(), ansi[231])
+        // Cube channels step through 0/95/135/175/215/255: index 22 is red=0, green=95, blue=0.
+        assertEquals(0xff005f00.toInt(), ansi[22])
+        // Grayscale ramp runs 8..238 in steps of 10.
+        assertEquals(0xff080808.toInt(), ansi[232])
+        assertEquals(0xff808080.toInt(), ansi[244])
+        assertEquals(0xffeeeeee.toInt(), ansi[255])
     }
 
     @Test

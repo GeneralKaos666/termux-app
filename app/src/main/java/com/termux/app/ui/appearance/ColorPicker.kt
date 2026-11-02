@@ -94,6 +94,7 @@ fun hsvToRgb(hsv: HsvColor): Int = hsvToRgb(hsv.hue, hsv.saturation, hsv.value)
 @Composable
 fun ColorPickerDialog(
     initialColor: Int,
+    title: String,
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit,
 ) {
@@ -107,7 +108,7 @@ fun ColorPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.appearance_color_picker_title)) },
+        title = { Text(title) },
         text = {
             Column {
                 SaturationValueBox(
