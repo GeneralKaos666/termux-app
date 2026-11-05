@@ -100,6 +100,18 @@ class FloatControllerTest {
     }
 
     @Test
+    fun `the float terminal view can take focus so the IME binds to it`() {
+        val controller = FloatController(context(), FakeSource(newTermuxSession()), canDrawOverlays = { true })
+
+        controller.showNewSession()
+
+        // The activity's terminal comes from view_terminal.xml, which sets
+        // android:focusableInTouchMode="true". A view built in code without it rejects
+        // requestFocus(), so the IME has no view to serve an input connection for.
+        assertTrue(controller.terminalView.isFocusableInTouchMode)
+    }
+
+    @Test
     fun `a second showNewSession reuses the existing session instead of creating another`() {
         val source = FakeSource(newTermuxSession())
         val controller = FloatController(context(), source, canDrawOverlays = { true })

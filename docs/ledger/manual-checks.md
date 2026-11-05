@@ -28,7 +28,7 @@ between sessions; rediscover it before a run. `input text` is unreliable on this
 | D-9 | A2 multi-window split-pane stability | **passed 2026-11-02** (maintainer verdict after manual split; no adb measurement possible) | `docs/plans/2026-10-10-shell-sessions.md` A2 results |
 | D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` | pending, only if float is picked up | `outstanding-work.md` §5.2 |
 | D-11 | Obfuscated release APK runs (R8 hardening) | **passed 2026-11-02** (maintainer verdict, not machine-measured) | `outstanding-work.md` §4.1 |
-| D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** for create/collapse/expand/close; drag, IME and lifecycle edges still pending | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
+| D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** (all window, IME, permission and lifecycle checks; three defects fixed) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -297,23 +297,51 @@ were found and fixed:
 - [x] Overlay window appears when "New floating session" is chosen from the sessions-bar "+" menu.
       `dumpsys window windows` shows a `ty=APPLICATION_OVERLAY` window at `(324,487) 765x1071`,
       `mHasSurface=true`, `isOnScreen=true`; the app process stayed alive.
-- [ ] Drag moves the window and resize clamps at screen edges. *Not yet checked on device.*
-- [ ] Keyboard shows over the overlay (IME binds to the `TerminalView`). *Not yet checked on device.*
+- [x] Drag moves the window and resize clamps at screen edges. — A header drag from `(400,630)` to
+      `(560,820)` moved the window from `(324,487)` to `(351,704)`; a second drag toward the
+      bottom-right stopped at `(351,1368)` (`1368 + 1071 = 2439`, the app-frame height), so position
+      is clamped on screen. Resizing also works (maintainer verdict: the corner handle sits at the
+      screen edge, which made automation flaky; a drag of the handle changed the window to
+      `766x1076` and the shell reflowed).
+- [x] Keyboard shows over the overlay (IME binds to the `TerminalView`). — **Found and fixed a third
+      defect:** the float `TerminalView` was constructed in code without `focusableInTouchMode`
+      (the activity's view gets it from `view_terminal.xml`), so `requestFocus()` always failed:
+      the overlay window was focused, `mInputShown=true`, but `mServedInputConnection=null`, no
+      uiautomator node had `focused="true"`, and typed text never reached the float shell. With
+      `isFocusableInTouchMode = true`, `mServedInputConnection` became
+      `RemoteInputConnectionImpl{… mServedView=…TerminalView …}` and typing
+      `touch float-ime-ok` + Enter in the overlay created
+      `/data/data/com.termux/files/home/float-ime-ok`.
 - [x] Permission prompt when `Settings.canDrawOverlays()` is false, and the window does not appear
       until granted. — With `appops set com.termux SYSTEM_ALERT_WINDOW deny` (and
       `appops get` confirming `deny`), choosing the float item opened
       `com.android.settings/.Settings$OverlaySettingsActivity`, added no overlay window (the only
       `ty=APPLICATION_OVERLAY` window on the display was SystemUI's `ShellDropTarget`) and produced
       no new crash record. Permission restored to `allow` afterwards.
-- [ ] Revoking overlay permission while the window is up collapses it cleanly (no crash).
-      *Not yet checked on device.*
+- [x] Revoking overlay permission while the window is up collapses it cleanly (no crash). — With the
+      expanded window at `(179,0) 834x1074`, `appops set com.termux SYSTEM_ALERT_WINDOW deny` made
+      the system hide it immediately (`mPolicyVisibility=false`, `mAppOpVisibility=false`,
+      `isReadyForDisplay()=false`); the app process and both shells stayed alive and dropbox gained
+      no crash. Restoring `allow` brought the same window back (`isReadyForDisplay()=true`). The
+      controller has no app-op listener, so the float session keeps running while the system hides
+      the window; reopening it needs the permission.
 - [x] Collapse-to-bubble and expand-to-window work. — Collapse produced a `143x143`
       `APPLICATION_OVERLAY` window; tapping the bubble restored the `765x1071` window and removed
       the bubble.
-- [ ] The float session survives closing the main activity. *Not yet checked on device.*
-- [ ] The float shell exiting collapses the window. *Not yet checked on device.*
-- [ ] The float session does NOT appear in the main tab bar (`createFloatSession` leaves
-      `mTermuxSessions` unchanged). *Not yet checked on device.*
+- [x] The float session survives closing the main activity. — Collapsed to the bubble so the
+      activity could take focus, pressed back twice (the first closed the IME), and
+      `topResumedActivity` became `com.zte.mifavor.launcher/…QuickstepLauncher` with no
+      `TermuxActivity` record left. The app pid, the activity shell (`20729 zsh`) and the float
+      shell (`22111 zsh`) all stayed alive; the `143x143` bubble remained and tapping it expanded
+      the window again.
+- [x] The float shell exiting collapses the window. — Typed `exit` + Enter in the expanded overlay;
+      the float shell (`22111 zsh`) disappeared, the `com.termux` overlay window was removed (only
+      SystemUI's `ShellDropTarget` `APPLICATION_OVERLAY` remained), the app pid and the activity
+      shell survived, and dropbox gained no crash record.
+- [x] The float session does NOT appear in the main tab bar (`createFloatSession` leaves
+      `mTermuxSessions` unchanged). — With the float collapsed so the activity was dumpable,
+      `uiautomator` listed only `Session 2` while the float `zsh` (pid `22111`) was running as a
+      second child of the app process.
 - [x] Closing the window ends the float shell and leaves the app running. — App pid 474 had
       children `797 zsh` (activity) and `2630 zsh` (float); after "Close", only `797` remained, no
       overlay window was left, and `dumpsys dropbox --print data_app_crash` gained no record.

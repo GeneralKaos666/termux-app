@@ -151,8 +151,8 @@ drag-to-reorder, rename and close have all since shipped.
 
 ### 2.4 Known defects and bounded leftovers
 
-- `[fixed 2026-11-04, D-12]` **the in-app floating terminal crashed on creation** — two defects,
-  both fixed and retested on NX769J / API 34:
+- `[fixed 2026-11-04, D-12]` **the in-app floating terminal crashed on creation** — three defects,
+  all fixed and retested on NX769J / API 34:
   1. `Service`-added overlay `ComposeView`s had no `ViewTreeLifecycleOwner`/
      `ViewTreeSavedStateRegistryOwner`, so `AbstractComposeView.onAttachedToWindow` threw
      `IllegalStateException: ViewTreeLifecycleOwner not found`. `FloatOverlayView` now owns both
@@ -160,11 +160,16 @@ drag-to-reorder, rename and close have all since shipped.
   2. `FloatController` never applied a font size to its own `TerminalView`, so the first Compose
      layout threw `NullPointerException` from `TerminalView.updateSize()` (`mRenderer` null). The
      controller now applies the user's font size before layout, with a 14 sp fallback.
+  3. The float `TerminalView` was constructed without `focusableInTouchMode` (the activity's view
+     gets it from `view_terminal.xml`), so it rejected `requestFocus()` and the IME never served an
+     input connection: the window was focused, the keyboard showed, but typing reached nothing. The
+     controller now sets `isFocusableInTouchMode = true`.
   Retest also found and fixed a leak: `stop()` used `TermuxSession.finish()`, a no-op while the
   shell runs, so closing the window left its shell alive. `FloatSessionSource.finishFloatSession`
-  now calls `TerminalSession.finishIfRunning()`. Remaining device checks (drag/resize, IME, overlay
-  permission revoke while up, main-activity close, shell-exit collapse, tab-bar absence) are in
-  `manual-checks.md` D-12. Evidence in `~/.tmp/opencode/device-checks-2026-11-04.md`.
+  now calls `TerminalSession.finishIfRunning()`. All D-12 device checks (create, drag/resize,
+  collapse/expand, IME, overlay permission revoke while up, main-activity close, shell-exit
+  collapse, tab-bar absence, close kills the shell) now pass; see `manual-checks.md` D-12. Evidence
+  in `~/.tmp/opencode/device-checks-2026-11-04.md`.
 - `[open 2026-11-02, D-4]` **renderer fans out weight-2 grapheme continuations** — the emulator
   absorbs a ZWJ sequence into one 2-column cluster (`GraphemeClusters`, `TerminalRow.setChar`,
   `TerminalBuffer.getWidthForWrite`), but `TerminalRenderer.onDraw` still advances its `column`

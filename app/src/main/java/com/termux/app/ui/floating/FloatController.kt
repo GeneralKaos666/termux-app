@@ -73,6 +73,10 @@ class FloatController @JvmOverloads constructor(
 
     internal val terminalView = TerminalView(context, null).apply {
         setTerminalViewClient(FloatViewClient())
+        // The activity's terminal comes from view_terminal.xml, which sets this flag. Without it a
+        // programmatically created view rejects requestFocus(), so tapping the float terminal would
+        // never make it the served view and the soft keyboard could not bind to it.
+        isFocusableInTouchMode = true
         // The activity path applies the user's font size before the view is attached; without a
         // renderer the first layout throws a NullPointerException out of updateSize().
         setTextSize(TermuxAppSharedPreferences.build(context)?.fontSize ?: DEFAULT_FONT_SIZE)
