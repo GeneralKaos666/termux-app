@@ -170,15 +170,29 @@ drag-to-reorder, rename and close have all since shipped.
   collapse/expand, IME, overlay permission revoke while up, main-activity close, shell-exit
   collapse, tab-bar absence, close kills the shell) now pass; see `manual-checks.md` D-12. Evidence
   in `~/.tmp/opencode/device-checks-2026-11-04.md`.
-- `[open 2026-11-02, D-4]` **renderer fans out weight-2 grapheme continuations** — the emulator
+- `[fixed 2026-11-04]` **renderer fanned out weight-2 grapheme continuations** — the emulator
   absorbs a ZWJ sequence into one 2-column cluster (`GraphemeClusters`, `TerminalRow.setChar`,
-  `TerminalBuffer.getWidthForWrite`), but `TerminalRenderer.onDraw` still advances its `column`
-  cursor by `WcWidth.width()` for every code point and only eats zero-width continuations
-  (`charsForColumns`); the width-2 continuations (ZWJ members) are therefore counted as fresh cells.
-  On device `A👨‍👩‍👧B` draws the three members at columns 1/3/5 and `B` over ruler column 7
-  instead of 3 (4-column drift). Evidence in `~/.tmp/opencode/device-checks-2026-11-02.md` D-4.
-  Fix belongs in `:terminal-view` (walk clusters with `GraphemeClusters.clusterEnd/clusterWidth`
-  in the run loop and `charsForColumns`); no `:terminal-emulator` change is needed.
+  `TerminalBuffer.getWidthForWrite`), but `TerminalRenderer.onDraw` advanced its `column` cursor by
+  `WcWidth.width()` for every code point and only ate zero-width continuations (`charsForColumns`), so
+  the width-2 continuations (ZWJ members) counted as fresh cells: on device `A👨‍👩‍👧B` drew the three
+  members at columns 1/3/5 and `B` over ruler column 7 instead of 3 (4-column drift; evidence
+  `~/.tmp/opencode/device-checks-2026-11-02.md` D-4). Fixed in `:terminal-view`: the run loop now
+  walks `GraphemeClusters.clusterEnd/clusterWidth`, advances `column` by the cluster's width, and
+  measures/draws the whole cluster as one span, and `charsForColumns` is cluster-aware. A shaped-run
+  policy cut on a cell boundary can land inside a wide cluster, so the new `columnsForChars` widens
+  that span to the cluster's real cell count instead of shifting every later glyph. `GraphemeClusters`
+  and its two walk methods are now **public** (visibility only, no behavior change) because
+  `:terminal-view` is a different package; that is the only `:terminal-emulator` change. Covered by
+  `TerminalRendererRunTest.testZwjClusterOccupiesOneWideCell` and `testZwjClusterIsDrawnAsOneSpan`,
+  both confirmed red against the pre-fix renderer. `./gradlew test` green. The D-4 device re-check is
+  still open in `manual-checks.md`.
+- `[open 2026-11-04]` **selection end clamps at the first zero-width continuation** —
+  `TextSelectionCursorController.getValidCurX` maps a column to the selected text by walking `WcWidth` per
+  code point and returns the current column as soon as a code point has width 0 (`cend == col`), so a
+  right-hand selection cannot extend past a ZWJ cluster or a combining mark. Pre-existing (not introduced by
+  the renderer cluster fix) and `getSelectedText` itself is already cluster-aware
+  (`TerminalRow.findStartOfColumn`). The fix is a cluster walk over the returned text, plus the tests the
+  selection controllers do not have.
 - `[open 2026-11-02, D-5 capture]` **OOM on rotate at the minimum font size** — rotating a long-lived
   instance portrait → landscape at font 10 px (354 columns) threw
   `java.lang.OutOfMemoryError` at `TerminalRow.<init>` ← `TerminalBuffer.resize` ←

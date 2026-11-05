@@ -20,7 +20,7 @@ between sessions; rediscover it before a run. `input text` is unreliable on this
 | D-1 | WS3 shaping/ligatures | **7 of 8 passed 2026-10-20/21**; API 21–28 legacy path deferred (no device) | `docs/specs/2026-10-18-ws3-shaping-ligatures-design.md` §7 |
 | D-2 | WS4 kitty graphics (6 items) | **done 2026-10-19** | `docs/specs/2026-10-18-ws4-graphics-placement-design.md` §8 |
 | D-3 | WS2 dirty-region visual checklist (7 items) | **passed 2026-11-02** (all 7) | `docs/specs/2026-10-17-renderer-dirty-region-design.md` §10 |
-| D-4 | WS1 engine sanity on a real emoji/link session | **failed 2026-11-02**: widths/wrap/links pass, ZWJ fan-out defect (renderer) | `docs/plans/2026-10-17-terminal-engine-cell-model.md` branch gate; evidence `~/.tmp/opencode/device-checks-2026-11-02.md` §D-4 |
+| D-4 | WS1 engine sanity on a real emoji/link session | **failed 2026-11-02**: widths/wrap/links pass, ZWJ fan-out defect (renderer) — **code fixed 2026-11-04, device re-check pending** | `docs/plans/2026-10-17-terminal-engine-cell-model.md` branch gate; evidence `~/.tmp/opencode/device-checks-2026-11-02.md` §D-4 |
 | D-5 | Appearance preset readability (Solarized Light, Gruvbox Dark, One Dark) | **PASS** (screenshots captured for human review) | §6 below |
 | D-6 | Appearance screen full checklist | **passed 2026-11-02** (8 of 8) | `docs/plans/2026-10-14-in-app-terminal-appearance.md` §Verification |
 | D-7 | Settings IA check | **passed 2026-11-02** (3 of 3) | `docs/plans/2026-10-16-settings-ia.md` Task 4 note |
@@ -112,8 +112,9 @@ All seven acceptance items from the renderer spec §10. **Run 2026-11-02 on NX76
   same with `SGR 4`; adjacent plain text has no underline.
 - FAIL — a ZWJ family (`U+1F468 ZWJ U+1F469 ZWJ U+1F467`) is absorbed to a 2-column cluster by the
   emulator but **rendered as three separate emoji over 6 columns**, so the next character is drawn
-  4 columns too far right (`A…B` puts `B` over ruler column 7 instead of 3). Tracked as open work in
-  `outstanding-work.md` §2.4; the fix is in the `:terminal-view` run loop / `charsForColumns`.
+  4 columns too far right (`A…B` puts `B` over ruler column 7 instead of 3). Fixed in the renderer on
+  2026-11-04 (`outstanding-work.md` §2.4): the run loop and the glyph-span walk are now
+  cluster-aware, with `TerminalRendererRunTest` coverage. **Needs the same device re-run to close.**
 - Note — `U+2764 U+FE0F` stays 1 column: the shipped rule gives VS16 no column and the base heart is
   width 1. Consistent with the cell model, but it is not the 2-column emoji presentation.
 
