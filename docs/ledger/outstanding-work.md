@@ -489,7 +489,8 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   the unit-tests workflow, and a release-build job (`assembleRelease`, exercises R8) to the build
   workflow. Fixed the three pre-existing lint errors that would have failed CI (two
   `onBackPressed` `MissingSuperCall` overrides now `@SuppressLint`-annotated; the
-  `CoreLibDesugaringV1` error is suppressed pending the deferred `desugar_jdk_libs` 2.x upgrade).
+  `CoreLibDesugaringV1` error was suppressed at the time, and that suppression was removed on
+  2026-11-05 when `desugar_jdk_libs` moved to 2.1.5).
 - `[done 2026-11-04]` Dependabot remediation for the 67 open Maven alerts: `guava` 24.1-jre →
   33.8.0-android in `app` and `termux-shared`; `commons-io` removed from `:termux-shared` (its
   `FileUtils`/`TermuxUtils`/`TermuxShellUtils` uses replaced with local `java.io` helpers, and
@@ -535,9 +536,19 @@ require **AGP 9.1.0+** (repo is on 8.13.2); `hiddenapibypass:6.2` needs **compil
 Robolectric 4.10's `ShadowActivity`, and Robolectric can't be bumped here — its `android-all` jar
 can't be fetched). `commons-io` no longer needs `desugar_jdk_libs` 2.x: `:termux-shared` dropped the
 dependency (2026-11-04) and its remaining uses are implemented with `java.io` helpers, and `guava` is
-on the Android flavor (`33.8.0-android`), which does not reference `java.nio.file`. The desugaring
-1.x→2.x upgrade is still deferred for the Java APIs it would backport in app code. `compileSdk`
-stays 36.
+on the Android flavor (`33.8.0-android`), which does not reference `java.nio.file`. `desugar_jdk_libs` was raised 1.1.5 → 2.1.5
+on 2026-11-05 (see below), so the `CoreLibDesugaringV1` lint suppression is gone and the remaining Java
+APIs in app code can be backported. `compileSdk` stays 36.
+
+**Dependency refresh — 2026-11-05.** `desugar_jdk_libs` 1.1.5 → 2.1.5 in `:app` and `:termux-shared`,
+and the `disable 'CoreLibDesugaringV1'` lint suppressions were deleted from both modules (the check no
+longer fires, so lint is no longer hiding it). Verified with
+`./gradlew lint test :app:assembleDebug :app:assembleRelease` (0 lint errors) and both
+`assembleDebugAndroidTest` tasks; `gradle/verification-metadata.xml` regenerated in the same commit.
+2.x no longer needs the 1.x workaround and backports `java.nio.file` under minSdk 23. The
+`commons-io` and `guava` rows below are closed too: `commons-io` is no longer a dependency of any
+module (only the root `force` pin remains as a transitive guard) and `guava` is already on
+`33.8.0-android` from the 2026-11-04 Dependabot remediation.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
@@ -560,9 +571,9 @@ stays 36.
 | 17 | Termux:Float (shape A vs B) | done | in-app float via `:app` (§5.2) |
 | 18 | 256-colour palette | done | full 256-colour support (§5.3) |
 | 19 | xterm conformance + WS6 audit | to do | conformance/shim gaps (§2.2) |
-| 20 | Dependency refresh — `desugar_jdk_libs` 1.1.5 → 2.1.5 | deferred | major desugaring change; prerequisite for `commons-io`/`guava` |
-| 21 | Dependency refresh — `commons-io` 2.5 → 2.22.0 | deferred | contradicts `AGENTS.md` "must remain 2.5"; needs `desugar_jdk_libs` 2.x |
-| 22 | Dependency refresh — `guava` 24.1-jre → 33.7.2-jre | deferred | keep `listenablefuture` shim; do after `desugar_jdk_libs` |
+| 20 | Dependency refresh — `desugar_jdk_libs` 1.1.5 → 2.1.5 | done | 2026-11-05; `CoreLibDesugaringV1` suppressions removed |
+| 21 | Dependency refresh — `commons-io` 2.5 → 2.22.0 | closed | no longer a module dependency (2026-11-04); root `force` pin 2.22.0 kept as transitive guard |
+| 22 | Dependency refresh — `guava` 24.1-jre → 33.7.2-jre | done | already `33.8.0-android` (2026-11-04); `listenablefuture` shim kept |
 | 23 | Dependency refresh — `androidx.window` 1.1.0 → 1.5.1 | done | `e1264dea` |
 | 24 | Dependency refresh — `appcompat` 1.6.1 → 1.8.0 | done | `e28e386a` |
 | 25 | Dependency refresh — `material` 1.12.0 → 1.14.0 | done | `f3050cbc` |
