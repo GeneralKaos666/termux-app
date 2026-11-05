@@ -322,8 +322,8 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   now exists (`testOptions.unitTests.returnDefaultValues` enabled, `junit` exercised) and covers the
   pure path helpers (`FileUtils` basename/dirname, `ShellUtils` argument setup). Android-touching
   logic stays instrumented (`androidTest`). More pure helpers can be added over time.
-- `[open]` **no tests at all** for `:terminal-emulator` `TerminalBitmap`, `TerminalSixel`,
-  `ITermImage`, `TerminalSession`; `:terminal-view` `TerminalView` (1,661 lines),
+- `[partly done 2026-11-04]` **no tests at all** for `:terminal-emulator` `TerminalBitmap`,
+  `TerminalSession`; `:terminal-view` `TerminalView` (1,661 lines),
   text-selection controllers/handles (only the column mapping of `TextSelectionCursorController` is
   covered, by `TextSelectionCursorControllerTest`); `:app` `TermuxService`,
   `TermuxTerminalSessionActivityClient`, `TermuxInstaller`, `RunCommandService`,
@@ -336,8 +336,16 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   - `[done 2026-10-27]` `TerminalSixel` colour logic covered by `TerminalSixelTest` (initial
     palette, `setColor` bounds, `setRGBColor` 0-100→ARGB scaling + clamping). `readData` stays
     device-only (native graphics unsupported on this aarch64 host).
-  - `[open]` `TerminalBitmap` and `TerminalSession` remain untested: `TerminalBitmap`'s remaining
-    surface is `Bitmap` pixel ops (native graphics) and `TerminalSession` is process/JNI-bound.
+  - `[done 2026-11-04]` `TerminalSession` now covered where a real pty is not needed, by
+    `TerminalSessionTest` (11 tests): the UTF-8 encoding of `writeCodePoint` at every length boundary
+    (1/2/3/4-byte, `ESC` prefix), rejection of the surrogate range and of values above `U+10FFFF`,
+    writes dropped when no pty is live, and the pre-start getters (`getEmulator`/`getTitle`/`getCwd`
+    null, pid and exit status 0, unique handle). The negative-code-point case was red: `-1` passed
+    the guard and was queued as a stray `0xFF` byte, so the guard now rejects `codePoint < 0`. Still
+    device-only: `initializeEmulator`, the reader/writer/waiter threads, `MainThreadHandler`, and
+    `finishIfRunning` (JNI `createSubprocess`, `Os.kill`).
+  - `[open]` `TerminalBitmap` remains untested: its surface is `Bitmap`/`Canvas` pixel ops (native
+    graphics), so it shares the Sixel `readData` limitation.
   - `[limitation]` `:terminal-view` `TerminalView` + selection controllers: the pure seams are
     already covered (`LinkUrisTest`, `ShapedRunPolicyTest`, `TerminalRendererRunTest`,
     `TerminalViewLinkHitTest`); the rest is drawing/gesture/selection coordination that needs

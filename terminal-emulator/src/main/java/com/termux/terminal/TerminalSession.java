@@ -181,8 +181,9 @@ public final class TerminalSession extends TerminalOutput {
 
     /** Write the Unicode code point to the terminal encoded in UTF-8. */
     public void writeCodePoint(boolean prependEscape, int codePoint) {
-        if (codePoint > 1114111 || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
+        if (codePoint < 0 || codePoint > 1114111 || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
             // 1114111 (= 2**16 + 1024**2 - 1) is the highest code point, [0xD800,0xDFFF] is the surrogate range.
+            // A negative value is not a code point either; it used to be written out as a stray byte.
             throw new IllegalArgumentException("Invalid code point: " + codePoint);
         }
 
