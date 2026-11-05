@@ -2,12 +2,13 @@
 
 **Date:** 2026-11-05
 **Scope:** move the build from AGP 8.13.2 / Gradle 9.2.1 to AGP 9.1.1 / Gradle 9.3.1 with
-built-in Kotlin, preserve the APK file names the release workflows validate, preserve the
-published-AAR compatibility surface, and then land the three dependency bumps that AGP 9.1
-unblocks (`androidx.core` 1.19.1, `androidx.lifecycle:lifecycle-runtime-compose` 2.11.0,
-`androidx.compose:compose-bom` 2026.09.00).
-**Ledger item:** `outstanding-work.md` §4.3 rows 26, 29 and 32 (all marked *blocked — needs
-AGP 9.1.0+*).
+built-in Kotlin, preserve the APK file names the release workflows validate, and preserve the
+published-AAR compatibility surface. The three dependency bumps originally grouped here
+(`androidx.core` 1.19.1, `androidx.lifecycle:lifecycle-runtime-compose` 2.11.0,
+`androidx.compose:compose-bom` 2026.09.00) turned out to need **compileSdk 37**, so they were
+split out of this slice — see §7 for the measurements.
+**Ledger item:** `outstanding-work.md` §4.3 rows 26, 29 and 32 — originally *blocked — needs
+AGP 9.1.0+*; now recorded as *blocked — needs compileSdk 37*.
 
 ## 1. Why this slice and why these versions
 
@@ -144,19 +145,31 @@ is already marked for removal in AGP 10. `minAgpVersion` keeps its default `1.0.
 after the first build and pinned only if it unexpectedly excludes an AGP 8.x consumer. Library
 public APIs, package names and `com.termux` identities do not change.
 
-## 7. Dependency bumps this slice unlocks
+## 7. Dependency bumps this slice was expected to unlock — corrected 2026-11-05
 
-Landed only after the migration builds green, one commit each, ascending blast radius:
+This section originally said AGP 9.1 alone unblocked these three bumps. It does not. Executing the
+migration disproved it: every target artifact declares `minCompileSdk=37`, and this slice's
+constraints forbid a `compileSdk` change. Measured from the published AAR metadata:
 
-| Item | From | To | Notes |
-|---|---|---|---|
-| `androidx.core:core` | 1.13.1 | 1.19.1 | `:app` and `:termux-shared` |
-| `androidx.lifecycle:lifecycle-runtime-compose` | 2.9.4 | 2.11.0 | `:app` only |
-| `androidx.compose:compose-bom` | 2025.11.01 | 2026.09.00 | last and separate, per §4.3 |
+| Item | From | Target | `minCompileSdk` | Outcome |
+|---|---|---|---|---|
+| `androidx.core:core` | 1.13.1 | 1.19.1 | 37 (`core` and `core-ktx`) | blocked |
+| `androidx.lifecycle:lifecycle-runtime-compose` | 2.9.4 | 2.11.0 | 37 (`minAgp=9.1.0`) | blocked |
+| `androidx.compose:compose-bom` | 2025.11.01 | 2026.09.00 | 37 via `ui`/`foundation` 1.12.1 | blocked |
 
-Still blocked and left untouched: `hiddenapibypass` 6.2 (needs compileSdk 37, which breaks
-Robolectric 4.10), Robolectric 4.17 (its `android-all-instrumented` jar cannot be fetched here),
-and therefore the compileSdk raise.
+`material3` 1.4.0 reports 35 and `runtime` 1.12.1 reports 34, so the BOM is gated by
+`ui`/`foundation`, not by `material3`. The bump attempt fails at `:app:checkDebugAarMetadata` with
+`Dependency 'androidx.core:core:1.19.1' requires libraries and applications that depend on it to
+compile against version 37 or later of the Android APIs.` The `core` change was reverted, so this
+slice ships the AGP migration only.
+
+These bumps move to a compileSdk 37 slice, together with the two blockers that raise creates:
+Robolectric 4.10 breaks on API 37 (`ShadowActivity`), and Robolectric 4.17 is required first — its
+`android-all-instrumented` jar was previously unfetchable here, but the Android 17 artifact now
+returns HTTP 200 (248,937,044 bytes), so that blocker must be re-verified rather than assumed. The
+`android-37` platform is not installed in this workspace (only `android-36`).
+`hiddenapibypass` 6.2 stays behind the same wall. The ledger's §4.3 rows 26/29/32 carry the same
+correction.
 
 ## 8. Verification
 
@@ -188,16 +201,21 @@ JitPack cannot be exercised from this workspace: its build is triggered only by 
 build-tools 36.0.0 the same way the local SDK does. A JitPack failure would be a release-time
 finding, not something this slice can prove or prevent.
 
-## 9. Commit sequence
+## 9. Commit sequence — actual
 
-1. `Changed(build): Upgrade Gradle wrapper to 9.3.1` — wrapper properties only.
+1. `Changed(build): Upgrade Gradle wrapper to 9.3.1` — wrapper properties only (`1ff791f8`).
 2. `Changed(build): Migrate Android Gradle plugin to 9.1.1` — root and module build files,
    `android.newDsl=false`, built-in Kotlin, `enableKotlin=false`, proguard default file,
-   AAR metadata pin, regenerated verification metadata, ledger updates.
-3. `Changed(build): Update androidx.core to 1.19.1` — dependency, metadata, ledger row 26.
-4. `Changed(build): Update lifecycle-runtime-compose to 2.11.0` — dependency, metadata,
-   ledger row 29.
-5. `Changed(build): Update Compose BOM to 2026.09.00` — BOM, metadata, ledger row 32.
+   AAR metadata pin, regenerated verification metadata, ledger updates (`d582f402`).
+3. `Changed(docs): Record compileSdk 37 blocker for dependency refresh` — the replacement for the
+   three dependency commits below; records the measured `minCompileSdk=37` values and reverts the
+   attempted `core` bump (`d1179868`).
+
+Planned but **not executed**, now owned by the compileSdk 37 slice:
+
+- `Changed(build): Update androidx.core to 1.19.1` — ledger row 26.
+- `Changed(build): Update lifecycle-runtime-compose to 2.11.0` — ledger row 29.
+- `Changed(build): Update Compose BOM to 2026.09.00` — ledger row 32.
 
 Every commit is GPG-signed. No commit mixes two dependency changes.
 
@@ -207,9 +225,8 @@ Ledger and docs changes follow the same split:
   built-in Kotlin setup, notes in §4.1 for the two new open items (migrate the APK rename off
   `android.newDsl=false` before AGP 10, and re-evaluate `-dontoptimize` when R8 hardening is
   revisited), and a §4.2 note that each unit test now runs once (debug only).
-- **Commits 3–5** mark rows 26, 29 and 32 done with their commit ids and refresh the §4.3
-  paragraph that currently says the remaining refresh is blocked on AGP 9.1 (only rows 30 and 31
-  stay blocked afterwards).
+- **Commit 3** records the compileSdk 37 blocker in §4.3 and re-labels rows 26, 29 and 32; rows 30
+  and 31 stay blocked for the same reason.
 - The local, gitignored `/AGENTS.md` toolchain paragraph is updated after the migration; it is not
   part of any commit.
 
@@ -220,7 +237,7 @@ Ledger and docs changes follow the same split:
 | Compose compiler plugin does not attach to built-in Kotlin | `:app:compileDebugKotlin` fails | Set `android.builtInKotlin=false`, restore `org.jetbrains.kotlin.android` |
 | KGP 2.4.21 is incompatible with AGP 9.1.1's internal KGP API | configuration or `:app:compileDebugKotlin` fails inside KGP | Same `builtInKotlin=false` fallback; only if that also fails, fall back to the bundled KGP/Compose 2.2.10 pair and record it as a Kotlin downgrade |
 | Kotlin bytecode target silently changes | step 5 reports a major version other than 61 | Set `kotlin { compilerOptions { jvmTarget = JvmTarget.JVM_17 } }` |
-| Robolectric 4.10 incompatible with AGP 9 unit-test runtime | `./gradlew test` fails or runs zero tests | Cannot bump Robolectric here (jar unfetchable); stop and report the migration as blocked |
+| Robolectric 4.10 incompatible with AGP 9 unit-test runtime | `./gradlew test` fails or runs zero tests | Not triggered: 701 methods passed under AGP 9.1.1. If it had fired, the response was to stop and report the migration blocked, because bumping Robolectric pulls in a compileSdk 37 slice |
 | Release behavior changes because `proguard-android-optimize.txt` enables R8 optimization | release mapping differs from a plain keep-rule change | `-dontoptimize` in `app/proguard-rules.pro` keeps today's behavior; enabling optimization is left to the R8-hardening item |
 | Build-tools 36.0.0 absent | AGP error naming the missing package | Install with `sdkmanager "build-tools;36.0.0"` |
 | Gradle daemon OOM at `-Xmx2048M` | daemon exits with `OutOfMemoryError` | Raise `org.gradle.jvmargs` only after reproducing |

@@ -2,9 +2,21 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Move the build from AGP 8.13.2 / Gradle 9.2.1 to AGP 9.1.1 / Gradle 9.3.1 with built-in Kotlin, then land the three dependency bumps AGP 9.1 unblocks.
+**Goal:** Move the build from AGP 8.13.2 / Gradle 9.2.1 to AGP 9.1.1 / Gradle 9.3.1 with built-in Kotlin. Tasks 3–5 (the three dependency bumps) were stopped during execution and belong to a compileSdk 37 slice — see the execution status below.
 
-**Architecture:** Five signed commits. Commit 1 raises only the Gradle wrapper. Commit 2 performs the whole toolchain migration atomically (AGP, built-in Kotlin, legacy-DSL opt-out, AAR metadata pin, proguard default file, verification metadata, ledger). Commits 3–5 bump one dependency each, ascending blast radius, `compose-bom` last.
+**Architecture:** Tasks 1–2 are signed commits. Commit 1 raises only the Gradle wrapper. Commit 2 performs the whole toolchain migration atomically (AGP, built-in Kotlin, legacy-DSL opt-out, AAR metadata pin, proguard default file, verification metadata, ledger). Tasks 3–5 planned one dependency bump per commit, ascending blast radius, `compose-bom` last; they are blocked.
+
+## Execution status (2026-11-05)
+
+| Task | Outcome |
+|---|---|
+| Task 1 — Gradle 9.3.1 | done, `1ff791f8` |
+| Task 2 — AGP 9.1.1 | done, `d582f402`; 701 tests, lint, both app assemblies, three release AARs and three `publishToMavenLocal` green |
+| Task 3 — `core` 1.19.1 | **stopped and reverted**; `minCompileSdk=37`, blocked at `:app:checkDebugAarMetadata` |
+| Task 4 — `lifecycle-runtime-compose` 2.11.0 | **not attempted**; `minCompileSdk=37` |
+| Task 5 — Compose BOM 2026.09.00 | **not attempted**; `ui`/`foundation` 1.12.1 need `minCompileSdk=37` |
+
+The blocker was recorded by `d1179868` `Changed(docs): Record compileSdk 37 blocker for dependency refresh`. **Do not execute Tasks 3–5 on compileSdk 36.** They need a compileSdk 37 slice first, which also has to deal with Robolectric (4.10 breaks on API 37; 4.17's `android-all-instrumented` Android 17 jar now returns HTTP 200 at 248,937,044 bytes, so re-verify that blocker rather than assuming it) and installing the `android-37` platform (only `android-36` is present here).
 
 **Tech Stack:** Gradle 9.3.1, AGP 9.1.1, Kotlin Gradle plugin 2.4.21 (built-in Kotlin integration), Compose compiler plugin 2.4.21, Android SDK compileSdk 36, NDK 29.0.14206865 (local workaround: `-PndkVersion=30.0.16248370`).
 
@@ -41,13 +53,13 @@
 | `gradle/wrapper/gradle-wrapper.properties` | `distributionUrl` → Gradle 9.3.1 |
 | `build.gradle` | AGP classpath 9.1.1 (KGP/Compose untouched) |
 | `gradle.properties` | add `android.newDsl=false` |
-| `app/build.gradle` | drop Kotlin Android plugin and `kotlinOptions`; optimize proguard file; `packagingOptions` → `packaging`; `core` bump (Task 3); lifecycle bump (Task 4); BOM bump (Task 5) |
+| `app/build.gradle` | drop Kotlin Android plugin and `kotlinOptions`; optimize proguard file; `packagingOptions` → `packaging`; `core` bump (Task 3, blocked); lifecycle bump (Task 4, blocked); BOM bump (Task 5, blocked) |
 | `app/proguard-rules.pro` | add `-dontoptimize`; correct the stale `proguard-android.txt` header line |
-| `termux-shared/build.gradle` | `enableKotlin = false`, `aarMetadata.minCompileSdk = 1`, optimize proguard file, `core` bump (Task 3) |
+| `termux-shared/build.gradle` | `enableKotlin = false`, `aarMetadata.minCompileSdk = 1`, optimize proguard file, `core` bump (Task 3, blocked) |
 | `terminal-view/build.gradle` | `enableKotlin = false`, `aarMetadata.minCompileSdk = 1`, optimize proguard file |
 | `terminal-emulator/build.gradle` | `enableKotlin = false`, `aarMetadata.minCompileSdk = 1`, optimize proguard file |
-| `gradle/verification-metadata.xml` | regenerated in Tasks 2–5 |
-| `docs/ledger/outstanding-work.md` | §4.1 follow-ups, §4.2 done entry and test-count note, §4.3 rows 26/29/32 |
+| `gradle/verification-metadata.xml` | regenerated in Task 2 (Tasks 3–5 not executed) |
+| `docs/ledger/outstanding-work.md` | §4.1 follow-ups, §4.2 done entry and test-count note, §4.3 compileSdk 37 blocker and rows 26/29/32 re-labelled |
 | `/AGENTS.md` (gitignored, local only) | toolchain paragraph after Task 2; never committed |
 
 ---
@@ -368,6 +380,10 @@ Expected: `git verify-commit HEAD` reports `Good signature`.
 
 ### Task 3: `androidx.core` 1.19.1
 
+> **BLOCKED 2026-11-05 — do not execute on compileSdk 36.** `core:1.19.1` and `core-ktx:1.19.1`
+> declare `minCompileSdk=37`; the attempt failed at `:app:checkDebugAarMetadata` and was reverted
+> (`d1179868`). Execute only after a compileSdk 37 slice lands.
+
 **Files:**
 - Modify: `app/build.gradle:29`
 - Modify: `termux-shared/build.gradle:12`
@@ -409,6 +425,9 @@ git commit -m "Changed(build): Update androidx.core to 1.19.1"
 
 ### Task 4: `lifecycle-runtime-compose` 2.11.0
 
+> **BLOCKED 2026-11-05 — do not execute on compileSdk 36.** `lifecycle-runtime-compose:2.11.0`
+> declares `minCompileSdk=37` (and `minAgp=9.1.0`). Execute only after a compileSdk 37 slice lands.
+
 **Files:**
 - Modify: `app/build.gradle:42`
 - Modify: `gradle/verification-metadata.xml`
@@ -446,6 +465,10 @@ git commit -m "Changed(build): Update lifecycle-runtime-compose to 2.11.0"
 ---
 
 ### Task 5: Compose BOM 2026.09.00
+
+> **BLOCKED 2026-11-05 — do not execute on compileSdk 36.** `compose-bom:2026.09.00` maps `ui` and
+> `foundation` to 1.12.1, both `minCompileSdk=37` (`material3` 1.4.0 is 35, `runtime` 1.12.1 is 34).
+> Execute only after a compileSdk 37 slice lands.
 
 **Files:**
 - Modify: `app/build.gradle:36`
@@ -491,5 +514,5 @@ Update the toolchain paragraph in the gitignored `/AGENTS.md` (AGP 9.1.1, Gradle
 
 ## Self-Review Notes
 
-- Spec §2 (APK names) → Task 2 Steps 11 and 13. §3 (built-in Kotlin, `enableKotlin`) → Steps 3, 7, 15. §4 (API changes) → Steps 4–6. §5 (defaults) → Task 2 Step 18 ledger note plus Steps 10, 12, 16. §6 (AAR metadata) → Step 8 and Step 14. §7 (bumps) → Tasks 3–5. §8 (verification) → Steps 9–17. §9 (commit split) → one commit per task.
+- Spec §2 (APK names) → Task 2 Steps 11 and 13. §3 (built-in Kotlin, `enableKotlin`) → Steps 3, 7, 15. §4 (API changes) → Steps 4–6. §5 (defaults) → Task 2 Step 18 ledger note plus Steps 10, 12, 16. §6 (AAR metadata) → Step 8 and Step 14. §7 (bumps) → Tasks 3–5, all blocked on compileSdk 37, none executed. §8 (verification) → Steps 9–17. §9 (commit split) → Tasks 1–2 plus the blocker-record commit.
 - The spec's risk table maps to explicit stop conditions: Robolectric failure → Task 2 Step 9, jvmTarget drift → Step 10, proguard behavior → Step 5, AAR metadata → Step 14, missing build-tools → `help` failure in Step 9 (install `build-tools;36.0.0` with `sdkmanager` and retry).
