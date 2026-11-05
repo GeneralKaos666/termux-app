@@ -21,8 +21,12 @@ package com.termux.terminal;
  * {@link TerminalBuffer#getWidthForWrite(int, int, int)} and {@link TerminalRow#setChar} must use
  * {@link #isContinuation(int, int)} for the same input so that the cursor and the stored cells can
  * never disagree about whether a code point advances the cursor.
+ *
+ * <p>{@link #clusterEnd} and {@link #clusterWidth} are public because the renderer in
+ * {@code :terminal-view} must walk a row's cells with the same rules as the write path: advancing
+ * per code point draws the members of a ZWJ sequence as separate cells.
  */
-final class GraphemeClusters {
+public final class GraphemeClusters {
 
     /** Zero width joiner, glues emoji together into one cluster. */
     static final int ZWJ = 0x200D;
@@ -90,7 +94,7 @@ final class GraphemeClusters {
      * than {@code index}. The base code point at {@code index} and every continuation code point
      * following it are consumed in one step.
      */
-    static int clusterEnd(char[] text, int index, int spaceUsed) {
+    public static int clusterEnd(char[] text, int index, int spaceUsed) {
         int end = index + charCountAt(text, index);
         if (end >= spaceUsed) return end;
         int precedingCodePoint = codePointAt(text, index);
@@ -107,7 +111,7 @@ final class GraphemeClusters {
      * @return the display width of the cluster starting at {@code index}: the width of its base code
      * point.
      */
-    static int clusterWidth(char[] text, int index, int spaceUsed) {
+    public static int clusterWidth(char[] text, int index, int spaceUsed) {
         if (index < 0 || index >= spaceUsed) return 0;
         return baseWidth(codePointAt(text, index));
     }

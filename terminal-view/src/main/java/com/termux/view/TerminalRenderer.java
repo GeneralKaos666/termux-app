@@ -11,11 +11,11 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Build;
 
+import com.termux.terminal.GraphemeClusters;
 import com.termux.terminal.TerminalBuffer;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalRow;
 import com.termux.terminal.TextStyle;
-import com.termux.terminal.WcWidth;
 
 /**
  * Renderer of a {@link TerminalEmulator} into a {@link Canvas}.
@@ -176,17 +176,22 @@ public final class TerminalRenderer {
                     currentCharIndex += charsForCodePoint;
                     continue;
                 }
-                final int codePointWcWidth = WcWidth.width(codePoint);
-                final boolean insideCursor = (cursorX == column || (codePointWcWidth == 2 && cursorX == column + 1));
+                // The emulator stores a whole grapheme cluster in the cell of its base code point, so advance by
+                // the cluster: a ZWJ sequence, a flag or a skin toned emoji occupies its base code point's width in
+                // total, and its continuation code points take none.
+                final int clusterEnd = GraphemeClusters.clusterEnd(line, currentCharIndex, charsUsedInLine);
+                final int clusterChars = clusterEnd - currentCharIndex;
+                final int clusterColumns = GraphemeClusters.clusterWidth(line, currentCharIndex, charsUsedInLine);
+                final boolean insideCursor = (cursorX == column || (clusterColumns == 2 && cursorX == column + 1));
                 final boolean insideSelection = column >= selx1 && column <= selx2;
 
-                // Check if the measured text width for this code point is not the same as that expected by wcwidth().
-                // This could happen for some fonts which are not truly monospace, or for more exotic characters such as
-                // smileys which android font renders as wide.
-                // If this is detected, we draw this code point scaled to match what wcwidth() expects.
-                final float measuredCodePointWidth = (codePoint < asciiMeasures.length) ? asciiMeasures[codePoint] : mTextPaint.measureText(line,
-                    currentCharIndex, charsForCodePoint);
-                final boolean fontWidthMismatch = Math.abs(measuredCodePointWidth / mFontWidth - codePointWcWidth) > 0.01;
+                // Check if the measured text width for this cell's cluster is not the same as that expected by its
+                // column count. This could happen for some fonts which are not truly monospace, or for more exotic
+                // characters such as smileys which android font renders as wide.
+                // If this is detected, we draw the cluster scaled to match its cells.
+                final float measuredCodePointWidth = (charsForCodePoint == clusterChars && codePoint < asciiMeasures.length) ? asciiMeasures[codePoint] : mTextPaint.measureText(line,
+                    currentCharIndex, clusterChars);
+                final boolean fontWidthMismatch = Math.abs(measuredCodePointWidth / mFontWidth - clusterColumns) > 0.01;
 
                 if (style != lastRunStyle || insideCursor != lastRunInsideCursor || insideSelection != lastRunInsideSelection || fontWidthMismatch || lastRunFontWidthMismatch || linkId != lastRunLinkId || underlineColor != lastRunUnderlineColor) {
                     if (column == 0 || column == lastRunStartColumn) {
@@ -213,13 +218,8 @@ public final class TerminalRenderer {
                     lastRunStartIndex = currentCharIndex;
                     lastRunFontWidthMismatch = fontWidthMismatch;
                 }
-                column += codePointWcWidth;
-                currentCharIndex += charsForCodePoint;
-                while (currentCharIndex < charsUsedInLine && WcWidth.width(line, currentCharIndex) <= 0) {
-                    // Eat combining chars so that they are treated as part of the last non-combining code point,
-                    // instead of e.g. being considered inside the cursor in the next run.
-                    currentCharIndex += Character.isHighSurrogate(line[currentCharIndex]) ? 2 : 1;
-                }
+                column += clusterColumns;
+                currentCharIndex = clusterEnd;
             }
 
             final int columnWidthSinceLastRun = columns - lastRunStartColumn;
@@ -361,11 +361,15 @@ public final class TerminalRenderer {
                 drawGlyphSpan(canvas, text, spanCharIndex, charsLeft, spanStartColumn, columnsLeft, y);
                 return;
             }
-            drawGlyphSpan(canvas, text, spanCharIndex, spanChars, spanStartColumn, spanColumns, y);
+            // The policy cut on a cell boundary, which can split a wide cluster. Walk the span's whole clusters so
+            // the glyphs are drawn on the cells they actually occupy.
+            int spannedColumns = columnsForChars(text, spanCharIndex, spanCharIndex + spanChars);
+            if (spannedColumns <= 0) spannedColumns = spanColumns;
+            drawGlyphSpan(canvas, text, spanCharIndex, spanChars, spanStartColumn, spannedColumns, y);
             spanCharIndex += spanChars;
-            spanStartColumn += spanColumns;
+            spanStartColumn += spannedColumns;
             charsLeft -= spanChars;
-            columnsLeft -= spanColumns;
+            columnsLeft -= spannedColumns;
         }
     }
 
@@ -402,24 +406,32 @@ public final class TerminalRenderer {
 
     /**
      * How many chars of {@code text} (from {@code startCharIndex}) occupy {@code columns} cells, bounded by
-     * {@code endCharIndex}. Combining chars are eaten with the cell of their base char, the same way the run loop
-     * keeps them in the run, so a span never splits a base char from its marks.
+     * {@code endCharIndex}. Whole grapheme clusters are consumed with the cells of their base char, the same way
+     * the run loop walks them, so a span never splits a cluster such as a ZWJ sequence or a flag.
      */
     private static int charsForColumns(char[] text, int startCharIndex, int columns, int endCharIndex) {
         int charIndex = startCharIndex;
         int columnsLeft = columns;
         while (charIndex < endCharIndex && columnsLeft > 0) {
-            final boolean highSurrogate = Character.isHighSurrogate(text[charIndex]) && charIndex + 1 < endCharIndex;
-            final int codePoint = highSurrogate
-                ? Character.toCodePoint(text[charIndex], text[charIndex + 1])
-                : text[charIndex];
-            columnsLeft -= Math.max(WcWidth.width(codePoint), 0);
-            charIndex += highSurrogate ? 2 : 1;
-            while (charIndex < endCharIndex && WcWidth.width(text, charIndex) <= 0) {
-                charIndex += (Character.isHighSurrogate(text[charIndex]) && charIndex + 1 < endCharIndex) ? 2 : 1;
-            }
+            columnsLeft -= Math.max(GraphemeClusters.clusterWidth(text, charIndex, endCharIndex), 0);
+            charIndex = GraphemeClusters.clusterEnd(text, charIndex, endCharIndex);
         }
         return charIndex - startCharIndex;
+    }
+
+    /**
+     * How many cells the chars in {@code [startCharIndex, endCharIndex)} occupy, walking whole clusters. A span cut
+     * by the shaped-run policy can therefore be a cell wider than the policy asked for, which keeps the cluster in
+     * one draw instead of moving the glyphs after it off the grid.
+     */
+    private static int columnsForChars(char[] text, int startCharIndex, int endCharIndex) {
+        int charIndex = startCharIndex;
+        int columns = 0;
+        while (charIndex < endCharIndex) {
+            columns += Math.max(GraphemeClusters.clusterWidth(text, charIndex, endCharIndex), 0);
+            charIndex = GraphemeClusters.clusterEnd(text, charIndex, endCharIndex);
+        }
+        return columns;
     }
 
     private void ensureRunAdvancesBuffer(int chars) {

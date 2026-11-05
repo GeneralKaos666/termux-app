@@ -215,6 +215,45 @@ public class TerminalRendererRunTest extends TestCase {
         assertTrue(mCanvas.scales.isEmpty());
     }
 
+    /** The family emoji U+1F468 ZWJ U+1F469 ZWJ U+1F467: eight chars, one two-column cluster. */
+    private static final String ZWJ_FAMILY = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67";
+
+    /** @return the recorded glyph draw that starts at {@code startCharIndex}. */
+    private float[] glyphStartingAtChar(int startCharIndex) {
+        for (float[] glyph : mCanvas.glyphs) {
+            if ((int) glyph[0] == startCharIndex) return glyph;
+        }
+        fail("no glyph draw starts at char " + startCharIndex + ": " + mCanvas.glyphs);
+        return null;
+    }
+
+    /** @return the recorded glyph draws as {@code {startChar, charCount, x}} triples, for failure messages. */
+    private String glyphDump() {
+        StringBuilder sb = new StringBuilder();
+        for (float[] glyph : mCanvas.glyphs) {
+            sb.append('{').append((int) glyph[0]).append(',').append((int) glyph[1]).append(',').append(glyph[2]).append('}');
+        }
+        return sb.toString();
+    }
+
+    public void testZwjClusterOccupiesOneWideCell() {
+        enter("A" + ZWJ_FAMILY + "\033[44mB\r\n");
+        // A font that shapes the whole sequence as one two-cell glyph: the cluster stays on the grid, so only the
+        // column accounting decides where the following cells land.
+        mPaint.spanAdvanceStartChar = 1;
+        mPaint.spanAdvance = 2 * CELL_WIDTH;
+        render(null);
+        assertEquals(glyphDump(), 9f, glyphStartingAtChar(0)[1], 0.001f);   // "A" plus the whole cluster
+        assertEquals(glyphDump(), 30f, glyphStartingAtChar(9)[2], 0.001f);  // "B" starts after A plus one two-cell cluster
+    }
+
+    public void testZwjClusterIsDrawnAsOneSpan() {
+        enter(ZWJ_FAMILY + "======\r\n");
+        render(null);
+        assertEquals(8f, glyphStartingAtChar(0)[1], 0.001f);    // all eight chars of the cluster
+        assertEquals(20f, glyphStartingAtChar(8)[2], 0.001f);   // "=" starts in cell 2, after the two-cell cluster
+    }
+
     public void testWideCodePointIsStillDrawnPerCharScaled() {
         enter("\u00e9\u00e9\u00e9\r\n");
         mPaint.wideChar = '\u00e9'; // each 'é' measures two cells, so the per-codepoint check breaks every run
