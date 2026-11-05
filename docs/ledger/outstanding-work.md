@@ -524,9 +524,10 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
 ### 4.3 Upgrade roadmap
 
-Items 1–4 are done in this slice. Remaining items are **to do**; dependency refresh is one commit per
-dependency, ascending blast radius, with `compose-bom` last and separate. R8/release build remains a
-separate architectural slice. Device checks are the final row and live in `manual-checks.md`.
+Items 1–15 are done; dependency refresh is one commit per dependency, ascending blast radius, with
+`compose-bom` last and separate. What remains in the refresh is blocked on the AGP 9.1 migration
+(rows 26, 29, 30, 31, 32) or closed (rows 20–22). R8/release build is a separate architectural
+slice. Device checks are the final row and live in `manual-checks.md`.
 
 **Dependency refresh — 2026-10-25.** `minSdk` raised 21 → 23 (`34cb3d9d`), which unblocked the
 androidx bumps that only needed minSdk 23: `annotation` (`1dfb9203`), `window` (`e1264dea`),
@@ -557,8 +558,8 @@ module (only the root `force` pin remains as a transitive guard) and `guava` is 
 | 3 | AndroidX instrumentation test runner (`terminal-view`) | done | `823542d7` |
 | 4 | Docs re-homing (`docs/ideas/` → `docs/ledger/`) | done | `26388328`, consolidated 2026-10-24 |
 | 5 | R8/release build hardening (keep rules for `:termux-shared` public API, JNI entry points, Compose) | done | separate slice, affects published artifact |
-| 6 | God-class splits (§3.2) | to do | behavior-preserving |
-| 7 | `:termux-shared` unit tests (§3.1) | to do | expand beyond the instrumented harness |
+| 6 | God-class splits (§3.2) | done 2026-11-04 | `891efd6c`, `890fb560`, `efce70a2`, `ba133ab8`; `TerminalView` View-bound half open in §3.2 |
+| 7 | `:termux-shared` unit tests (§3.1) | done 2026-11-04 | `de273500`, `967aa522` (13 Robolectric cases, 4 defects) |
 | 8 | `LOG_ESCAPE_SEQUENCES = false` silent protocol errors | done | `3e0f1931` |
 | 9 | Focus events (DECSET 1004) never emitted | done | `980b29c6` |
 | 10 | Wallpaper-mode palette repaint | done | `ad380602` |
@@ -567,7 +568,7 @@ module (only the root `force` pin remains as a transitive guard) and `guava` is 
 | 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | done | workflows; dependency verification generated 2026-11-05 (§4.2) |
 | 14 | CI bootstrap re-download | done | avoid re-downloading cached zips unnecessarily |
 | 15 | JitPack versioning | done | library publishing/versioning |
-| 16 | Session restore | to do | restore sessions across process death (§5.1) |
+| 16 | Session restore | deferred | assessed 2026-11-01; own cycle if revisited (§5.1) |
 | 17 | Termux:Float (shape A vs B) | done | in-app float via `:app` (§5.2) |
 | 18 | 256-colour palette | done | full 256-colour support (§5.3) |
 | 19 | xterm conformance + WS6 audit | to do | conformance/shim gaps (§2.2) |
