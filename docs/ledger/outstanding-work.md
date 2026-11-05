@@ -350,9 +350,19 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
     already covered (`LinkUrisTest`, `ShapedRunPolicyTest`, `TerminalRendererRunTest`,
     `TerminalViewLinkHitTest`); the rest is drawing/gesture/selection coordination that needs
     Robolectric View infra, not JVM unit tests.
-  - `[limitation]` `:app` classes (`TermuxService`, `TermuxTerminalSessionActivityClient`,
-    `TermuxInstaller`, `RunCommandService`, `TermuxDocumentsProvider`, Compose screens): inspected
-    2026-10-27 — these are Intent/Service/Activity/ContentProvider/Compose glue that delegate to
+  - `[done 2026-11-04]` `:app` `TermuxDocumentsProvider` covered by `TermuxDocumentsProviderTest`
+    (13 Robolectric tests): child listing, query case-insensitivity, recursive search, directory MIME
+    type, unknown-extension fallback, collision-free `createDocument` (file and directory), and the
+    document-id checks. Four red cases were real defects: `isChildDocument` accepted a sibling that
+    only shared the parent's string prefix (`.../home2/x` inside `.../home`), `queryChildDocuments`
+    and the search walk NPE'd on any unlistable path (a file or a permission-denied directory —
+    `File.listFiles()` returns null), and search compared the raw query against a lower-cased name,
+    so an upper-case query matched nothing. MIME extension mapping cannot be asserted here: the
+    Robolectric `MimeTypeMap` returns null for every extension, so only the directory and
+    octet-stream fallbacks are covered.
+  - `[limitation]` the remaining `:app` classes (`TermuxService`,
+    `TermuxTerminalSessionActivityClient`, `TermuxInstaller`, `RunCommandService`, Compose screens):
+    inspected 2026-10-27 — these are Intent/Service/Activity/Compose glue that delegate to
     `:termux-shared` (`IntentUtils`/`DataUtils`/`FileUtils`/`TermuxFileUtils`), so there is no
     JVM-testable pure logic; Compose screens need Compose test infra. Not a JVM unit-test target.
 - `[done 2026-10-25]` commented-out assertions in live test files: removed the stale ones that

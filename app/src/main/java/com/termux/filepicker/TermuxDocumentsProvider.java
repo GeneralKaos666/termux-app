@@ -19,6 +19,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.Locale;
 
 /**
  * A document provider for the Storage Access Framework which exposes the files in the
@@ -90,8 +91,11 @@ public class TermuxDocumentsProvider extends DocumentsProvider {
     public Cursor queryChildDocuments(String parentDocumentId, String[] projection, String sortOrder) throws FileNotFoundException {
         final MatrixCursor result = new MatrixCursor(projection != null ? projection : DEFAULT_DOCUMENT_PROJECTION);
         final File parent = getFileForDocId(parentDocumentId);
-        for (File file : parent.listFiles()) {
-            includeFile(result, null, file);
+        final File[] children = parent.listFiles();
+        if (children != null) {
+            for (File file : children) {
+                includeFile(result, null, file);
+            }
         }
         return result;
     }
@@ -156,6 +160,7 @@ public class TermuxDocumentsProvider extends DocumentsProvider {
     public Cursor querySearchDocuments(String rootId, String query, String[] projection) throws FileNotFoundException {
         final MatrixCursor result = new MatrixCursor(projection != null ? projection : DEFAULT_DOCUMENT_PROJECTION);
         final File parent = getFileForDocId(rootId);
+        final String normalizedQuery = query.toLowerCase(Locale.ROOT);
 
         // This example implementation searches file names for the query and doesn't rank search
         // results, so we can stop as soon as we find a sufficient number of matches.  Other
@@ -177,9 +182,10 @@ public class TermuxDocumentsProvider extends DocumentsProvider {
             }
             if (isInsideHome) {
                 if (file.isDirectory()) {
-                    Collections.addAll(pending, file.listFiles());
+                    File[] children = file.listFiles();
+                    if (children != null) Collections.addAll(pending, children);
                 } else {
-                    if (file.getName().toLowerCase().contains(query)) {
+                    if (file.getName().toLowerCase(Locale.ROOT).contains(normalizedQuery)) {
                         includeFile(result, null, file);
                     }
                 }
@@ -191,7 +197,9 @@ public class TermuxDocumentsProvider extends DocumentsProvider {
 
     @Override
     public boolean isChildDocument(String parentDocumentId, String documentId) {
-        return documentId.startsWith(parentDocumentId);
+        // A plain prefix check would accept a sibling whose name only starts with the parent's path
+        // (".../home2/notes" inside ".../home"), so the separator has to be part of the test.
+        return documentId.equals(parentDocumentId) || documentId.startsWith(parentDocumentId + "/");
     }
 
     /**
