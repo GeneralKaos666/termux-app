@@ -1,6 +1,6 @@
 # Add project specific ProGuard rules here.
 # By default, the flags in this file are appended to flags specified
-# in android-sdk/tools/proguard/proguard-android.txt
+# in android-sdk/tools/proguard/proguard-android-optimize.txt
 # You can edit the include path and order by changing the proguardFiles
 # directive in build.gradle.
 #
@@ -14,3 +14,7 @@
 }
 #-renamesourcefileattribute SourceFile
 #-keepattributes SourceFile,LineNumberTable
+
+# The default file above no longer implies this; keep the release artifact's current
+# non-optimized R8 behavior. Re-evaluate when R8 hardening is taken up.
+-dontoptimize

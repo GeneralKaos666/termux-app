@@ -482,9 +482,41 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   (see the §2.5 companion-app desugaring note).
 - `terminal-view/build.gradle` now uses the AndroidX instrumentation runner (`823542d7`) — the former
   audit entry about `android.support.test.runner.AndroidJUnitRunner` is closed.
+- `[open]` Migrate the APK file-name hook off the legacy `applicationVariants` API before AGP 10.
+  AGP 9.1's new `VariantOutput`/`ApkOutput` DSL has no file-name property, so the build currently
+  relies on `android.newDsl=false`. Options: a post-`assemble` copy task that writes the expected
+  names next to AGP's defaults, or renaming the released assets and updating both release workflows.
+- `[open]` Re-evaluate `-dontoptimize` in `app/proguard-rules.pro` when R8 hardening is taken up.
+  AGP 9.1 no longer ships `proguard-android.txt`; the build now uses
+  `proguard-android-optimize.txt` plus the explicit `-dontoptimize` flag, which keeps today's
+  non-optimized release behavior. Enabling optimization is a deliberate follow-up, not this
+  migration.
 
 ### 4.2 Toolchain and CI
 
+- `[done 2026-11-05]` AGP 9.1.1 migration (`1ff791f8` wrapper + this commit): Gradle wrapper
+  9.2.1 → 9.3.1, AGP 8.13.2 → 9.1.1, and `:app` moved to AGP's built-in Kotlin (the
+  `org.jetbrains.kotlin.android` plugin is gone; KGP/Compose 2.4.21 stay on the buildscript
+  classpath, and the Compose plugin is unchanged). `kotlinOptions` was removed because the Kotlin
+  target now follows `compileOptions.targetCompatibility` (verified: Kotlin classes are major
+  version 61). The three Java-only libraries set `enableKotlin = false`, which removes their Kotlin
+  tasks and keeps `kotlin-stdlib` out of the published POM (verified: 0 occurrences). Each library
+  pins `defaultConfig.aarMetadata.minCompileSdk = 1` because AGP 9 would otherwise require consumers
+  to use compileSdk 36; `minAndroidGradlePluginVersion` stays `1.0.0`. `android.newDsl=false` keeps
+  the `applicationVariants` APK-rename hook that both release workflows depend on (five
+  `termux-app_<tag>_<abi>.apk` names verified with and without `TERMUX_APK_VERSION_TAG`).
+  `getDefaultProguardFile('proguard-android.txt')` is disallowed in AGP 9, so all four modules use
+  `proguard-android-optimize.txt` and `app/proguard-rules.pro` adds `-dontoptimize` to preserve the
+  previous non-optimized release behavior; `packagingOptions` was renamed to `packaging`. AGP
+  auto-installed build-tools 36.0.0. Verified: `help`, `test` (701 methods, 0 failures), `lint`,
+  `:app:assembleDebug`/`assembleRelease` (five debug splits, release mapping keeps the three
+  library packages), both `assembleDebugAndroidTest` tasks, the three release AARs, and
+  `publishToMavenLocal` for all three libraries (Dokka javadoc path). `gradle/verification-metadata.xml`
+  regenerated.
+  - `android.onlyEnableUnitTestForTheTestedBuildType` now defaults to `true`, so `./gradlew test`
+    runs each unit test once (debug only): 701 methods instead of the historical 1,402 executions,
+    and `testReleaseUnitTest` no longer exists. Historical counts in earlier entries are left as
+    they were recorded.
 - `[done 2026-10-27]` CI hardening (mostly): added a `gradle` dependabot ecosystem, a `lint` step to
   the unit-tests workflow, and a release-build job (`assembleRelease`, exercises R8) to the build
   workflow. Fixed the three pre-existing lint errors that would have failed CI (two

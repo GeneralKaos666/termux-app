@@ -3,6 +3,7 @@ apply plugin: 'maven-publish'
 
 android {
     namespace = "com.termux.view"
+    enableKotlin = false
     compileSdkVersion project.properties.compileSdkVersion.toInteger()
 
     dependencies {
@@ -11,6 +12,10 @@ android {
     }
 
     defaultConfig {
+        aarMetadata {
+            minCompileSdk = 1
+        }
+
         minSdkVersion project.properties.minSdkVersion.toInteger()
         targetSdkVersion project.properties.targetSdkVersion.toInteger()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -20,7 +25,7 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
