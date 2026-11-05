@@ -18,8 +18,8 @@ final class TerminalGeometry {
     /**
      * Row whose line contains {@code y}, shifted by the current scroll position.
      *
-     * <p>The {@code - 40} offset is existing behaviour, preserved from `TerminalView.getCursorY`; do not
-     * derive or correct it here.
+     * <p>The {@code - 40} offset is existing behaviour, preserved from {@code TerminalView.getCursorY};
+     * do not derive or correct it here.
      */
     static int cursorRow(float y, float lineSpacing, int topRow) {
         return (int) (((y - 40) / lineSpacing) + topRow);

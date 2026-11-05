@@ -337,7 +337,7 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   pure path helpers (`FileUtils` basename/dirname, `ShellUtils` argument setup). Android-touching
   logic stays instrumented (`androidTest`). More pure helpers can be added over time.
 - `[partly done 2026-11-04]` **no tests at all** for `:terminal-emulator` `TerminalBitmap`,
-  `TerminalSession`; `:terminal-view` `TerminalView` (1,661 lines),
+  `TerminalSession`; `:terminal-view` `TerminalView` (1,585 lines),
   text-selection controllers/handles (only the column mapping of `TextSelectionCursorController` is
   covered, by `TextSelectionCursorControllerTest`); `:app` `TermuxService`,
   `TermuxTerminalSessionActivityClient`, `TermuxInstaller`, `RunCommandService`,
@@ -443,7 +443,9 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
     (`onTouchEvent`, `computeVerticalScroll*`), selection delegation, autofill, cursor blinker
     (`Handler`) and session binding (`attachSession`/`updateSize`/`setTopRow`) stay in the class: they
     need Robolectric `View`/`Handler` infra, which `:terminal-view` still does not have. Add that test
-    infrastructure to the module before attempting them.
+    infrastructure to the module before attempting them. The same applies to the `eventSource` gate
+    around `KeyCodePoints.normalizeExternalKeyboard` and to the shift-then-control combination, which
+    spans `ImeTextEncoder` and `inputCodePoint`: both are only reachable through a real `TerminalView`.
 
 ---
 

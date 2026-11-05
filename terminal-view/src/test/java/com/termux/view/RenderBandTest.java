@@ -13,6 +13,8 @@ public class RenderBandTest {
     @Test
     public void fullBandWhenClipIsUnknown() {
         assertBand(-5, 19, RenderBand.forClip(-5, 24, 20, false, 0, 0));
+        // A false getClipBounds() return leaves stale values in the Rect; they must not be used.
+        assertBand(-5, 19, RenderBand.forClip(-5, 24, 20, false, 100, 200));
     }
 
     @Test
