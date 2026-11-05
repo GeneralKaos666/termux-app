@@ -1142,22 +1142,12 @@ public final class TerminalView extends View {
             // Restrict the render to the rows the canvas clip actually covers (the dirty band), with one
             // row of slack on either side. An empty/unbounded clip falls back to the whole visible band;
             // the return value matters, because on a false return the Rect must not be trusted as current.
-            int rowHeight = mRenderer.mFontLineSpacing;
-            int visibleEnd = mTopRow + mEmulator.mRows;
-            int firstScreenRow = mTopRow, lastScreenRowExclusive = visibleEnd;
-            if (canvas.getClipBounds(mClipBounds) && !mClipBounds.isEmpty() && rowHeight > 0) {
-                firstScreenRow = Math.max(mTopRow, mTopRow + Math.floorDiv(mClipBounds.top, rowHeight) - 1);
-                lastScreenRowExclusive = Math.min(visibleEnd,
-                    mTopRow + ceilDivInt(mClipBounds.bottom, rowHeight) + 1);
-            }
-            if (lastScreenRowExclusive <= firstScreenRow) {
-                // Never hand the renderer an empty band: fall back to the whole visible range.
-                firstScreenRow = mTopRow;
-                lastScreenRowExclusive = visibleEnd;
-            }
+            boolean clipKnown = canvas.getClipBounds(mClipBounds) && !mClipBounds.isEmpty();
+            RenderBand band = RenderBand.forClip(mTopRow, mEmulator.mRows, mRenderer.mFontLineSpacing,
+                clipKnown, mClipBounds.top, mClipBounds.bottom);
 
             mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3],
-                firstScreenRow, lastScreenRowExclusive);
+                band.firstRow, band.lastRowExclusive);
 
             // Consume the dirty state only once the frame has been drawn: invalidates coalesce, so this
             // cannot be done when the update arrives.
@@ -1174,11 +1164,6 @@ public final class TerminalView extends View {
             // render the text selection handles
             renderTextSelection();
         }
-    }
-
-    /** Integer ceiling division for non-negative values; Java 8 has no {@code Math.ceilDiv}. */
-    private static int ceilDivInt(int a, int b) {
-        return (a + b - 1) / b;
     }
 
     /**
