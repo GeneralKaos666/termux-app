@@ -557,9 +557,10 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 ### 4.3 Upgrade roadmap
 
 Items 1–15 are done; dependency refresh is one commit per dependency, ascending blast radius, with
-`compose-bom` last and separate. What remains in the refresh is blocked on the AGP 9.1 migration
-(rows 26, 29, 30, 31, 32) or closed (rows 20–22). R8/release build is a separate architectural
-slice. Device checks are the final row and live in `manual-checks.md`.
+`compose-bom` last and separate. Rows 20–22 and the AGP rows that were gated on the toolchain are
+closed. What remains in the refresh (rows 26, 29, 30, 31, 32) is blocked on **compileSdk 37**, not
+on AGP. R8/release build is a separate architectural slice. Device checks are the final row and live
+in `manual-checks.md`.
 
 **Dependency refresh — 2026-10-25.** `minSdk` raised 21 → 23 (`34cb3d9d`), which unblocked the
 androidx bumps that only needed minSdk 23: `annotation` (`1dfb9203`), `window` (`e1264dea`),
@@ -582,6 +583,21 @@ longer fires, so lint is no longer hiding it). Verified with
 `commons-io` and `guava` rows below are closed too: `commons-io` is no longer a dependency of any
 module (only the root `force` pin remains as a transitive guard) and `guava` is already on
 `33.8.0-android` from the 2026-11-04 Dependabot remediation.
+
+**Dependency refresh — 2026-11-05 (AGP 9 landed, refresh still blocked).** The AGP 9.1.1 migration
+(`d582f402`) closed the AGP gate, but rows 26, 29 and 32 do not move: their artifacts now require
+**compileSdk 37**. Measured from the published AAR metadata: `androidx.core:core:1.19.1` and
+`core-ktx:1.19.1` report `minCompileSdk=37`; `lifecycle-runtime-compose:2.11.0` reports
+`minCompileSdk=37` and `minAndroidGradlePluginVersion=9.1.0`; `compose-bom:2026.09.00` maps `ui` and
+`foundation` to 1.12.1, which also report `minCompileSdk=37` (`material3` 1.4.0 is 35 and `runtime`
+1.12.1 is 34, so the BOM is gated by `ui`/`foundation`). The build fails at
+`:app:checkDebugAarMetadata` with `Dependency 'androidx.core:core:1.19.1' requires libraries and
+applications that depend on it to compile against version 37 or later of the Android APIs.` The
+attempted `core` bump was reverted (both modules stay on 1.13.1) and
+`gradle/verification-metadata.xml` was restored, so the tree is the AGP 9.1.1 state. Raising
+`compileSdk` to 37 is its own slice: it breaks Robolectric 4.10 (`ShadowActivity`), and the
+Robolectric bump (row 30) is itself blocked because its `android-all-instrumented` jar cannot be
+fetched here, so row 31's `hiddenapibypass:6.2` stays behind the same wall.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
@@ -610,13 +626,13 @@ module (only the root `force` pin remains as a transitive guard) and `guava` is 
 | 23 | Dependency refresh — `androidx.window` 1.1.0 → 1.5.1 | done | `e1264dea` |
 | 24 | Dependency refresh — `appcompat` 1.6.1 → 1.8.0 | done | `e28e386a` |
 | 25 | Dependency refresh — `material` 1.12.0 → 1.14.0 | done | `f3050cbc` |
-| 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | blocked | needs AGP 9.1.0+ (repo on 8.13.2) |
+| 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | blocked | needs compileSdk 37 (measured `minCompileSdk=37`); AGP 9.1.1 no longer the gate |
 | 27 | Dependency refresh — `annotation` 1.9.0 → 1.11.0 | done | `1dfb9203` |
 | 28 | Dependency refresh — `activity-compose` 1.11.0 → 1.13.0 | done | `4a046f5f` |
-| 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | blocked | needs AGP 9.1.0+ |
+| 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | blocked | needs compileSdk 37 (`minCompileSdk=37`, `minAgp=9.1.0`) |
 | 30 | Dependency refresh — `robolectric` 4.10 → 4.17 | blocked | new `android-all-instrumented` jar cannot be fetched here |
 | 31 | Dependency refresh — `hiddenapibypass` 6.1 → 6.2 | blocked | needs compileSdk 37 (breaks Robolectric 4.10) |
-| 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | blocked | **last and separate**; Compose 1.12.1 needs AGP 9.1.0+ |
+| 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | blocked | **last and separate**; `ui`/`foundation` 1.12.1 need compileSdk 37 |
 | 33 | Device and manual checks | to do | **last overall** — `manual-checks.md` |
 
 ---
