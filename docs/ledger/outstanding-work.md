@@ -500,7 +500,22 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   Guava 33.8.0-jre, commons-io 2.22.0). Verified with `test`, `:app:assembleDebug`,
   `buildEnvironment`, a per-configuration resolved-version report, and the `:termux-shared`
   instrumented `FileUtilsTests` on NX769J / API 34. GitHub must rescan before the alerts clear.
-- `[deferred]` dependency verification (Gradle `verification-metadata.xml`) — still to generate.
+- `[done 2026-11-05]` dependency verification (Gradle `verification-metadata.xml`) — generated
+  `gradle/verification-metadata.xml` with 570 components and SHA-256 checksums for every artifact the
+  CI task set resolves. Produced by
+  `./gradlew --write-verification-metadata sha256 help test lint :app:assembleDebug :app:assembleRelease -PndkVersion=30.0.16248370`
+  plus `:termux-shared:assembleDebugAndroidTest` and `:terminal-view:assembleDebugAndroidTest` for the
+  test-APK dependencies. (`-PndkVersion=30.0.16248370` is only this Termux workspace's NDK 29
+  workaround; CI uses the pinned 29 and needs no flag.) Verified strict, with no write flag:
+  `test`, `:app:assembleDebug`, `:app:assembleRelease` and both `assembleDebugAndroidTest` tasks are
+  green. Enforcement was proven by corrupting one `.module` checksum, which failed the build with
+  `Dependency verification failed for configuration 'classpath'`, then restoring it.
+  - Maintenance: any new or bumped dependency (including Dependabot PRs) fails the build until the
+    metadata is regenerated with the same task list, so a dependency change must carry that
+    regenerated file in the same commit.
+  - `[limitation]` checksums only (`verify-signatures=false`), so the file protects against a
+    changed artifact on a mirror or in the cache, not against a malicious edit of the metadata
+    itself. PGP signature verification would need a managed keyring and is deferred.
 - `[done 2026-10-27]` JitPack versioning: the three library modules now read their publication
   version from the `VERSION` env var (`System.getenv("VERSION") ?: '0.118.0'`), so a JitPack build
   publishes with the requested tag/commit instead of the hardcoded default. Verified by generating
@@ -538,7 +553,7 @@ stays 36.
 | 10 | Wallpaper-mode palette repaint | done | `ad380602` |
 | 11 | Wide-glyph OSC 8 hit-test | done | `d784313c` |
 | 12 | Java 1.8 → 17 | done | align toolchain; check desugaring |
-| 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | done | workflows (dependency verification deferred) |
+| 13 | CI hardening (lint, release build, dependabot for Gradle, dependency verification) | done | workflows; dependency verification generated 2026-11-05 (§4.2) |
 | 14 | CI bootstrap re-download | done | avoid re-downloading cached zips unnecessarily |
 | 15 | JitPack versioning | done | library publishing/versioning |
 | 16 | Session restore | to do | restore sessions across process death (§5.1) |
