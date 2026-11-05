@@ -189,13 +189,23 @@ drag-to-reorder, rename and close have all since shipped.
   draws as one contiguous glyph over cells 1–2 (pre-fix: `B` on column 7); the same run re-confirmed
   the combining-mark, flag and CJK lines. Evidence in `~/.tmp/opencode/device-checks-2026-11-04.md`
   §D-4 and `manual-checks.md` D-4.
-- `[open 2026-11-04]` **selection end clamps at the first zero-width continuation** —
-  `TextSelectionCursorController.getValidCurX` maps a column to the selected text by walking `WcWidth` per
-  code point and returns the current column as soon as a code point has width 0 (`cend == col`), so a
-  right-hand selection cannot extend past a ZWJ cluster or a combining mark. Pre-existing (not introduced by
-  the renderer cluster fix) and `getSelectedText` itself is already cluster-aware
-  (`TerminalRow.findStartOfColumn`). The fix is a cluster walk over the returned text, plus the tests the
-  selection controllers do not have.
+- `[fixed 2026-11-04]` **selection end clamped at the first zero-width continuation** —
+  `TextSelectionCursorController.getValidCurX` mapped a column to the selected text by walking `WcWidth` per
+  code point and returned the current column as soon as a code point had width 0 (`cend == col`), so a
+  right-hand selection could not extend past a ZWJ cluster or a combining mark; width-2 continuations
+  (a second regional indicator, a skin tone modifier) inflated the column instead and could snap wrong.
+  Pre-existing (not introduced by the renderer cluster fix) and `getSelectedText` itself was already
+  cluster-aware (`TerminalRow.findStartOfColumn`). Fixed in `:terminal-view` on 2026-11-04:
+  `getValidCurX` now delegates to a package-private static `validCursorColumn`, which walks the returned
+  text with `GraphemeClusters.clusterEnd/clusterWidth` — the same rules as the write and render paths — so
+  only a cluster's base width advances the column. A column inside a wide cell still snaps to that cell's
+  end, a NUL still ends the walk, and a column past the line is still kept. Covered by the new
+  `TextSelectionCursorControllerTest` (9 cases): `testColumnPastAZwjClusterIsKept`,
+  `testColumnPastACombiningMarkIsKept` and `testColumnPastASkinToneClusterIsKept` were red against the
+  pre-fix walk (returned 3/2/5 for 4/3/4), while the inside-a-cell snap, flag, ASCII, past-the-line and
+  empty cases passed before and after. `./gradlew test` green (1280 tests). No new device check: this is a
+  pure column mapping and plain/ligature selection columns are unchanged, so the existing selection device
+  checks stay valid.
 - `[open 2026-11-02, D-5 capture]` **OOM on rotate at the minimum font size** — rotating a long-lived
   instance portrait → landscape at font 10 px (354 columns) threw
   `java.lang.OutOfMemoryError` at `TerminalRow.<init>` ← `TerminalBuffer.resize` ←
@@ -291,7 +301,8 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   logic stays instrumented (`androidTest`). More pure helpers can be added over time.
 - `[open]` **no tests at all** for `:terminal-emulator` `TerminalBitmap`, `TerminalSixel`,
   `ITermImage`, `TerminalSession`; `:terminal-view` `TerminalView` (1,661 lines),
-  text-selection controllers/handles; `:app` `TermuxService`,
+  text-selection controllers/handles (only the column mapping of `TextSelectionCursorController` is
+  covered, by `TextSelectionCursorControllerTest`); `:app` `TermuxService`,
   `TermuxTerminalSessionActivityClient`, `TermuxInstaller`, `RunCommandService`,
   `TermuxDocumentsProvider`, and every Compose screen. (`TerminalColors` covered by
   `TerminalColorsTest` `c7ec9c33`; `TerminalColorScheme` and `getPerceivedBrightnessOfColor` covered

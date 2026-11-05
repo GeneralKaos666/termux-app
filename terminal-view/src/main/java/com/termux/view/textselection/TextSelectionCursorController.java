@@ -4,7 +4,6 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Rect;
 import android.os.Build;
-import android.text.TextUtils;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -13,8 +12,8 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
+import com.termux.terminal.GraphemeClusters;
 import com.termux.terminal.TerminalBuffer;
-import com.termux.terminal.WcWidth;
 import com.termux.view.R;
 import com.termux.view.TerminalView;
 
@@ -305,32 +304,47 @@ public class TextSelectionCursorController implements CursorController {
     }
 
     private int getValidCurX(TerminalBuffer screen, int cy, int cx) {
-        String line = screen.getSelectedText(0, cy, cx, cy);
-        if (!TextUtils.isEmpty(line)) {
-            int col = 0;
-            for (int i = 0, len = line.length(); i < len; i++) {
-                char ch1 = line.charAt(i);
-                if (ch1 == 0) {
-                    break;
-                }
+        return validCursorColumn(screen.getSelectedText(0, cy, cx, cy), cx);
+    }
 
-                int wc;
-                if (Character.isHighSurrogate(ch1) && i + 1 < len) {
-                    char ch2 = line.charAt(++i);
-                    wc = WcWidth.width(Character.toCodePoint(ch1, ch2));
-                } else {
-                    wc = WcWidth.width(ch1);
-                }
+    /**
+     * Maps a requested selection column to a cell boundary: a column inside a cell snaps to the end
+     * of that cell, so a selection handle never sits in the middle of a wide glyph.
+     * <p>
+     * The walk is over grapheme clusters, not code points, because a row stores a whole cluster in
+     * the cell of its base code point. A ZWJ family, a flag and a skin toned emoji are one cell each,
+     * so their continuation code points must not stop the walk: only the base code point's width
+     * advances the column.
+     *
+     * @param line the row's text from column 0 to the requested column
+     * @param cx the requested column
+     * @return the column the selection handle should use
+     */
+    static int validCursorColumn(String line, int cx) {
+        if (line == null || line.isEmpty()) return cx;
 
-                final int cend = col + wc;
-                if (cx > col && cx < cend) {
-                    return cend;
-                }
-                if (cend == col) {
-                    return col;
-                }
+        final char[] text = line.toCharArray();
+        int spaceUsed = text.length;
+        for (int i = 0; i < text.length; i++) {
+            if (text[i] == 0) {
+                spaceUsed = i;
+                break;
+            }
+        }
+
+        int col = 0;
+        int i = 0;
+        while (i < spaceUsed) {
+            final int cend = col + GraphemeClusters.clusterWidth(text, i, spaceUsed);
+            if (cx > col && cx < cend) {
+                return cend;
+            }
+            if (cend > col) {
                 col = cend;
             }
+            final int next = GraphemeClusters.clusterEnd(text, i, spaceUsed);
+            if (next <= i) break;
+            i = next;
         }
         return cx;
     }
