@@ -69,4 +69,17 @@ public class ImeTextEncoderTest {
     public void emptyTextHasNoStrokes() {
         assertTrue(ImeTextEncoder.encode("", false).isEmpty());
     }
+
+    @Test
+    public void loneLowSurrogateIsReplacement() {
+        assertStroke(0xFFFD, false, ImeTextEncoder.encode("\uDE00", false).get(0));
+    }
+
+    @Test
+    public void highSurrogateFollowedByNonLowKeepsBothCharacters() {
+        List<ImeTextEncoder.KeyStroke> strokes = ImeTextEncoder.encode("\uD83Da", false);
+        assertEquals(2, strokes.size());
+        assertStroke(0xFFFD, false, strokes.get(0));
+        assertStroke('a', false, strokes.get(1));
+    }
 }

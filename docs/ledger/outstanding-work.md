@@ -151,6 +151,20 @@ drag-to-reorder, rename and close have all since shipped.
 
 ### 2.4 Known defects and bounded leftovers
 
+- `[fixed 2026-11-04]` **unpaired surrogate from the IME crashed the session or typed a random
+  character** — `sendTextToTerminal`/`ImeTextEncoder` sent every committed character straight to
+  `inputCodePoint`, which forwards to `TerminalSession.writeCodePoint`:
+  - a lone **low** surrogate was treated as an ordinary char and reached `writeCodePoint`, which
+    rejects the surrogate range with `IllegalArgumentException` (a crash on malformed composition
+    text that some keyboards emit);
+  - a high surrogate followed by a **non-low** char was passed to `Character.toCodePoint`
+    unvalidated, which silently produced an unrelated code point (`0xD800` + `a` → `0x10061`) and
+    swallowed the second character.
+
+  `ImeTextEncoder.encode` now emits `U+FFFD` for any unpaired surrogate (high without a following
+  low, or a lone low) and leaves the character after a failed pair intact; valid pairs, ASCII, shift
+  and the control remap are unchanged. Covered by `ImeTextEncoderTest.loneLowSurrogateIsReplacement`
+  and `.highSurrogateFollowedByNonLowKeepsBothCharacters` (both red before the fix).
 - `[fixed 2026-11-04, D-12]` **the in-app floating terminal crashed on creation** — three defects,
   all fixed and retested on NX769J / API 34:
   1. `Service`-added overlay `ComposeView`s had no `ViewTreeLifecycleOwner`/

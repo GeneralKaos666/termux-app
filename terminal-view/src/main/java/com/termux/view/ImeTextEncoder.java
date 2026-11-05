@@ -34,12 +34,19 @@ final class ImeTextEncoder {
             char firstChar = text.charAt(i);
             int codePoint;
             if (Character.isHighSurrogate(firstChar)) {
-                if (++i < textLengthInChars) {
-                    codePoint = Character.toCodePoint(firstChar, text.charAt(i));
+                // A high surrogate is only a valid lead when a low surrogate follows it. Otherwise emit the
+                // replacement character and leave the next char untouched, so a malformed pair does not turn
+                // into an unrelated code point and does not swallow the character after it.
+                if (i + 1 < textLengthInChars && Character.isLowSurrogate(text.charAt(i + 1))) {
+                    codePoint = Character.toCodePoint(firstChar, text.charAt(i + 1));
+                    i++;
                 } else {
-                    // At end of string, with no low surrogate following the high:
                     codePoint = TerminalEmulator.UNICODE_REPLACEMENT_CHAR;
                 }
+            } else if (Character.isLowSurrogate(firstChar)) {
+                // A lone low surrogate would reach TerminalSession.writeCodePoint, which rejects the surrogate
+                // range, so substitute it here.
+                codePoint = TerminalEmulator.UNICODE_REPLACEMENT_CHAR;
             } else {
                 codePoint = firstChar;
             }
