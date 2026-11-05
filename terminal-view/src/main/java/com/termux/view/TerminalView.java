@@ -1107,22 +1107,19 @@ public final class TerminalView extends View {
     }
 
     public int getCursorX(float x) {
-        return (int) (x / mRenderer.mFontWidth);
+        return TerminalGeometry.cursorColumn(x, mRenderer.mFontWidth);
     }
 
     public int getCursorY(float y) {
-        return (int) (((y - 40) / mRenderer.mFontLineSpacing) + mTopRow);
+        return TerminalGeometry.cursorRow(y, mRenderer.mFontLineSpacing, mTopRow);
     }
 
     public int getPointX(int cx) {
-        if (cx > mEmulator.mColumns) {
-            cx = mEmulator.mColumns;
-        }
-        return Math.round(cx * mRenderer.mFontWidth);
+        return TerminalGeometry.pointX(cx, mEmulator.mColumns, mRenderer.mFontWidth);
     }
 
     public int getPointY(int cy) {
-        return Math.round((cy - mTopRow) * mRenderer.mFontLineSpacing);
+        return TerminalGeometry.pointY(cy, mTopRow, mRenderer.mFontLineSpacing);
     }
 
     public int getTopRow() {
