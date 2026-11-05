@@ -26,10 +26,9 @@ import com.termux.shared.android.PackageUtils;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP;
 import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
 
-import org.apache.commons.io.IOUtils;
-
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -51,6 +50,24 @@ public class TermuxUtils {
     }
 
     private static final String LOG_TAG = "TermuxUtils";
+
+    /**
+     * Read an input stream into a string with the given charset.
+     *
+     * This replaces commons-io {@code IOUtils.toString}, whose current releases reference
+     * {@code java.nio.file} classes that are unavailable below Android 8.
+     */
+    private static String readString(@NonNull InputStream inputStream, @NonNull Charset charset) throws IOException {
+        StringBuilder builder = new StringBuilder();
+        char[] buffer = new char[8192];
+        try (InputStreamReader reader = new InputStreamReader(inputStream, charset)) {
+            int length;
+            while ((length = reader.read(buffer)) != -1)
+                builder.append(buffer, 0, length);
+        }
+        return builder.toString();
+    }
+
 
     /**
      * Get the {@link Context} for {@link TermuxConstants#TERMUX_PACKAGE_NAME} package with the
@@ -587,15 +604,12 @@ public class TermuxUtils {
     public static String geAPTInfoMarkdownString(@NonNull final Context context) {
 
         String aptInfoScript;
-        InputStream inputStream = context.getResources().openRawResource(com.termux.shared.R.raw.apt_info_script);
-        try {
-            aptInfoScript = IOUtils.toString(inputStream, Charset.defaultCharset());
+        try (InputStream inputStream = context.getResources().openRawResource(com.termux.shared.R.raw.apt_info_script)) {
+            aptInfoScript = readString(inputStream, Charset.defaultCharset());
         } catch (IOException e) {
             Logger.logError(LOG_TAG, "Failed to get APT info script: " + e.getMessage());
             return null;
         }
-
-        IOUtils.closeQuietly(inputStream);
 
         if (aptInfoScript == null || aptInfoScript.isEmpty()) {
             Logger.logError(LOG_TAG, "The APT info script is null or empty");

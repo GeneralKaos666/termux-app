@@ -385,6 +385,16 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   workflow. Fixed the three pre-existing lint errors that would have failed CI (two
   `onBackPressed` `MissingSuperCall` overrides now `@SuppressLint`-annotated; the
   `CoreLibDesugaringV1` error is suppressed pending the deferred `desugar_jdk_libs` 2.x upgrade).
+- `[done 2026-11-04]` Dependabot remediation for the 67 open Maven alerts: `guava` 24.1-jre →
+  33.8.0-android in `app` and `termux-shared`; `commons-io` removed from `:termux-shared` (its
+  `FileUtils`/`TermuxUtils`/`TermuxShellUtils` uses replaced with local `java.io` helpers, and
+  `deleteFilesOlderThanXDays` now takes a `java.io.FileFilter`, so a caller passing
+  `TrueFileFilter.INSTANCE` or `null` still compiles); Kotlin and Compose plugin 2.2.21 → 2.4.21;
+  and root `build.gradle` forces the patched build-time transitive versions (netty 4.1.137.Final,
+  Bouncy Castle 1.86, jose4j 0.9.6, jdom2 2.0.6.1, commons-compress 1.28.0, protobuf 3.25.5,
+  Guava 33.8.0-jre, commons-io 2.22.0). Verified with `test`, `:app:assembleDebug`,
+  `buildEnvironment`, a per-configuration resolved-version report, and the `:termux-shared`
+  instrumented `FileUtilsTests` on NX769J / API 34. GitHub must rescan before the alerts clear.
 - `[deferred]` dependency verification (Gradle `verification-metadata.xml`) — still to generate.
 - `[done 2026-10-27]` JitPack versioning: the three library modules now read their publication
   version from the `VERSION` env var (`System.getenv("VERSION") ?: '0.118.0'`), so a JitPack build
@@ -403,9 +413,11 @@ androidx bumps that only needed minSdk 23: `annotation` (`1dfb9203`), `window` (
 on bigger changes: `core` 1.19.x, `lifecycle-runtime-compose` 2.11.x and `compose-bom` 2026.09.00 all
 require **AGP 9.1.0+** (repo is on 8.13.2); `hiddenapibypass:6.2` needs **compileSdk 37** (which breaks
 Robolectric 4.10's `ShadowActivity`, and Robolectric can't be bumped here — its `android-all` jar
-can't be fetched); `desugar_jdk_libs` 1.x→2.x is a major desugaring change and the prerequisite for
-`commons-io`/`guava` (and `commons-io` 2.22.0 contradicts the `AGENTS.md` "must remain 2.5" note).
-`compileSdk` stays 36.
+can't be fetched). `commons-io` no longer needs `desugar_jdk_libs` 2.x: `:termux-shared` dropped the
+dependency (2026-11-04) and its remaining uses are implemented with `java.io` helpers, and `guava` is
+on the Android flavor (`33.8.0-android`), which does not reference `java.nio.file`. The desugaring
+1.x→2.x upgrade is still deferred for the Java APIs it would backport in app code. `compileSdk`
+stays 36.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|

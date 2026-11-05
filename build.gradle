@@ -5,8 +5,30 @@ buildscript {
     }
     dependencies {
         classpath "com.android.tools.build:gradle:8.13.2"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.21"
-        classpath "org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin:2.2.21"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21"
+        classpath "org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin:2.4.21"
+    }
+
+    configurations.classpath {
+        resolutionStrategy {
+            // The Android Gradle plugin and the Kotlin Gradle plugin pull in build-time libraries
+            // whose resolved versions are below the releases that fix the reported advisories.
+            // None of these are packaged into the APK; the forces only keep the build tooling on
+            // current, non-vulnerable versions.
+            force "com.google.guava:guava:33.8.0-jre"
+            force "commons-io:commons-io:2.22.0"
+            force "org.bitbucket.b_c:jose4j:0.9.6"
+            force "org.jdom:jdom2:2.0.6.1"
+            force "org.apache.commons:commons-compress:1.28.0"
+            force "io.opentelemetry:opentelemetry-api:1.67.0"
+            force "io.opentelemetry:opentelemetry-context:1.67.0"
+            force "com.google.protobuf:protobuf-java:3.25.5"
+            force "com.google.protobuf:protobuf-kotlin:3.25.5"
+            eachDependency { details ->
+                if (details.requested.group == "io.netty") details.useVersion("4.1.137.Final")
+                if (details.requested.group == "org.bouncycastle") details.useVersion("1.86")
+            }
+        }
     }
 }
 
@@ -15,5 +37,38 @@ allprojects {
         google()
         mavenCentral()
         maven { url = "https://jitpack.io" }
+    }
+
+    configurations.all {
+        resolutionStrategy {
+            // The Google testing platform, which the Android Gradle plugin puts on the test
+            // classpath, still declares netty 4.1.93 through gRPC 1.57.2. Force the patched netty
+            // line for every project configuration, and do the same for the other build-time
+            // libraries that the dependency graph reports as vulnerable.
+            eachDependency { details ->
+                if (details.requested.group == "io.netty") details.useVersion("4.1.137.Final")
+                if (details.requested.group == "org.bouncycastle") details.useVersion("1.86")
+            }
+            force "org.bitbucket.b_c:jose4j:0.9.6"
+            force "org.jdom:jdom2:2.0.6.1"
+            force "org.apache.commons:commons-compress:1.28.0"
+            force "io.opentelemetry:opentelemetry-api:1.67.0"
+            force "io.opentelemetry:opentelemetry-context:1.67.0"
+            force "com.google.protobuf:protobuf-kotlin:3.25.5"
+        }
+    }
+
+    // The Android Gradle plugin's internal Unified Test Platform configurations resolve their own
+    // copies of Guava. They are JVM tooling rather than app code, so the JRE flavor is correct
+    // there and the app's Android flavor stays untouched.
+    configurations.matching {
+        it.name.startsWith("_internal-unified-test-platform-") ||
+            it.name.endsWith("UnitTestCompileClasspath") ||
+            it.name.endsWith("UnitTestRuntimeClasspath")
+    }.configureEach {
+        resolutionStrategy {
+            force "com.google.guava:guava:33.8.0-jre"
+            force "commons-io:commons-io:2.22.0"
+        }
     }
 }

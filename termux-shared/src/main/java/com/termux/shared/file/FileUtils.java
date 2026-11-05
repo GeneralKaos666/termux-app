@@ -6,7 +6,6 @@ import android.system.Os;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.google.common.io.RecursiveDeleteOption;
 import com.termux.shared.file.filesystem.FileType;
 import com.termux.shared.file.filesystem.FileTypes;
 import com.termux.shared.data.DataUtils;
@@ -15,13 +14,11 @@ import com.termux.shared.errors.Errno;
 import com.termux.shared.errors.Error;
 import com.termux.shared.errors.FunctionErrno;
 
-import org.apache.commons.io.filefilter.AgeFileFilter;
-import org.apache.commons.io.filefilter.IOFileFilter;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -33,9 +30,9 @@ import java.io.Serializable;
 import java.nio.charset.Charset;
 import java.nio.file.LinkOption;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -1083,8 +1080,7 @@ public class FileUtils {
                     return error;
 
                 if (srcFileType == FileType.DIRECTORY) {
-                    // Will give runtime exceptions on android < 8 due to missing classes like java.nio.file.Path if org.apache.commons.io version > 2.5
-                    org.apache.commons.io.FileUtils.copyDirectory(srcFile, destFile, true);
+                    copyDirectory(srcFile, destFile, true);
                 } else if (srcFileType == FileType.SYMLINK) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         java.nio.file.Files.copy(srcFile.toPath(), destFile.toPath(), LinkOption.NOFOLLOW_LINKS, StandardCopyOption.REPLACE_EXISTING);
@@ -1096,12 +1092,7 @@ public class FileUtils {
                             return error;
                     }
                 } else {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        java.nio.file.Files.copy(srcFile.toPath(), destFile.toPath(), LinkOption.NOFOLLOW_LINKS, StandardCopyOption.REPLACE_EXISTING);
-                    } else {
-                        // Will give runtime exceptions on android < 8 due to missing classes like java.nio.file.Path if org.apache.commons.io version > 2.5
-                        org.apache.commons.io.FileUtils.copyFile(srcFile, destFile, true);
-                    }
+                    copyFile(srcFile, destFile, true);
                 }
             }
 
@@ -1256,36 +1247,11 @@ public class FileUtils {
 
             Logger.logVerbose(LOG_TAG, "Deleting " + label + "file at path \"" + filePath + "\"");
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                /*
-                 * Try to use {@link SecureDirectoryStream} if available for safer directory
-                 * deletion, it should be available for android >= 8.0
-                 * https://guava.dev/releases/24.1-jre/api/docs/com/google/common/io/MoreFiles.html#deleteRecursively-java.nio.file.Path-com.google.common.io.RecursiveDeleteOption...-
-                 * https://github.com/google/guava/issues/365
-                 * https://cs.android.com/android/platform/superproject/+/android-11.0.0_r3:libcore/ojluni/src/main/java/sun/nio/fs/UnixSecureDirectoryStream.java
-                 *
-                 * MoreUtils is marked with the @Beta annotation so the API may be removed in
-                 * future but has been there for a few years now.
-                 *
-                 * If an exception is thrown, the exception message might not contain the full errors.
-                 * Individual failures get added to suppressed throwables which can be extracted
-                 * from the exception object by calling `Throwable[] getSuppressed()`. So just logging
-                 * the exception message and stacktrace may not be enough, the suppressed throwables
-                 * need to be logged as well, which the Logger class does if they are found in the
-                 * exception added to the Error that's returned by this function.
-                 * https://github.com/google/guava/blob/v30.1.1/guava/src/com/google/common/io/MoreFiles.java#L775
-                 */
-                //noinspection UnstableApiUsage
-                com.google.common.io.MoreFiles.deleteRecursively(file.toPath(), RecursiveDeleteOption.ALLOW_INSECURE);
+            if (fileType == FileType.DIRECTORY) {
+                // deleteDirectory() instead of forceDelete() gets the files list first instead of walking directory tree, so seems safer
+                deleteDirectory(file);
             } else {
-                if (fileType == FileType.DIRECTORY) {
-                    // deleteDirectory() instead of forceDelete() gets the files list first instead of walking directory tree, so seems safer
-                    // Will give runtime exceptions on android < 8 due to missing classes like java.nio.file.Path if org.apache.commons.io version > 2.5
-                    org.apache.commons.io.FileUtils.deleteDirectory(file);
-                } else {
-                    // Will give runtime exceptions on android < 8 due to missing classes like java.nio.file.Path if org.apache.commons.io version > 2.5
-                    org.apache.commons.io.FileUtils.forceDelete(file);
-                }
+                forceDelete(file);
             }
 
             // If file still exists after deleting it
@@ -1346,15 +1312,7 @@ public class FileUtils {
 
             // If directory exists, clear its contents
             if (fileType == FileType.DIRECTORY) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    /* If an exception is thrown, the exception message might not contain the full errors.
-                     * Individual failures get added to suppressed throwables. */
-                    //noinspection UnstableApiUsage
-                    com.google.common.io.MoreFiles.deleteDirectoryContents(file.toPath(), RecursiveDeleteOption.ALLOW_INSECURE);
-                } else {
-                    // Will give runtime exceptions on android < 8 due to missing classes like java.nio.file.Path if org.apache.commons.io version > 2.5
-                    org.apache.commons.io.FileUtils.cleanDirectory(new File(filePath));
-                }
+                cleanDirectory(new File(filePath));
             }
             // Else create it
             else {
@@ -1379,7 +1337,7 @@ public class FileUtils {
      * @param filePath The {@code path} for directory to clear.
      * @param dirFilter  The optional filter to apply when finding subdirectories.
      *                   If this parameter is {@code null}, subdirectories will not be included in the
-     *                   search. Use TrueFileFilter.INSTANCE to match all directories.
+     *                   search. Use a filter that accepts every directory to match all directories.
      * @param days The x amount of days before which files should be deleted. This must be `>=0`.
      * @param ignoreNonExistentFile The {@code boolean} that decides if it should be considered an
      *                              error if file to deleted doesn't exist.
@@ -1390,7 +1348,7 @@ public class FileUtils {
      *                             {@link FileTypes#FILE_TYPE_ANY_FLAGS} to allow deletion of any file type.
      * @return Returns the {@code error} if deleting was not successful, otherwise {@code null}.
      */
-    public static Error deleteFilesOlderThanXDays(String label, final String filePath, final IOFileFilter dirFilter, int days, final boolean ignoreNonExistentFile, int allowedFileTypeFlags) {
+    public static Error deleteFilesOlderThanXDays(String label, final String filePath, final FileFilter dirFilter, int days, final boolean ignoreNonExistentFile, int allowedFileTypeFlags) {
         label = (label == null || label.isEmpty() ? "" : label + " ");
         if (filePath == null || filePath.isEmpty()) return FunctionErrno.ERRNO_NULL_OR_EMPTY_PARAMETER.getError(label + "file path", "deleteFilesOlderThanXDays");
         if (days < 0) return FunctionErrno.ERRNO_INVALID_PARAMETER.getError(label + "days", "deleteFilesOlderThanXDays", " It must be >= 0.");
@@ -1427,11 +1385,11 @@ public class FileUtils {
             // If directory exists, delete its contents
             Calendar calendar = Calendar.getInstance();
             calendar.add(Calendar.DATE, -(days));
-            // AgeFileFilter seems to apply to symlink destination timestamp instead of symlink file itself
-            Iterator<File> filesToDelete =
-                org.apache.commons.io.FileUtils.iterateFiles(file, new AgeFileFilter(calendar.getTime()), dirFilter);
-            while (filesToDelete.hasNext()) {
-                File subFile = filesToDelete.next();
+            // The last-modified time of a symlink follows its destination; the age filter therefore
+            // compares the timestamp of the file the entry resolves to, not the symlink itself.
+            List<File> filesToDelete = new ArrayList<>();
+            collectFilesOlderThan(file, calendar.getTimeInMillis(), dirFilter, filesToDelete);
+            for (File subFile : filesToDelete) {
                 error = deleteFile(label + " directory sub", subFile.getAbsolutePath(), true, true, allowedFileTypeFlags);
                 if (error != null)
                     return error;
@@ -1972,6 +1930,154 @@ public class FileUtils {
      */
     public static String getFileBasenameWithoutExtension(String filePath) {
         return FilePaths.getFileBasenameWithoutExtension(filePath);
+    }
+
+    /**
+     * Copy a directory tree to a new location, merging into an existing destination directory.
+     *
+     * This replaces commons-io {@code FileUtils.copyDirectory}, whose current releases reference
+     * {@code java.nio.file} classes that are unavailable below Android 8. The Android flavor of the
+     * app runs on API 23+, so the copy is implemented with {@link java.io} only.
+     *
+     * @param source The directory to copy.
+     * @param destination The directory to copy to. If it is inside {@code source}, it is skipped so
+     *                    the copy cannot recurse into itself.
+     * @param preserveFileDate Whether the source timestamps should be copied to the destination.
+     * @throws IOException If a directory or file could not be read, created or written.
+     */
+    private static void copyDirectory(@NonNull File source, @NonNull File destination, boolean preserveFileDate) throws IOException {
+        File canonicalSource = source.getCanonicalFile();
+        File canonicalDestination = destination.getCanonicalFile();
+        if (canonicalSource.equals(canonicalDestination))
+            throw new IOException("Source and destination directories are the same: \"" + source + "\"");
+        copyDirectoryRecursive(canonicalSource, canonicalDestination, canonicalDestination, preserveFileDate);
+    }
+
+    private static void copyDirectoryRecursive(@NonNull File source, @NonNull File destination,
+                                               @NonNull File destinationRoot, boolean preserveFileDate) throws IOException {
+        if (!destination.exists() && !destination.mkdirs() && !destination.isDirectory())
+            throw new IOException("Failed to create directory \"" + destination + "\"");
+
+        File[] files = source.listFiles();
+        if (files == null)
+            throw new IOException("Failed to list directory \"" + source + "\"");
+
+        for (File file : files) {
+            if (file.getCanonicalFile().equals(destinationRoot))
+                continue;
+            File destinationFile = new File(destination, file.getName());
+            if (file.isDirectory())
+                copyDirectoryRecursive(file, destinationFile, destinationRoot, preserveFileDate);
+            else
+                copyFile(file, destinationFile, preserveFileDate);
+        }
+
+        if (preserveFileDate)
+            destination.setLastModified(source.lastModified());
+    }
+
+    /**
+     * Copy a regular file, optionally preserving its last-modified time.
+     *
+     * This replaces commons-io {@code FileUtils.copyFile} for the same Android compatibility reason
+     * as {@link #copyDirectory(File, File, boolean)}.
+     */
+    private static void copyFile(@NonNull File source, @NonNull File destination, boolean preserveFileDate) throws IOException {
+        if (source.isDirectory())
+            throw new IOException("Source \"" + source + "\" is a directory");
+        if (source.getCanonicalFile().equals(destination.getCanonicalFile()))
+            return;
+
+        File parent = destination.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs())
+            throw new IOException("Failed to create directory \"" + parent + "\"");
+
+        try (FileInputStream inputStream = new FileInputStream(source);
+             FileOutputStream outputStream = new FileOutputStream(destination)) {
+            byte[] buffer = new byte[8192];
+            int length;
+            while ((length = inputStream.read(buffer)) != -1)
+                outputStream.write(buffer, 0, length);
+        }
+
+        if (preserveFileDate)
+            destination.setLastModified(source.lastModified());
+    }
+
+    /**
+     * Recursively delete a directory without following symlinks.
+     *
+     * This replaces commons-io {@code FileUtils.deleteDirectory} for the same Android compatibility
+     * reason as {@link #copyDirectory(File, File, boolean)}.
+     */
+    private static void deleteDirectory(@NonNull File directory) throws IOException {
+        File[] files = directory.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (getFileType(file.getPath(), false) == FileType.DIRECTORY)
+                    deleteDirectory(file);
+                else if (!file.delete() && file.exists())
+                    throw new IOException("Unable to delete file \"" + file + "\"");
+            }
+        }
+
+        if (!directory.delete() && directory.exists())
+            throw new IOException("Unable to delete directory \"" + directory + "\"");
+    }
+
+    /**
+     * Delete a file or directory without following symlinks, failing if it cannot be removed.
+     *
+     * This replaces commons-io {@code FileUtils.forceDelete} for the same Android compatibility
+     * reason as {@link #copyDirectory(File, File, boolean)}.
+     */
+    private static void forceDelete(@NonNull File file) throws IOException {
+        if (getFileType(file.getPath(), false) == FileType.DIRECTORY) {
+            deleteDirectory(file);
+        } else if (!file.delete() && file.exists()) {
+            throw new IOException("Unable to delete file \"" + file + "\"");
+        }
+    }
+
+    /**
+     * Delete the contents of a directory without deleting the directory itself.
+     *
+     * This replaces commons-io {@code FileUtils.cleanDirectory} for the same Android compatibility
+     * reason as {@link #copyDirectory(File, File, boolean)}.
+     */
+    private static void cleanDirectory(@NonNull File directory) throws IOException {
+        File[] files = directory.listFiles();
+        if (files == null)
+            throw new IOException("Failed to list contents of \"" + directory + "\"");
+
+        for (File file : files) {
+            if (getFileType(file.getPath(), false) == FileType.DIRECTORY)
+                deleteDirectory(file);
+            else if (!file.delete() && file.exists())
+                throw new IOException("Unable to delete file \"" + file + "\"");
+        }
+    }
+
+    /**
+     * Collect the files under {@code directory} whose last-modified time is not newer than
+     * {@code cutoffTime}, optionally descending into subdirectories accepted by {@code dirFilter}.
+     *
+     * This replaces commons-io {@code FileUtils.iterateFiles} with an {@code AgeFileFilter}.
+     */
+    private static void collectFilesOlderThan(@NonNull File directory, long cutoffTime,
+                                              @Nullable FileFilter dirFilter, @NonNull List<File> filesToDelete) {
+        File[] files = directory.listFiles();
+        if (files == null)
+            return;
+
+        for (File file : files) {
+            if (file.isDirectory()) {
+                if (dirFilter != null && dirFilter.accept(file))
+                    collectFilesOlderThan(file, cutoffTime, dirFilter, filesToDelete);
+            } else if (file.lastModified() <= cutoffTime) {
+                filesToDelete.add(file);
+            }
+        }
     }
 
 }
