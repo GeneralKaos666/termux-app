@@ -103,8 +103,26 @@ public final class TerminalBuffer {
 
 
 
+    /**
+     * The reference width the configured transcript rows are priced at. A wider grid gets
+     * proportionally fewer rows, so a width change never allocates more cells than the configured
+     * count would at 80 columns: 354 columns at the default 2000 rows would otherwise be 708000
+     * cells (~7 MB) instead of 160000, and the 50000-row maximum at that width would be ~177 MB.
+     */
+    private static final int TRANSCRIPT_BUDGET_COLUMNS = 80;
+
     public TerminalBuffer(int columns, int totalRows, int screenRows) {
         this(null, columns, totalRows, screenRows);
+    }
+
+    /**
+     * @return the transcript rows to allocate for a grid: the configured count, reduced in proportion
+     * to how much wider than {@link #TRANSCRIPT_BUDGET_COLUMNS} the grid is, but never more than the
+     * configured count and never fewer than the visible screen.
+     */
+    static int boundedTotalRows(int columns, int totalRows, int screenRows) {
+        long budgetedRows = (long) totalRows * TRANSCRIPT_BUDGET_COLUMNS / Math.max(1, columns);
+        return Math.max((int) Math.min(totalRows, budgetedRows), screenRows);
     }
 
     /**
@@ -112,7 +130,8 @@ public final class TerminalBuffer {
      *
      * @param client    the {@link TerminalSessionClient}.
      * @param columns    the width of the screen in characters.
-     * @param totalRows  the height of the entire text area, in rows of text.
+     * @param totalRows  the height of the entire text area, in rows of text. Capped for wide grids,
+     *                   see {@link #boundedTotalRows(int, int, int)}.
      * @param screenRows the height of just the screen, not including the transcript that holds lines that have scrolled off
      *                   the top of the screen.
      */
@@ -120,9 +139,9 @@ public final class TerminalBuffer {
         mClient = client;
 
         mColumns = columns;
-        mTotalRows = totalRows;
+        mTotalRows = boundedTotalRows(columns, totalRows, screenRows);
         mScreenRows = screenRows;
-        mLines = new TerminalRow[totalRows];
+        mLines = new TerminalRow[mTotalRows];
 
         blockSet(0, 0, columns, screenRows, ' ', TextStyle.NORMAL);
         mTerminalBitmaps = new HashMap<>();
@@ -351,8 +370,10 @@ public final class TerminalBuffer {
      * @param cursor     An int[2] containing the (column, row) cursor location.
      */
     public void resize(int newColumns, int newRows, int newTotalRows, int[] cursor, long currentStyle, boolean altScreen) {
-        // newRows > mTotalRows should not normally happen since mTotalRows is TRANSCRIPT_ROWS (10000):
-        if (newColumns == mColumns && newRows <= mTotalRows) {
+        newTotalRows = boundedTotalRows(newColumns, newTotalRows, newRows);
+
+        // newRows > mTotalRows should not normally happen since the screen always fits in the transcript:
+        if (newColumns == mColumns && newRows <= mTotalRows && newTotalRows <= mLines.length) {
             // Fast resize where just the rows changed.
             int shiftDownOfTopRow = mScreenRows - newRows;
             if (shiftDownOfTopRow > 0 && shiftDownOfTopRow < mScreenRows) {

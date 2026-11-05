@@ -162,7 +162,10 @@ Two notes from the capture:
 - At the minimum font a long-lived instance OOMed once in `TerminalBuffer.resize`
   (`TerminalRow.<init>`, 10,000 transcript rows at 354 columns) while rotating portrait → landscape.
   It did not reproduce after a fresh start, so it is heap-pressure dependent; recorded in
-  `outstanding-work.md` §2.4.
+  `outstanding-work.md` §2.4. **Corrected and fixed 2026-11-04:** the reservation was the configured
+  transcript rows (default 2000, not 10,000 — that figure came from a stale comment), and it is now
+  priced at an 80-column reference, so 354 columns reserves 451 rows instead of 2000. The OOM arm
+  stays a stress run rather than a check a fresh pass can prove.
 - Larger font sizes grow the preview inside the Appearance screen, which pushes the font-size row
   below the fold; the row is reachable by scrolling and was not a blocker.
 

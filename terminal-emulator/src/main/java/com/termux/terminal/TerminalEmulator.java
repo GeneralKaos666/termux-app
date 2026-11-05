@@ -220,6 +220,13 @@ public final class TerminalEmulator {
     /** The number of character rows and columns in the terminal screen. */
     public int mRows, mColumns;
 
+    /**
+     * The configured transcript rows, before the per-width cap applied by
+     * {@link TerminalBuffer#boundedTotalRows(int, int, int)}. Kept so that rotating back to a narrow
+     * grid restores the full configured history.
+     */
+    private final int mTranscriptRows;
+
     /** Size of a terminal cell in pixels. */
     private int mCellWidthPixels, mCellHeightPixels;
 
@@ -505,7 +512,8 @@ public final class TerminalEmulator {
 
     public TerminalEmulator(TerminalOutput session, int columns, int rows, int cellWidthPixels, int cellHeightPixels, Integer transcriptRows, TerminalSessionClient client) {
         mSession = session;
-        mScreen = mMainBuffer = new TerminalBuffer(client, columns, getTerminalTranscriptRows(transcriptRows), rows);
+        mTranscriptRows = getTerminalTranscriptRows(transcriptRows);
+        mScreen = mMainBuffer = new TerminalBuffer(client, columns, mTranscriptRows, rows);
         mAltBuffer = new TerminalBuffer(client, columns, rows, rows);
         mClient = client;
         mRows = rows;
@@ -622,7 +630,7 @@ public final class TerminalEmulator {
 
     private void resizeScreen() {
         final int[] cursor = {mCursorCol, mCursorRow};
-        int newTotalRows = (mScreen == mAltBuffer) ? mRows : mMainBuffer.mTotalRows;
+        int newTotalRows = (mScreen == mAltBuffer) ? mRows : mTranscriptRows;
         mScreen.resize(mColumns, mRows, newTotalRows, cursor, getStyle(), isAlternateBufferActive());
         mCursorCol = cursor[0];
         mCursorRow = cursor[1];

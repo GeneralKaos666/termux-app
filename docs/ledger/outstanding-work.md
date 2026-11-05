@@ -207,16 +207,29 @@ drag-to-reorder, rename and close have all since shipped.
   and release variants: 1288 executions, 0 failures). No new device check: this is a
   pure column mapping and plain/ligature selection columns are unchanged, so the existing selection device
   checks stay valid.
-- `[open 2026-11-02, D-5 capture]` **OOM on rotate at the minimum font size** — rotating a long-lived
+- `[fixed 2026-11-04, D-5 capture]` **OOM on rotate at the minimum font size** — rotating a long-lived
   instance portrait → landscape at font 10 px (354 columns) threw
   `java.lang.OutOfMemoryError` at `TerminalRow.<init>` ← `TerminalBuffer.resize` ←
-  `TerminalEmulator.resizeScreen`. `TerminalBuffer.resize` allocates all 10,000 transcript rows at the
-  new column width whenever the column count changes, so a wide grid multiplies the transcript
-  footprint (354 × 10,000 cells) on top of the live screen. One `data_app_crash` record in dropbox at
-  2026-11-02 02:44:26 (PID 19366, uptime 705 s, build `2.0.0-beta+792b9f7`); it did **not** reproduce
-  after a fresh start, so it is heap-pressure dependent (the capture run had produced a dozen
-  screenshots in the same process lifetime). Not a correctness bug in `resize` — a bounded-memory
-  question for very wide grids. Evidence in `~/.tmp/opencode/device-checks-2026-11-02.md` D-5.
+  `TerminalEmulator.resizeScreen`. `TerminalBuffer.resize` eagerly allocated a `TerminalRow` for
+  every reserved transcript row at the new column width (the constructor materializes only the screen
+  rows), so a wide grid multiplied the transcript footprint. The default reservation is 2000 rows —
+  the D-5 note's "10,000" came from a stale `TRANSCRIPT_ROWS` comment in `resize`, and the
+  reservation is whatever `terminal-transcript-rows` says (2000 by default) — which is ~7 MB of cell
+  arrays at 354 columns, and a raised
+  `terminal-transcript-rows` multiplied it further (the 50000-row maximum would be ~177 MB). One
+  `data_app_crash` record in dropbox at 2026-11-02 02:44:26 (PID 19366, uptime 705 s, build
+  `2.0.0-beta+792b9f7`); it did **not** reproduce after a fresh start, so it is heap-pressure
+  dependent (the capture run had produced a dozen screenshots in the same process lifetime). Fixed in
+  `:terminal-emulator` on 2026-11-04: `TerminalBuffer.boundedTotalRows` prices the configured rows at
+  an 80-column reference, so a wider grid reserves proportionally fewer rows and a width change never
+  allocates more cells than the configured count would at 80 columns; the reservation never drops
+  below the visible screen, and `TerminalEmulator` now remembers the configured count so rotating back
+  to a narrow grid restores the full history. At 354 columns the default 2000 rows reserves 451 rows
+  (~1.6 MB instead of ~7 MB). Covered by `TranscriptMemoryTest` (4 cases; the wide-resize and
+  screen-floor cases were red against the pre-fix code), full `./gradlew test` green (648 test
+  methods, 1296 executions, 0 failures). The D-5 arm stays a device stress run: the OOM was
+  heap-pressure dependent and did not reproduce on a fresh start, so a repeat run could not prove it.
+  Evidence in `~/.tmp/opencode/device-checks-2026-11-02.md` D-5.
 - `[done 2026-10-25, ad380602]` **palette changes with no other output** — the simple fix was chosen:
   `updateBackgroundColor()` now invalidates the terminal view even in wallpaper/custom-image mode, so
   a palette-only change repaints. The robust palette-version signal remains deferred (§5.4).
