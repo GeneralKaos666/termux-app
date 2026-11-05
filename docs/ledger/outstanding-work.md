@@ -203,7 +203,8 @@ drag-to-reorder, rename and close have all since shipped.
   `TextSelectionCursorControllerTest` (9 cases): `testColumnPastAZwjClusterIsKept`,
   `testColumnPastACombiningMarkIsKept` and `testColumnPastASkinToneClusterIsKept` were red against the
   pre-fix walk (returned 3/2/5 for 4/3/4), while the inside-a-cell snap, flag, ASCII, past-the-line and
-  empty cases passed before and after. `./gradlew test` green (1280 tests). No new device check: this is a
+  empty cases passed before and after. `./gradlew test` green (644 test methods, run for both the debug
+  and release variants: 1288 executions, 0 failures). No new device check: this is a
   pure column mapping and plain/ligature selection columns are unchanged, so the existing selection device
   checks stay valid.
 - `[open 2026-11-02, D-5 capture]` **OOM on rotate at the minimum font size** — rotating a long-lived
@@ -275,11 +276,20 @@ is unified.
 interface callback the engine workstreams added (`TerminalViewClient.onLinkClicked`) is a `default`
 no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
-- `[open]` **`TerminalSessionClient` query methods are abstract, not `default`** —
-  `getTerminalCursorStyle()` (and the pre-existing `setTerminalShellPid`, `onPasteTextFromClipboard`)
-  were added as abstract methods; plugins are safe only because the `*Base` classes supply the
-  no-op/`null` defaults. A plugin implementing `TerminalSessionClient` directly would break. Not part
-  of the engine program; a convention inconsistency against the "new callbacks must be `default`" rule.
+- `[fixed 2026-11-04]` **late `TerminalSessionClient` methods were abstract, not `default`** —
+  `onTerminalCursorStateChange` (2021-05-15), `getTerminalCursorStyle` (2021-06-10),
+  `onPasteTextFromClipboard` (2021-07-19) and `setTerminalShellPid` (2022-01-22) were added to the
+  published interface after the plugin apps already implemented it, so a plugin implementing
+  `TerminalSessionClient` directly would break; they were safe only because the `*Base` classes supply
+  the no-op/`null` defaults. Not part of the engine program; a convention inconsistency against the
+  "new callbacks must be `default`" rule. All four are now `default`: the three callbacks do nothing
+  and `getTerminalCursorStyle()` returns `null`, which `TerminalEmulator.setCursorStyle()` already
+  treats as "use the default". Javadoc on each says the default exists so older implementors keep
+  compiling. The setters and getter are binary-compatible changes; `RecordingClient` in
+  `TerminalEmulatorLoggingTest` no longer overrides them, so the test source proves the defaults
+  compile and behave the same, and the new `TerminalSessionClientTest` asserts all four are `default`
+  with `Method.isDefault()`. `./gradlew test` green (644 test methods, run for both the debug and
+  release variants: 1288 executions, 0 failures).
 - `[open]` **plugin-app `default`-method desugaring (minSdk 21)** — confirm the companion apps'
   AGP/D8/R8 toolchains desugar Java 8 `default` methods, not just this repo. External build check,
   not verifiable from this tree.

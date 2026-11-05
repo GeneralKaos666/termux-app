@@ -18,21 +18,39 @@ public interface TerminalSessionClient {
 
     void onCopyTextToClipboard(@NonNull TerminalSession session, String text);
 
-    void onPasteTextFromClipboard(@Nullable TerminalSession session);
+    /**
+     * Called when the user asks to paste. The default does nothing, so an implementor that predates
+     * this callback keeps compiling.
+     */
+    default void onPasteTextFromClipboard(@Nullable TerminalSession session) {
+    }
 
     void onBell(@NonNull TerminalSession session);
 
     void onColorsChanged(@NonNull TerminalSession session);
 
-    void onTerminalCursorStateChange(boolean state);
+    /**
+     * Called when the cursor blink mode changes. The default does nothing, so an implementor that
+     * predates this callback keeps compiling.
+     */
+    default void onTerminalCursorStateChange(boolean state) {
+    }
 
-    void setTerminalShellPid(@NonNull TerminalSession session, int pid);
+    /**
+     * Called when the shell pid of a session is known. The default does nothing, so an implementor
+     * that predates this callback keeps compiling.
+     */
+    default void setTerminalShellPid(@NonNull TerminalSession session, int pid) {
+    }
 
-
-
-    Integer getTerminalCursorStyle();
-
-
+    /**
+     * @return the cursor style the user configured, or {@code null} to use the emulator default.
+     * The default returns {@code null}, so an implementor that predates this callback keeps
+     * compiling.
+     */
+    default Integer getTerminalCursorStyle() {
+        return null;
+    }
 
     void logError(String tag, String message);
 
