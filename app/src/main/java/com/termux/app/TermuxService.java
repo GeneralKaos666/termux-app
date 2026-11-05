@@ -639,6 +639,15 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     }
 
     /**
+     * Terminates the shell of a dedicated float session. It is not in the sessions list, so nothing
+     * else will stop it when the user closes the floating window.
+     */
+    @Override
+    public void finishFloatSession(@NonNull TermuxSession session) {
+        session.getTerminalSession().finishIfRunning();
+    }
+
+    /**
      * Lazily builds and returns the {@link FloatController} that owns the in-app floating terminal
      * overlay and its dedicated session, using this service as the {@link FloatSessionSource}.
      */

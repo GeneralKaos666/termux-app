@@ -9,10 +9,10 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.Toast
-import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.termux.R
+import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession
 import com.termux.shared.termux.terminal.TermuxTerminalViewClientBase
 import com.termux.shared.view.KeyboardUtils
@@ -27,6 +27,12 @@ import kotlin.math.roundToInt
  */
 interface FloatSessionSource {
     fun createFloatSession(client: TerminalSessionClient): TermuxSession?
+
+    /**
+     * Terminates the shell of a session from [createFloatSession]. The float session is not in the
+     * service's sessions list, so this is the only owner that can kill its process.
+     */
+    fun finishFloatSession(session: TermuxSession)
 }
 
 /**
@@ -65,8 +71,11 @@ class FloatController @JvmOverloads constructor(
     private val windowManager: WindowManager? =
         context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
 
-    private val terminalView = TerminalView(context, null).apply {
+    internal val terminalView = TerminalView(context, null).apply {
         setTerminalViewClient(FloatViewClient())
+        // The activity path applies the user's font size before the view is attached; without a
+        // renderer the first layout throws a NullPointerException out of updateSize().
+        setTextSize(TermuxAppSharedPreferences.build(context)?.fontSize ?: DEFAULT_FONT_SIZE)
     }
 
     private val prefs = FloatWindowPrefs(
@@ -75,8 +84,8 @@ class FloatController @JvmOverloads constructor(
 
     private val sessionClient = FloatSessionClient(this)
 
-    private var windowView: ComposeView? = null
-    private var bubbleView: ComposeView? = null
+    private var windowOverlay: FloatOverlayView? = null
+    private var bubbleOverlay: FloatOverlayView? = null
 
     private var windowParams: WindowManager.LayoutParams? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
@@ -118,7 +127,7 @@ class FloatController @JvmOverloads constructor(
     fun stop() {
         removeWindow()
         removeBubble()
-        floatSession?.finish()
+        floatSession?.let(sessionSource::finishFloatSession)
         floatSession = null
     }
 
@@ -167,28 +176,29 @@ class FloatController @JvmOverloads constructor(
         }
         windowParams = params
 
-        val composeView = ComposeView(context).apply {
-            setContent {
-                FloatingWindow(
-                    terminalView = terminalView,
-                    onDrag = { onWindowDrag(it) },
-                    onDragEnd = { onWindowDragEnd() },
-                    onResize = { onWindowResize(it) },
-                    onResizeEnd = { onWindowResizeEnd() },
-                    onCollapse = { collapseToBubble() },
-                    onClose = { stop() },
-                    onToggleKeyboard = { toggleKeyboard() },
-                )
-            }
+        val overlay = FloatOverlayView(context) {
+            FloatingWindow(
+                terminalView = terminalView,
+                onDrag = { onWindowDrag(it) },
+                onDragEnd = { onWindowDragEnd() },
+                onResize = { onWindowResize(it) },
+                onResizeEnd = { onWindowResizeEnd() },
+                onCollapse = { collapseToBubble() },
+                onClose = { stop() },
+                onToggleKeyboard = { toggleKeyboard() },
+            )
         }
-        windowView = composeView
-        windowManager?.addView(composeView, params)
+        windowOverlay = overlay
+        windowManager?.addView(overlay.view, params)
         shown = true
     }
 
     private fun removeWindow() {
-        windowView?.let { windowManager?.removeView(it) }
-        windowView = null
+        windowOverlay?.let { overlay ->
+            windowManager?.removeView(overlay.view)
+            overlay.destroy()
+        }
+        windowOverlay = null
         windowParams = null
         shown = false
     }
@@ -202,7 +212,7 @@ class FloatController @JvmOverloads constructor(
         )
         params.x = clamped.x
         params.y = clamped.y
-        windowView?.let { windowManager?.updateViewLayout(it, params) }
+        windowOverlay?.view?.let { windowManager?.updateViewLayout(it, params) }
     }
 
     private fun onWindowDragEnd() {
@@ -216,7 +226,7 @@ class FloatController @JvmOverloads constructor(
         params.height = FloatWindowGeometry.clampHeight(params.height + delta.height, dp(MIN_HEIGHT_DP), metrics.heightPixels)
         params.x = FloatWindowGeometry.clampX(params.x, params.width, metrics.widthPixels)
         params.y = FloatWindowGeometry.clampY(params.y, params.height, metrics.heightPixels)
-        windowView?.let { windowManager?.updateViewLayout(it, params) }
+        windowOverlay?.view?.let { windowManager?.updateViewLayout(it, params) }
     }
 
     private fun onWindowResizeEnd() {
@@ -247,7 +257,7 @@ class FloatController @JvmOverloads constructor(
     }
 
     private fun showBubble() {
-        if (bubbleView != null) return
+        if (bubbleOverlay != null) return
 
         val size = dp(BUBBLE_SIZE_DP)
         val params = WindowManager.LayoutParams(
@@ -263,21 +273,22 @@ class FloatController @JvmOverloads constructor(
         }
         bubbleParams = params
 
-        val composeView = ComposeView(context).apply {
-            setContent {
-                FloatingBubble(
-                    onTap = { show() },
-                    onDrag = { onBubbleDrag(it) },
-                )
-            }
+        val overlay = FloatOverlayView(context) {
+            FloatingBubble(
+                onTap = { show() },
+                onDrag = { onBubbleDrag(it) },
+            )
         }
-        bubbleView = composeView
-        windowManager?.addView(composeView, params)
+        bubbleOverlay = overlay
+        windowManager?.addView(overlay.view, params)
     }
 
     private fun removeBubble() {
-        bubbleView?.let { windowManager?.removeView(it) }
-        bubbleView = null
+        bubbleOverlay?.let { overlay ->
+            windowManager?.removeView(overlay.view)
+            overlay.destroy()
+        }
+        bubbleOverlay = null
         bubbleParams = null
     }
 
@@ -290,7 +301,7 @@ class FloatController @JvmOverloads constructor(
         )
         params.x = clamped.x
         params.y = clamped.y
-        bubbleView?.let { windowManager?.updateViewLayout(it, params) }
+        bubbleOverlay?.view?.let { windowManager?.updateViewLayout(it, params) }
     }
 
     // --- permission --------------------------------------------------------------------------
@@ -337,3 +348,5 @@ internal fun clampDragPosition(
     FloatWindowGeometry.clampX(x + delta.x, width, maxX),
     FloatWindowGeometry.clampY(y + delta.y, height, maxY),
 )
+
+private const val DEFAULT_FONT_SIZE = 14

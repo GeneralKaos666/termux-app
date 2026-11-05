@@ -151,17 +151,20 @@ drag-to-reorder, rename and close have all since shipped.
 
 ### 2.4 Known defects and bounded leftovers
 
-- `[open 2026-11-02, D-12]` **the in-app floating terminal crashes on creation** — choosing
-  "New floating session" throws
-  `java.lang.IllegalStateException: ViewTreeLifecycleOwner not found from androidx.compose.ui.platform.ComposeView`
-  when `FloatController` adds the overlay `ComposeView` from the `TermuxService` context
-  (`showWindow()`, `FloatController.kt:170`; the bubble at line 266 has the same problem). There is no
-  Activity to provide `ViewTreeLifecycleOwner`/`ViewTreeSavedStateRegistryOwner` for an
-  `APPLICATION_OVERLAY` added by a service. Two identical `data_app_crash` records in dropbox
-  (02:21:52 and 02:23:29, build `2.0.0-beta+792b9f7`). Fix: give both overlay views a lifecycle and
-  saved-state owner (e.g. a `LifecycleService`/`SavedStateRegistryOwner` owned by the controller, or
-  `ComposeView.setViewTreeLifecycleOwner(...)` + `setViewTreeSavedStateRegistryOwner(...)` before
-  `addView`). Evidence in `~/.tmp/opencode/device-checks-2026-11-02.md` D-12.
+- `[fixed 2026-11-04, D-12]` **the in-app floating terminal crashed on creation** — two defects,
+  both fixed and retested on NX769J / API 34:
+  1. `Service`-added overlay `ComposeView`s had no `ViewTreeLifecycleOwner`/
+     `ViewTreeSavedStateRegistryOwner`, so `AbstractComposeView.onAttachedToWindow` threw
+     `IllegalStateException: ViewTreeLifecycleOwner not found`. `FloatOverlayView` now owns both
+     (installed before `WindowManager.addView`, cleared and destroyed after removal).
+  2. `FloatController` never applied a font size to its own `TerminalView`, so the first Compose
+     layout threw `NullPointerException` from `TerminalView.updateSize()` (`mRenderer` null). The
+     controller now applies the user's font size before layout, with a 14 sp fallback.
+  Retest also found and fixed a leak: `stop()` used `TermuxSession.finish()`, a no-op while the
+  shell runs, so closing the window left its shell alive. `FloatSessionSource.finishFloatSession`
+  now calls `TerminalSession.finishIfRunning()`. Remaining device checks (drag/resize, IME, overlay
+  permission revoke while up, main-activity close, shell-exit collapse, tab-bar absence) are in
+  `manual-checks.md` D-12. Evidence in `~/.tmp/opencode/device-checks-2026-11-04.md`.
 - `[open 2026-11-02, D-4]` **renderer fans out weight-2 grapheme continuations** — the emulator
   absorbs a ZWJ sequence into one 2-column cluster (`GraphemeClusters`, `TerminalRow.setChar`,
   `TerminalBuffer.getWidthForWrite`), but `TerminalRenderer.onDraw` still advances its `column`

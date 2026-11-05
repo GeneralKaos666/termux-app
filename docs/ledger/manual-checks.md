@@ -28,7 +28,7 @@ between sessions; rediscover it before a run. `input text` is unreliable on this
 | D-9 | A2 multi-window split-pane stability | **passed 2026-11-02** (maintainer verdict after manual split; no adb measurement possible) | `docs/plans/2026-10-10-shell-sessions.md` A2 results |
 | D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` | pending, only if float is picked up | `outstanding-work.md` §5.2 |
 | D-11 | Obfuscated release APK runs (R8 hardening) | **passed 2026-11-02** (maintainer verdict, not machine-measured) | `outstanding-work.md` §4.1 |
-| D-12 | In-app floating terminal (Termux:Float folded into :app) | **failed 2026-11-02**: crashes on create (`ViewTreeLifecycleOwner` missing for overlay ComposeView) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
+| D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** for create/collapse/expand/close; drag, IME and lifecycle edges still pending | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -278,18 +278,27 @@ The in-app floating terminal (Termux:Float folded into `:app`, package
 `com.termux.app.ui.floating`) ships without an on-device pass. Run only with a test device connected,
 consistent with prior workstreams.
 
-**Run 2026-11-02 on NX769J / API 34, build `2.0.0-beta+792b9f7` — FAIL: the window crashes on
-creation.** Choosing "New floating session" kills the app before anything renders; details in §2.4 of
-`outstanding-work.md` and `~/.tmp/opencode/device-checks-2026-11-02.md` D-12. Only the permission
-gate could be confirmed; the rest of the list is blocked until the crash is fixed and re-checked.
+**Run 2026-11-02 on NX769J / API 34, build `2.0.0-beta+792b9f7` — FAIL: the window crashed on
+creation.** Choosing "New floating session" killed the app before anything rendered. Two defects
+were found and fixed:
 
-- [ ] Overlay window appears (bubble, then expanded window) when "New floating session" is chosen
-      from the sessions-bar "+" menu. **Crash:**
-      `IllegalStateException: ViewTreeLifecycleOwner not found from …ComposeView` at
-      `FloatController.showWindow()` -> `WindowManager.addView`. Reproduced twice (dropbox
-      `data_app_crash` 02:21:52 and 02:23:29). The "New tab session" item still works.
-- [ ] Drag moves the window and resize clamps at screen edges. *Blocked by the crash.*
-- [ ] Keyboard shows over the overlay (IME binds to the `TerminalView`). *Blocked by the crash.*
+1. The overlay `ComposeView` had no `ViewTreeLifecycleOwner`/`ViewTreeSavedStateRegistryOwner`
+   (a service has no Activity to install them). `FloatOverlayView` now owns both and installs them
+   before `addView`; `destroy()` clears them and destroys the lifecycle after removal.
+2. `FloatController` never applied a font size to its own `TerminalView`, so the first layout threw
+   `NullPointerException` from `TerminalView.updateSize()`. The controller now applies the user's
+   font size (with a 14 sp fallback) before layout, and `stop()` kills the shell through
+   `FloatSessionSource.finishFloatSession` because `TermuxSession.finish()` does nothing while the
+   process runs.
+
+**Retest 2026-11-04 on NX769J / API 34, same APK identity (`versionCode 119`,
+`versionName 2.0.0-beta`).** Evidence: `~/.tmp/opencode/device-checks-2026-11-04.md`.
+
+- [x] Overlay window appears when "New floating session" is chosen from the sessions-bar "+" menu.
+      `dumpsys window windows` shows a `ty=APPLICATION_OVERLAY` window at `(324,487) 765x1071`,
+      `mHasSurface=true`, `isOnScreen=true`; the app process stayed alive.
+- [ ] Drag moves the window and resize clamps at screen edges. *Not yet checked on device.*
+- [ ] Keyboard shows over the overlay (IME binds to the `TerminalView`). *Not yet checked on device.*
 - [x] Permission prompt when `Settings.canDrawOverlays()` is false, and the window does not appear
       until granted. — With `appops set com.termux SYSTEM_ALERT_WINDOW deny` (and
       `appops get` confirming `deny`), choosing the float item opened
@@ -297,9 +306,14 @@ gate could be confirmed; the rest of the list is blocked until the crash is fixe
       `ty=APPLICATION_OVERLAY` window on the display was SystemUI's `ShellDropTarget`) and produced
       no new crash record. Permission restored to `allow` afterwards.
 - [ ] Revoking overlay permission while the window is up collapses it cleanly (no crash).
-      *Blocked by the crash.*
-- [ ] Collapse-to-bubble and expand-to-window work. *Blocked by the crash.*
-- [ ] The float session survives closing the main activity. *Blocked by the crash.*
-- [ ] The float shell exiting collapses the window. *Blocked by the crash.*
+      *Not yet checked on device.*
+- [x] Collapse-to-bubble and expand-to-window work. — Collapse produced a `143x143`
+      `APPLICATION_OVERLAY` window; tapping the bubble restored the `765x1071` window and removed
+      the bubble.
+- [ ] The float session survives closing the main activity. *Not yet checked on device.*
+- [ ] The float shell exiting collapses the window. *Not yet checked on device.*
 - [ ] The float session does NOT appear in the main tab bar (`createFloatSession` leaves
-      `mTermuxSessions` unchanged). *Blocked by the crash.*
+      `mTermuxSessions` unchanged). *Not yet checked on device.*
+- [x] Closing the window ends the float shell and leaves the app running. — App pid 474 had
+      children `797 zsh` (activity) and `2630 zsh` (float); after "Close", only `797` remained, no
+      overlay window was left, and `dumpsys dropbox --print data_app_crash` gained no record.
