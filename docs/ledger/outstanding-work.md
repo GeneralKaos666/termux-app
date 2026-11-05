@@ -362,8 +362,9 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
     graphics), so it shares the Sixel `readData` limitation.
   - `[limitation]` `:terminal-view` `TerminalView` + selection controllers: the pure seams are
     already covered (`LinkUrisTest`, `ShapedRunPolicyTest`, `TerminalRendererRunTest`,
-    `TerminalViewLinkHitTest`); the rest is drawing/gesture/selection coordination that needs
-    Robolectric View infra, not JVM unit tests.
+    `TerminalViewLinkHitTest`, plus `RenderBandTest`, `KeyCodePointsTest`, `ImeTextEncoderTest` and
+    `TerminalGeometryTest` from the §3.2 split); the rest is drawing/gesture/selection coordination
+    that needs Robolectric View infra, not JVM unit tests.
   - `[done 2026-11-04]` `:app` `TermuxDocumentsProvider` covered by `TermuxDocumentsProviderTest`
     (13 Robolectric tests): child listing, query case-insensitivity, recursive search, directory MIME
     type, unknown-extension fallback, collision-free `createDocument` (file and directory), and the
@@ -394,7 +395,7 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
 ### 3.2 Code-shape debt
 
-- God classes: `TerminalEmulator.java` 3,876 lines, `TerminalView.java` 1,661, `FileUtils.java`
+- God classes: `TerminalEmulator.java` 3,876 lines, `TerminalView.java` 1,585, `FileUtils.java`
   2,044, `TermuxConstants.java` 1,338. Behavior-preserving splits only.
   - `[done 2026-10-27]` sixel parsing extracted from `TerminalEmulator` into `SixelParser`:
     `processSixelDcs` → `SixelParser.process` (returns a `Result` carrying the buffer-capacity
@@ -421,9 +422,28 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   - `[non-goal]` `TermuxConstants` is a deliberately-centralized constants registry (the
     companion-app integration surface resolves against it, per `AGENTS.md`), not a behavior god
     class; splitting it fragments that surface for no behavior gain.
-  - `[open]` `TerminalView` (1,661 lines) — Android-bound; a behavior-preserving split needs the
-    `:terminal-view`/`:app` Robolectric suites and a clean seam (it is already partly decomposed
-    via `TerminalRenderer`/`GestureAndScaleRecognizer`/`TextSelectionCursorController`).
+  - `[done 2026-11-04]` `TerminalView` pure seams extracted, 1,661 → 1,585 lines. Four package-private
+    stateless helpers in `com.termux.view`, importing no `android.*` type, each with a plain-JUnit test
+    class in `:terminal-view`:
+    - `RenderBand.forClip(...)` owns the dirty-band row range from `onDraw`: one row of clip slack, the
+      clamp to the visible band and the empty-band fallback, with `ceilDivInt` moved in —
+      `RenderBandTest`, 8 cases.
+    - `KeyCodePoints.applyControl` / `.normalizeExternalKeyboard` own the `inputCodePoint` control table
+      and the bluetooth modifier-letter substitution; the `eventSource` gate stays in the view because
+      it is a property of the event — `KeyCodePointsTest`, 5 cases.
+    - `ImeTextEncoder.encode(CharSequence, boolean)` owns the `sendTextToTerminal` loop: surrogate
+      pairing, shift uppercasing, `\n` → `\r` and the `+ 96` control remap — `ImeTextEncoderTest`,
+      11 cases, two of which pin the unpaired-surrogate fix in §2.4.
+    - `TerminalGeometry.cursorColumn/.cursorRow/.pointX/.pointY` own `getCursorX`/`getCursorY` and
+      `getPointX`/`getPointY`; the unexplained `- 40` in `getCursorY` is preserved verbatim and pinned
+      by a test rather than derived or corrected — `TerminalGeometryTest`, 5 cases.
+    `TerminalView` keeps every public method and delegates, so the `:app` and companion-app surface is
+    unchanged; `:app:assembleDebug` passes after the split.
+  - `[open]` `TerminalView` View-bound half — the gesture listener, scroll/viewport
+    (`onTouchEvent`, `computeVerticalScroll*`), selection delegation, autofill, cursor blinker
+    (`Handler`) and session binding (`attachSession`/`updateSize`/`setTopRow`) stay in the class: they
+    need Robolectric `View`/`Handler` infra, which `:terminal-view` still does not have. Add that test
+    infrastructure to the module before attempting them.
 
 ---
 

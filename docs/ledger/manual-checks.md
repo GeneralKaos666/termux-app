@@ -33,6 +33,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` | pending, only if float is picked up | `outstanding-work.md` §5.2 |
 | D-11 | Obfuscated release APK runs (R8 hardening) | **passed 2026-11-02** (maintainer verdict, not machine-measured) | `outstanding-work.md` §4.1 |
 | D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** (all window, IME, permission and lifecycle checks; three defects fixed) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
+| D-13 | IME text round-trip after the `TerminalView` seam split | deferred to the device phase | §14 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -359,3 +360,30 @@ were found and fixed:
 - [x] Closing the window ends the float shell and leaves the app running. — App pid 474 had
       children `797 zsh` (activity) and `2630 zsh` (float); after "Close", only `797` remained, no
       overlay window was left, and `dumpsys dropbox --print data_app_crash` gained no record.
+
+## 14. D-13 — IME text round-trip after the `TerminalView` seam split
+
+The §3.2 split moved the `onDraw` band, the `inputCodePoint` mappings and the IME text encoder into
+pure helpers (plus one intentional fix: unpaired surrogates now become `U+FFFD`). No behaviour
+changes on the device, so this check only proves the wiring still delivers the same bytes. **Deferred
+to the device phase**, per the ledger work order.
+
+Run on a device with the soft keyboard, in a shell session, with `cat -v` (or `od -c`) as the
+foreground command so the received bytes are visible:
+
+- [ ] ASCII: type `abc` + Enter. `cat -v` echoes `abc` and the shell runs it (command not found is fine —
+      what matters is that the line arrived and Enter submitted it).
+- [ ] German umlaut: type `äöü`. The bytes arrive as UTF-8 (`M-CM-$M-CM-6M-CM-<` in `cat -v`) and the
+      characters render correctly.
+- [ ] Emoji: type an emoji from the keyboard. It arrives as one 4-byte UTF-8 sequence and renders as one
+      cell pair, not as two replacement characters.
+- [ ] Composed accent: type `e` then a combining acute accent (if the keyboard offers composition). The
+      cluster arrives as one grapheme and does not split or crash.
+- [ ] `Ctrl-C` from the soft-keyboard control row interrupts the running `cat -v` instead of typing a
+      literal character.
+- [ ] `Alt-B` (soft-keyboard Alt plus `b`) moves back one word in a shell with readline, i.e. the
+      `ESC` prefix arrived before the `b`.
+- [ ] `Tab` completes a path prefix rather than inserting a literal tab.
+- [ ] Enter submits the line (`\n` from the IME is still mapped to control-M, not a literal newline).
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
