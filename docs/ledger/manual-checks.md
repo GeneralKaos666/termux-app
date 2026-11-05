@@ -12,6 +12,10 @@ there settles.
 **Device used so far:** NX769J, Android 14 / API 34, arm64-v8a, over wireless adb. The port changes
 between sessions; rediscover it before a run. `input text` is unreliable on this ROM — use
 `input keyevent` keycodes, and remember `%s` is needed for a space when `input text` is used at all.
+Two more traps from the 2026-11-04 run: a shell metacharacter passed to `input text` is parsed by the
+device shell, so quote it on the device side (`adb shell "input text '>'"`), and `~` does not survive
+`input text` — type an absolute path instead. For non-ASCII input, write a file through `run-as` and
+`cat` it.
 
 ## 1. Status
 
@@ -20,7 +24,7 @@ between sessions; rediscover it before a run. `input text` is unreliable on this
 | D-1 | WS3 shaping/ligatures | **7 of 8 passed 2026-10-20/21**; API 21–28 legacy path deferred (no device) | `docs/specs/2026-10-18-ws3-shaping-ligatures-design.md` §7 |
 | D-2 | WS4 kitty graphics (6 items) | **done 2026-10-19** | `docs/specs/2026-10-18-ws4-graphics-placement-design.md` §8 |
 | D-3 | WS2 dirty-region visual checklist (7 items) | **passed 2026-11-02** (all 7) | `docs/specs/2026-10-17-renderer-dirty-region-design.md` §10 |
-| D-4 | WS1 engine sanity on a real emoji/link session | **failed 2026-11-02**: widths/wrap/links pass, ZWJ fan-out defect (renderer) — **code fixed 2026-11-04, device re-check pending** | `docs/plans/2026-10-17-terminal-engine-cell-model.md` branch gate; evidence `~/.tmp/opencode/device-checks-2026-11-02.md` §D-4 |
+| D-4 | WS1 engine sanity on a real emoji/link session | **passed 2026-11-04** (ZWJ fan-out re-check); widths/wrap/links passed 2026-11-02 | `docs/plans/2026-10-17-terminal-engine-cell-model.md` branch gate; evidence `~/.tmp/opencode/device-checks-2026-11-04.md` §D-4 |
 | D-5 | Appearance preset readability (Solarized Light, Gruvbox Dark, One Dark) | **PASS** (screenshots captured for human review) | §6 below |
 | D-6 | Appearance screen full checklist | **passed 2026-11-02** (8 of 8) | `docs/plans/2026-10-14-in-app-terminal-appearance.md` §Verification |
 | D-7 | Settings IA check | **passed 2026-11-02** (3 of 3) | `docs/plans/2026-10-16-settings-ia.md` Task 4 note |
@@ -36,7 +40,8 @@ pixels, including a scrolled-back hit-test and a link-without-`SGR 4` control).
 
 ## 2. Suggested order
 
-1. **D-3, D-4** — cheapest; they only need a running debug build and a handful of escape sequences.
+1. **D-3, D-4** — done 2026-11-02/04; they only needed a running debug build and a handful of escape
+   sequences.
 2. **D-6, D-7** — walk the settings/appearance screens once each.
 3. **D-5** — the human preset pass (portrait + landscape, smallest + largest font).
 4. **D-8, D-9** — fresh-install and multi-window edges; these may need a reinstall or a second window.
@@ -110,11 +115,16 @@ All seven acceptance items from the renderer spec §10. **Run 2026-11-02 on NX76
   next row; 35 emoji split 31 (full row) + 4 (8 cells), never mid-cluster.
 - PASS — OSC 8 links: underlined with no `SGR 4` (solid 144 px = exactly the 8 link cells) and the
   same with `SGR 4`; adjacent plain text has no underline.
-- FAIL — a ZWJ family (`U+1F468 ZWJ U+1F469 ZWJ U+1F467`) is absorbed to a 2-column cluster by the
-  emulator but **rendered as three separate emoji over 6 columns**, so the next character is drawn
-  4 columns too far right (`A…B` puts `B` over ruler column 7 instead of 3). Fixed in the renderer on
-  2026-11-04 (`outstanding-work.md` §2.4): the run loop and the glyph-span walk are now
-  cluster-aware, with `TerminalRendererRunTest` coverage. **Needs the same device re-run to close.**
+- PASS (2026-11-04 re-check) — a ZWJ family (`U+1F468 ZWJ U+1F469 ZWJ U+1F467`) is absorbed to a
+  2-column cluster by the emulator and now **rendered as one glyph over exactly those 2 cells**, so
+  `A…B` puts `B` over ruler column 3 (x = 54 px at an 18 px cell), the same cell as the `AuvB`
+  control. The pre-fix renderer fanned the members out to columns 1/3/5 and drew `B` on column 7
+  (x = 126 px, 4-column drift). Fixed in the renderer on 2026-11-04 (`outstanding-work.md` §2.4):
+  the run loop and the glyph-span walk are cluster-aware, with `TerminalRendererRunTest` coverage.
+  Run on NX769J / API 34, build `2.0.0-beta` (versionCode 119, APK md5 `4c87172e…`); the file also
+  carried `Ae`+U+0301+`B` (B on 2), `A`+flag+`B` and `A日B` (B on 3), all agreeing with the cell
+  model. Method, pixel runs and the ruler-derived cell width: `~/.tmp/opencode/device-checks-2026-11-04.md`
+  §D-4; screenshot `~/.tmp/opencode/d4/09-cat-abs.png`.
 - Note — `U+2764 U+FE0F` stays 1 column: the shipped rule gives VS16 no column and the base heart is
   width 1. Consistent with the cell model, but it is not the 2-column emoji presentation.
 

@@ -176,7 +176,7 @@ drag-to-reorder, rename and close have all since shipped.
   `WcWidth.width()` for every code point and only ate zero-width continuations (`charsForColumns`), so
   the width-2 continuations (ZWJ members) counted as fresh cells: on device `A👨‍👩‍👧B` drew the three
   members at columns 1/3/5 and `B` over ruler column 7 instead of 3 (4-column drift; evidence
-  `~/.tmp/opencode/device-checks-2026-11-02.md` D-4). Fixed in `:terminal-view`: the run loop now
+  `~/.tmp/opencode/device-checks-2026-11-04.md` D-4). Fixed in `:terminal-view`: the run loop now
   walks `GraphemeClusters.clusterEnd/clusterWidth`, advances `column` by the cluster's width, and
   measures/draws the whole cluster as one span, and `charsForColumns` is cluster-aware. A shaped-run
   policy cut on a cell boundary can land inside a wide cluster, so the new `columnsForChars` widens
@@ -184,8 +184,11 @@ drag-to-reorder, rename and close have all since shipped.
   and its two walk methods are now **public** (visibility only, no behavior change) because
   `:terminal-view` is a different package; that is the only `:terminal-emulator` change. Covered by
   `TerminalRendererRunTest.testZwjClusterOccupiesOneWideCell` and `testZwjClusterIsDrawnAsOneSpan`,
-  both confirmed red against the pre-fix renderer. `./gradlew test` green. The D-4 device re-check is
-  still open in `manual-checks.md`.
+  both confirmed red against the pre-fix renderer. `./gradlew test` green. The **D-4 device re-check
+  passed on 2026-11-04** on NX769J / API 34: `A👨‍👩‍👧B` puts `B` over ruler column 3 and the family
+  draws as one contiguous glyph over cells 1–2 (pre-fix: `B` on column 7); the same run re-confirmed
+  the combining-mark, flag and CJK lines. Evidence in `~/.tmp/opencode/device-checks-2026-11-04.md`
+  §D-4 and `manual-checks.md` D-4.
 - `[open 2026-11-04]` **selection end clamps at the first zero-width continuation** —
   `TextSelectionCursorController.getValidCurX` maps a column to the selected text by walking `WcWidth` per
   code point and returns the current column as soon as a code point has width 0 (`cend == col`), so a
