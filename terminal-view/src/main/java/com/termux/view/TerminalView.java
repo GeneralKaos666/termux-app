@@ -971,46 +971,13 @@ public final class TerminalView extends View {
         if (mClient.onCodePoint(codePoint, controlDown, mTermSession)) return;
 
         if (controlDown) {
-            if (codePoint >= 'a' && codePoint <= 'z') {
-                codePoint = codePoint - 'a' + 1;
-            } else if (codePoint >= 'A' && codePoint <= 'Z') {
-                codePoint = codePoint - 'A' + 1;
-            } else if (codePoint == ' ' || codePoint == '2') {
-                codePoint = 0;
-            } else if (codePoint == '[' || codePoint == '3') {
-                codePoint = 27; // ^[ (Esc)
-            } else if (codePoint == '\\' || codePoint == '4') {
-                codePoint = 28;
-            } else if (codePoint == ']' || codePoint == '5') {
-                codePoint = 29;
-            } else if (codePoint == '^' || codePoint == '6') {
-                codePoint = 30; // control-^
-            } else if (codePoint == '_' || codePoint == '7' || codePoint == '/') {
-                // "Ctrl-/ sends 0x1f which is equivalent of Ctrl-_ since the days of VT102"
-                // - http://apple.stackexchange.com/questions/24261/how-do-i-send-c-that-is-control-slash-to-the-terminal
-                codePoint = 31;
-            } else if (codePoint == '8') {
-                codePoint = 127; // DEL
-            }
+            codePoint = KeyCodePoints.applyControl(codePoint);
         }
 
         if (codePoint > -1) {
             // If not virtual or soft keyboard.
             if (eventSource > KEY_EVENT_SOURCE_SOFT_KEYBOARD) {
-                // Work around bluetooth keyboards sending funny unicode characters instead
-                // of the more normal ones from ASCII that terminal programs expect - the
-                // desire to input the original characters should be low.
-                switch (codePoint) {
-                    case 0x02DC: // SMALL TILDE.
-                        codePoint = 0x007E; // TILDE (~).
-                        break;
-                    case 0x02CB: // MODIFIER LETTER GRAVE ACCENT.
-                        codePoint = 0x0060; // GRAVE ACCENT (`).
-                        break;
-                    case 0x02C6: // MODIFIER LETTER CIRCUMFLEX ACCENT.
-                        codePoint = 0x005E; // CIRCUMFLEX ACCENT (^).
-                        break;
-                }
+                codePoint = KeyCodePoints.normalizeExternalKeyboard(codePoint);
             }
 
             // If left alt, send escape before the code point to make e.g. Alt+B and Alt+F work in readline:
