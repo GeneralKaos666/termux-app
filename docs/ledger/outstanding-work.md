@@ -558,9 +558,8 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
 Items 1–15 are done; dependency refresh is one commit per dependency, ascending blast radius, with
 `compose-bom` last and separate. Rows 20–22 and the AGP rows that were gated on the toolchain are
-closed. `compileSdk` is now 37, so rows 26, 29, 31 and 32 are landing one commit each (row 30,
-Robolectric 4.17, is already done). R8/release build is a separate architectural slice. Device
-checks are the final row and live in `manual-checks.md`.
+closed, and the compileSdk 37 slice closed rows 26, 29, 30, 31 and 32. R8/release build is a
+separate architectural slice. Device checks are the final row and live in `manual-checks.md`.
 
 **Dependency refresh — 2026-10-25.** `minSdk` raised 21 → 23 (`34cb3d9d`), which unblocked the
 androidx bumps that only needed minSdk 23: `annotation` (`1dfb9203`), `window` (`e1264dea`),
@@ -643,7 +642,7 @@ change: AGP auto-installs the `android-37.0` platform.
 | 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | done 2026-11-05 | landed after compileSdk 37; `:app` only |
 | 30 | Dependency refresh — `robolectric` 4.10 → 4.17 | done 2026-11-05 | real blocker was compile-time `FingerprintManager` removal from android-37 `android.jar` (transitive), not `ShadowActivity`; fixed by the bump, no source change |
 | 31 | Dependency refresh — `hiddenapibypass` 6.1 → 6.2 | done 2026-11-05 | landed after compileSdk 37; runtime hidden-API access change |
-| 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | blocked | **last and separate**; `ui`/`foundation` 1.12.1 need compileSdk 37 |
+| 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | done 2026-11-05 | **last and separate**; `ui`/`foundation` 1.12.1, `material3` 1.4.0, `runtime` 1.12.1 |
 | 33 | Device and manual checks | to do | **last overall** — `manual-checks.md` |
 
 ---
