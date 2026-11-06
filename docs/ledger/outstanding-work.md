@@ -558,9 +558,9 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
 Items 1–15 are done; dependency refresh is one commit per dependency, ascending blast radius, with
 `compose-bom` last and separate. Rows 20–22 and the AGP rows that were gated on the toolchain are
-closed. What remains in the refresh (rows 26, 29, 30, 31, 32) is blocked on **compileSdk 37**, not
-on AGP. R8/release build is a separate architectural slice. Device checks are the final row and live
-in `manual-checks.md`.
+closed. `compileSdk` is now 37, so rows 26, 29, 31 and 32 are landing one commit each (row 30,
+Robolectric 4.17, is already done). R8/release build is a separate architectural slice. Device
+checks are the final row and live in `manual-checks.md`.
 
 **Dependency refresh — 2026-10-25.** `minSdk` raised 21 → 23 (`34cb3d9d`), which unblocked the
 androidx bumps that only needed minSdk 23: `annotation` (`1dfb9203`), `window` (`e1264dea`),
@@ -598,6 +598,17 @@ attempted `core` bump was reverted (both modules stay on 1.13.1) and
 `compileSdk` to 37 is its own slice: it breaks Robolectric 4.10 (`ShadowActivity`), and the
 Robolectric bump (row 30) is itself blocked because its `android-all-instrumented` jar cannot be
 fetched here, so row 31's `hiddenapibypass:6.2` stays behind the same wall.
+
+**Dependency refresh — 2026-11-05 (compileSdk 37 raised).** `compileSdkVersion` 36 → 37 in
+`gradle.properties` (one of the six `compileSdk 37` commits). `targetSdkVersion` and `minSdkVersion`
+are unchanged, and the three library modules keep `aarMetadata.minCompileSdk = 1`, so the published
+AAR floor does not move. A probe before this slice corrected the blocker story: the `android-37`
+platform's package name is `platforms;android-37.0`, and the Robolectric break was compile-time
+(`android.hardware.fingerprint.FingerprintManager` removed from `android-37`'s `android.jar`,
+referenced transitively), fixed by the Robolectric 4.17 bump in row 30 — no source change. Verified
+with `test` (701 methods), `lint`, `:app:assembleDebug`/`assembleRelease` (five APKs, release
+mapping present), and the release AARs still reporting `minCompileSdk=1`. CI needs no workflow
+change: AGP auto-installs the `android-37.0` platform.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
