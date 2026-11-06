@@ -553,6 +553,10 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   version from the `VERSION` env var (`System.getenv("VERSION") ?: '0.118.0'`), so a JitPack build
   publishes with the requested tag/commit instead of the hardcoded default. Verified by generating
   the POM with `VERSION` set.
+- `[done 2026-11-05]` CI caching: added `gradle/actions/setup-gradle@v4` to `run_tests.yml` and
+  both `debug_build.yml` jobs, plus an `actions/cache@v4` for `~/.m2/repository/org/robolectric`
+  (where Robolectric resolves its 249 MB `android-all` jar, outside the Gradle cache). This closes
+  the follow-up flagged in the compileSdk 37 spec §7.
 
 ### 4.3 Upgrade roadmap
 
