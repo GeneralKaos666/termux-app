@@ -557,6 +557,13 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   to `run_tests.yml` and both `debug_build.yml` jobs, plus an `actions/cache@v4` for
   `~/.m2/repository/org/robolectric` (where Robolectric resolves its 249 MB `android-all` jar,
   outside the Gradle cache). This closes the follow-up flagged in the compileSdk 37 spec §7.
+- `[done 2026-11-05]` Dependabot remediation (2 open alerts): the two remaining Maven alerts were
+  `com.google.guava:guava` (33.6.0-jre, from Robolectric 4.17's transitives) and
+  `org.apache.httpcomponents:httpclient` (4.5.6, from AGP's Unified Test Platform `ddmlib`
+  transitive). Root `build.gradle` now force-pins `httpclient`/`httpmime` 4.5.14 and `httpcore`
+  4.4.16 globally, and the guava `33.8.0-jre` force now also covers `*LintChecksClasspath` (the
+  Robolectric config the old predicate missed). Verified no configuration resolves an un-patched
+  guava or httpclient.
 
 ### 4.3 Upgrade roadmap
 
