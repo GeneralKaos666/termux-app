@@ -3,8 +3,6 @@ package com.termux.filepicker;
 import android.database.Cursor;
 import android.provider.DocumentsContract.Document;
 
-import com.termux.shared.termux.TermuxConstants;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -37,7 +35,7 @@ public class TermuxDocumentsProviderTest {
 
     @Before
     public void setUp() throws IOException {
-        root = Files.createTempDirectory(TermuxConstants.TERMUX_HOME_DIR.toPath(), "documents-provider-test").toFile();
+        root = Files.createTempDirectory("documents-provider-test").toFile();
     }
 
     @After

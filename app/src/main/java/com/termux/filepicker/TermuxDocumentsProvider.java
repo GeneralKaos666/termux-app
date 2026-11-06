@@ -162,6 +162,16 @@ public class TermuxDocumentsProvider extends DocumentsProvider {
         final File parent = getFileForDocId(rootId);
         final String normalizedQuery = query.toLowerCase(Locale.ROOT);
 
+        // The search root's canonical path bounds the walk, so a symlink that escapes it (e.g. a
+        // link from $HOME to the SD card) is never followed. In production the root is always
+        // $HOME; using the passed root instead of a hardcoded constant keeps the walk portable.
+        String searchRootPath = parent.getAbsolutePath();
+        try {
+            searchRootPath = parent.getCanonicalPath();
+        } catch (IOException ignored) {
+            // Fall back to the absolute path when the canonical path cannot be resolved.
+        }
+
         // This example implementation searches file names for the query and doesn't rank search
         // results, so we can stop as soon as we find a sufficient number of matches.  Other
         // implementations might rank results and use other data about files, rather than the file
@@ -172,15 +182,15 @@ public class TermuxDocumentsProvider extends DocumentsProvider {
         final int MAX_SEARCH_RESULTS = 50;
         while (!pending.isEmpty() && result.getCount() < MAX_SEARCH_RESULTS) {
             final File file = pending.removeFirst();
-            // Avoid directories outside the $HOME directory linked with symlinks (to avoid e.g. search
+            // Avoid directories outside the search root linked with symlinks (to avoid e.g. search
             // through the whole SD card).
-            boolean isInsideHome;
+            boolean isInsideSearchRoot;
             try {
-                isInsideHome = file.getCanonicalPath().startsWith(TermuxConstants.TERMUX_HOME_DIR_PATH);
+                isInsideSearchRoot = file.getCanonicalPath().startsWith(searchRootPath);
             } catch (IOException e) {
-                isInsideHome = true;
+                isInsideSearchRoot = true;
             }
-            if (isInsideHome) {
+            if (isInsideSearchRoot) {
                 if (file.isDirectory()) {
                     File[] children = file.listFiles();
                     if (children != null) Collections.addAll(pending, children);
