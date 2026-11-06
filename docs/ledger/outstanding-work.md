@@ -637,7 +637,7 @@ change: AGP auto-installs the `android-37.0` platform.
 | 23 | Dependency refresh — `androidx.window` 1.1.0 → 1.5.1 | done | `e1264dea` |
 | 24 | Dependency refresh — `appcompat` 1.6.1 → 1.8.0 | done | `e28e386a` |
 | 25 | Dependency refresh — `material` 1.12.0 → 1.14.0 | done | `f3050cbc` |
-| 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | blocked | needs compileSdk 37 (measured `minCompileSdk=37`); AGP 9.1.1 no longer the gate |
+| 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | done 2026-11-05 | landed after compileSdk 37; `:app` + `:termux-shared` |
 | 27 | Dependency refresh — `annotation` 1.9.0 → 1.11.0 | done | `1dfb9203` |
 | 28 | Dependency refresh — `activity-compose` 1.11.0 → 1.13.0 | done | `4a046f5f` |
 | 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | blocked | needs compileSdk 37 (`minCompileSdk=37`, `minAgp=9.1.0`) |
