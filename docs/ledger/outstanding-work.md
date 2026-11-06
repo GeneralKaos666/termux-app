@@ -640,7 +640,7 @@ change: AGP auto-installs the `android-37.0` platform.
 | 26 | Dependency refresh — `core` 1.13.1 → 1.19.1 | done 2026-11-05 | landed after compileSdk 37; `:app` + `:termux-shared` |
 | 27 | Dependency refresh — `annotation` 1.9.0 → 1.11.0 | done | `1dfb9203` |
 | 28 | Dependency refresh — `activity-compose` 1.11.0 → 1.13.0 | done | `4a046f5f` |
-| 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | blocked | needs compileSdk 37 (`minCompileSdk=37`, `minAgp=9.1.0`) |
+| 29 | Dependency refresh — `lifecycle-runtime-compose` 2.9.4 → 2.11.0 | done 2026-11-05 | landed after compileSdk 37; `:app` only |
 | 30 | Dependency refresh — `robolectric` 4.10 → 4.17 | done 2026-11-05 | real blocker was compile-time `FingerprintManager` removal from android-37 `android.jar` (transitive), not `ShadowActivity`; fixed by the bump, no source change |
 | 31 | Dependency refresh — `hiddenapibypass` 6.1 → 6.2 | done 2026-11-05 | landed after compileSdk 37; runtime hidden-API access change |
 | 32 | Dependency refresh — `compose-bom` 2025.11.01 → 2026.09.00 | blocked | **last and separate**; `ui`/`foundation` 1.12.1 need compileSdk 37 |
