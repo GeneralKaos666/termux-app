@@ -121,6 +121,20 @@ public final class TermuxPreferenceConstants {
         public static final int DEFAULT_TERMINAL_BACKGROUND_DIM = 60;
 
         /**
+         * Defines the key for the blur radius applied to the terminal background picture, in pixels.
+         * Range 0-25; 0 keeps the picture sharp.
+         */
+        public static final String KEY_TERMINAL_BACKGROUND_BLUR = "terminal_background_blur";
+        public static final int DEFAULT_TERMINAL_BACKGROUND_BLUR = 0;
+
+        /**
+         * Defines the key for the opacity percentage of the terminal background picture. Range
+         * 10-100; 100 keeps the picture fully opaque.
+         */
+        public static final String KEY_TERMINAL_BACKGROUND_OPACITY = "terminal_background_opacity";
+        public static final int DEFAULT_TERMINAL_BACKGROUND_OPACITY = 100;
+
+        /**
          * Defines the key for the persisted content URI of the custom terminal background image.
          */
         public static final String KEY_TERMINAL_BACKGROUND_IMAGE = "terminal_background_image";

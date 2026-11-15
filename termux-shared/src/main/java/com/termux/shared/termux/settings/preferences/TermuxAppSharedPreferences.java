@@ -150,6 +150,24 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_DIM, value, false);
     }
 
+    /** The blur radius applied to the terminal background picture, in pixels, 0-25, default 0. */
+    public int getTerminalBackgroundBlur() {
+        return SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_BLUR, TERMUX_APP.DEFAULT_TERMINAL_BACKGROUND_BLUR);
+    }
+
+    public void setTerminalBackgroundBlur(int value) {
+        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_BLUR, value, false);
+    }
+
+    /** The opacity percentage of the terminal background picture, 10-100, default 100. */
+    public int getTerminalBackgroundOpacity() {
+        return SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_OPACITY, TERMUX_APP.DEFAULT_TERMINAL_BACKGROUND_OPACITY);
+    }
+
+    public void setTerminalBackgroundOpacity(int value) {
+        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BACKGROUND_OPACITY, value, false);
+    }
+
     /** The transparency percentage of the shell chrome bars, 0-100, default 30. */
     public int getInterfaceTransparency() {
         return SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_INTERFACE_TRANSPARENCY, TERMUX_APP.DEFAULT_INTERFACE_TRANSPARENCY);
