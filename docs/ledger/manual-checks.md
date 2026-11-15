@@ -478,7 +478,8 @@ Run with a busy static wallpaper and with a custom image:
 - [ ] Blur extremes: 0 restores the sharp picture, 25 is the strongest frost, and neither crashes nor
       leaves the previous frame behind.
 - [ ] Blur persistence: leave the settings screen and return to the terminal — the new radius applies
-      without restarting the app (the picture reloads once below API 31).
+      without restarting the app. On API < 31 the picture reloads once; on API 31+ there is no blank
+      frame or flash.
 - [ ] Opacity: lower `Background opacity` to around 40. The picture lightens towards the terminal
       background colour while the dim slider keeps working independently; 10 % is the faintest
       setting and the terminal stays readable.
@@ -487,7 +488,12 @@ Run with a busy static wallpaper and with a custom image:
 - [ ] Solid mode: switch `Background` to `Solid colour`. The blur and opacity sliders disappear and the
       terminal shows the plain palette background.
 - [ ] Live wallpaper: set an animated wallpaper. The background is a flat sampled colour (the
-      wallpaper primary on API 27+), not black, and not a frozen frame.
+      wallpaper primary on API 27+), not black, and not a frozen frame. Check `logcat` for
+      "No usable wallpaper frame" or "Live-wallpaper fallback colour" to see which branch ran.
+- [ ] Live wallpaper without a frame: a live wallpaper whose drawable has no intrinsic size must take
+      the same fallback colour, not a black or transparent screen.
+- [ ] One-pixel fallback fills the screen: with the live wallpaper set, the colour covers the whole
+      shell (no black border, no zero-width draw) and is still visible through the dim.
 - [ ] Persistence across restart: set blur 12 and opacity 40, force-stop the app, reopen it. Both
       values are still set and still applied.
 - [ ] Rotation: rotate with a blurred picture showing. No crash, no stretched crop, and the blur does
