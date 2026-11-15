@@ -36,6 +36,26 @@
             app:showSeekBarValue="true"
             app:adjustable="true" />
 
+        <SeekBarPreference
+            app:key="terminal_background_blur"
+            app:title="@string/termux_terminal_view_terminal_background_blur_title"
+            app:summary="@string/termux_terminal_view_terminal_background_blur_summary"
+            app:defaultValue="0"
+            app:min="0"
+            android:max="25"
+            app:showSeekBarValue="true"
+            app:adjustable="true" />
+
+        <SeekBarPreference
+            app:key="terminal_background_opacity"
+            app:title="@string/termux_terminal_view_terminal_background_opacity_title"
+            app:summary="@string/termux_terminal_view_terminal_background_opacity_summary"
+            app:defaultValue="100"
+            app:min="10"
+            android:max="100"
+            app:showSeekBarValue="true"
+            app:adjustable="true" />
+
     </PreferenceCategory>
 
     <PreferenceCategory

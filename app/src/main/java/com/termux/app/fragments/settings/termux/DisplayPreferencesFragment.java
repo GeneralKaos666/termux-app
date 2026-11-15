@@ -51,10 +51,10 @@ public class DisplayPreferencesFragment extends PreferenceFragmentCompat {
                 TERMUX_APP.IVALUE_TERMINAL_BACKGROUND_IMAGE,
             });
             terminalBackground.setOnPreferenceChangeListener((preference, newValue) -> {
-                updateChooseImageVisibility(newValue.toString());
+                updateBackgroundRowsVisibility(newValue.toString());
                 return true;
             });
-            updateChooseImageVisibility(terminalBackground.getValue());
+            updateBackgroundRowsVisibility(terminalBackground.getValue());
         }
 
         androidx.preference.Preference chooseImage = findPreference("terminal_background_choose_image");
@@ -68,10 +68,21 @@ public class DisplayPreferencesFragment extends PreferenceFragmentCompat {
 
     private static final int REQUEST_CODE_PICK_IMAGE = 1001;
 
-    private void updateChooseImageVisibility(String mode) {
+    /**
+     * Shows the rows that only apply to a picture background: the image picker in custom-image mode,
+     * and the blur and opacity sliders in wallpaper or custom-image mode. In solid mode the picture
+     * does not exist, so those rows would set a value with no visible effect.
+     */
+    private void updateBackgroundRowsVisibility(String mode) {
         Preference chooseImage = findPreference("terminal_background_choose_image");
         if (chooseImage != null)
             chooseImage.setVisible(TERMUX_APP.IVALUE_TERMINAL_BACKGROUND_IMAGE.equals(mode));
+
+        boolean pictureMode = !TERMUX_APP.IVALUE_TERMINAL_BACKGROUND_SOLID.equals(mode);
+        for (String key : new String[] { "terminal_background_blur", "terminal_background_opacity" }) {
+            Preference row = findPreference(key);
+            if (row != null) row.setVisible(pictureMode);
+        }
     }
 
     private void launchImagePicker() {
@@ -112,7 +123,7 @@ public class DisplayPreferencesFragment extends PreferenceFragmentCompat {
         ListPreference terminalBackground = findPreference("terminal_background");
         if (terminalBackground != null) {
             terminalBackground.setValue(TERMUX_APP.IVALUE_TERMINAL_BACKGROUND_IMAGE);
-            updateChooseImageVisibility(TERMUX_APP.IVALUE_TERMINAL_BACKGROUND_IMAGE);
+            updateBackgroundRowsVisibility(TERMUX_APP.IVALUE_TERMINAL_BACKGROUND_IMAGE);
         }
 
         // Push the new picture into the shell behind us.
@@ -222,6 +233,10 @@ class DisplayPreferencesDataStore extends PreferenceDataStore {
 
         if ("terminal_background_dim".equals(key))
             mPreferences.setTerminalBackgroundDim(value);
+        else if ("terminal_background_blur".equals(key))
+            mPreferences.setTerminalBackgroundBlur(value);
+        else if ("terminal_background_opacity".equals(key))
+            mPreferences.setTerminalBackgroundOpacity(value);
         else if ("interface_transparency".equals(key))
             mPreferences.setInterfaceTransparency(value);
     }
@@ -232,6 +247,10 @@ class DisplayPreferencesDataStore extends PreferenceDataStore {
 
         if ("terminal_background_dim".equals(key))
             return mPreferences.getTerminalBackgroundDim();
+        if ("terminal_background_blur".equals(key))
+            return mPreferences.getTerminalBackgroundBlur();
+        if ("terminal_background_opacity".equals(key))
+            return mPreferences.getTerminalBackgroundOpacity();
         if ("interface_transparency".equals(key))
             return mPreferences.getInterfaceTransparency();
         return defValue;

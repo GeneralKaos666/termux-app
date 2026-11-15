@@ -60,6 +60,8 @@ class SettingsPreferencesXmlTest {
                 "terminal_background",
                 "terminal_background_choose_image",
                 "terminal_background_dim",
+                "terminal_background_blur",
+                "terminal_background_opacity",
                 "terminal_margin_adjustment",
                 "interface_transparency",
             ),
@@ -155,7 +157,8 @@ class SettingsPreferencesXmlTest {
         assertEquals(
             setOf(
                 "appearance", "terminal_background", "terminal_background_choose_image",
-                "terminal_background_dim", "terminal_margin_adjustment", "interface_transparency",
+                "terminal_background_dim", "terminal_background_blur",
+                "terminal_background_opacity", "terminal_margin_adjustment", "interface_transparency",
                 "soft_keyboard_enabled",
                 "soft_keyboard_enabled_only_if_no_hardware", "extra_keys_preset",
                 "extra_keys_page2_preset", "extra_keys_preset_note",

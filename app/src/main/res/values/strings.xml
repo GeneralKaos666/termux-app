@@ -327,6 +327,14 @@
                 <string name="termux_terminal_view_terminal_background_dim_title">Background dim</string>
                 <string name="termux_terminal_view_terminal_background_dim_summary">Darkens the background picture to keep text readable. Percentage: %1$s</string>
 
+                <!-- Terminal Background Blur -->
+                <string name="termux_terminal_view_terminal_background_blur_title">Background blur</string>
+                <string name="termux_terminal_view_terminal_background_blur_summary">Softens the background picture. Radius in pixels</string>
+
+                <!-- Terminal Background Opacity -->
+                <string name="termux_terminal_view_terminal_background_opacity_title">Background opacity</string>
+                <string name="termux_terminal_view_terminal_background_opacity_summary">How much of the background picture shows through. Percentage</string>
+
             <!-- Extra Keys Category -->
 
                 <!-- Extra Keys Preset -->
