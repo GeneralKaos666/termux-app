@@ -1,6 +1,11 @@
 package com.termux.app.ui.sessions
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateIntOffsetAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,7 +15,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,11 +35,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +50,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -49,11 +59,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.termux.R
 import com.termux.app.ui.theme.TermuxShellTheme
+import com.termux.app.ui.theme.shellAnimationsEnabled
+import com.termux.app.ui.theme.shellSpringSpec
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.collect
 
 /**
  * Top strip of terminal sessions.
@@ -112,6 +126,31 @@ fun SessionsBar(
         if (activeIndex >= 0) listState.animateScrollToItem(activeIndex)
     }
 
+    val animationsEnabled = shellAnimationsEnabled()
+
+    // Which tab is being dragged, so its own graphicsLayer translation is the only thing that moves
+    // it: an item placement animation on top of the drag would fight it.
+    var draggingSessionId by remember { mutableStateOf<Int?>(null) }
+
+    // The active tab's extent, kept in its own state instead of reading tabBounds during
+    // composition: that map is written from layout, so reading it there would schedule another
+    // layout on every write. snapshotFlow also keeps the last known bounds until the newly active
+    // tab has been measured, so switching tabs glides instead of blinking out and back.
+    var activeTabBounds by remember { mutableStateOf<TabBounds?>(null) }
+    // Left edge of the tab row in root coordinates, so the indicator's root-relative bounds can be
+    // turned into an offset inside the row. Guarded on write, so layout cannot invalidate in a loop.
+    var rowLeftPx by remember { mutableIntStateOf(0) }
+    val activeSessionId = sessions.firstOrNull { it.active }?.id
+    LaunchedEffect(activeSessionId) {
+        if (activeSessionId == null) {
+            activeTabBounds = null
+        } else {
+            snapshotFlow { tabBounds[activeSessionId] }.collect { bounds ->
+                if (bounds != null) activeTabBounds = bounds
+            }
+        }
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -149,22 +188,81 @@ fun SessionsBar(
                     .semantics { contentDescription = startSessionLabel },
             )
         } else {
-            LazyRow(
-                modifier = Modifier.weight(1f),
-                state = listState,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .onGloballyPositioned { coordinates ->
+                        val left = coordinates.boundsInRoot().left.roundToInt()
+                        if (left != rowLeftPx) rowLeftPx = left
+                    },
             ) {
-                items(sessions, key = { it.id }) { item ->
-                    SessionTab(
-                        item = item,
-                        allSessions = sessions,
-                        onSelect = onSelect,
-                        onRename = onRename,
-                        onClose = onClose,
-                        onMove = onMove,
-                        onTabBoundsChanged = { id, bounds -> tabBounds[id] = bounds },
-                        snapshotTabBounds = snapshotTabBounds,
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    state = listState,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    items(sessions, key = { it.id }) { item ->
+                        SessionTab(
+                            item = item,
+                            allSessions = sessions,
+                            onSelect = onSelect,
+                            onRename = onRename,
+                            onClose = onClose,
+                            onMove = onMove,
+                            onTabBoundsChanged = { id, bounds -> tabBounds[id] = bounds },
+                            snapshotTabBounds = snapshotTabBounds,
+                            onDragStateChanged = { dragging ->
+                                draggingSessionId = if (dragging) item.id else null
+                            },
+                            modifier = if (animationsEnabled && item.id != draggingSessionId) {
+                                Modifier.animateItem(
+                                    fadeInSpec = shellSpringSpec(),
+                                    placementSpec = shellSpringSpec(),
+                                    fadeOutSpec = shellSpringSpec(),
+                                )
+                            } else {
+                                Modifier
+                            },
+                        )
+                    }
+                }
+
+                // A sibling of the row, not an item, so its slide never relayouts the tabs. Its
+                // position comes from the active tab's measured extent, animated in root pixels.
+                val bounds = activeTabBounds
+                if (bounds != null) {
+                    val density = LocalDensity.current
+                    val targetOffset = IntOffset(bounds.startPx - rowLeftPx, 0)
+                    val targetWidth = (bounds.endPx - bounds.startPx).coerceAtLeast(0)
+                    // While the row scrolls, the measured bounds move every frame: snap so the pill
+                    // stays glued to its tab instead of trailing behind the fling. The spring is
+                    // for the slide between tabs, which only happens once scrolling has settled.
+                    val offsetSpec = if (animationsEnabled && !listState.isScrollInProgress) {
+                        shellSpringSpec<IntOffset>()
+                    } else {
+                        snap<IntOffset>()
+                    }
+                    val offsetX by animateIntOffsetAsState(
+                        targetValue = targetOffset,
+                        animationSpec = offsetSpec,
+                        label = "activeTabIndicatorOffset",
+                    )
+                    val indicatorWidth by animateDpAsState(
+                        targetValue = with(density) { targetWidth.toDp() },
+                        animationSpec = if (animationsEnabled) shellSpringSpec() else snap(),
+                        label = "activeTabIndicatorWidth",
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .offset { offsetX }
+                            .width(indicatorWidth)
+                            .height(2.dp)
+                            .background(
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                RoundedCornerShape(1.dp),
+                            ),
                     )
                 }
             }
@@ -250,6 +348,8 @@ private fun SessionTab(
     onMove: (Int, Int) -> Unit,
     onTabBoundsChanged: (Int, TabBounds) -> Unit,
     snapshotTabBounds: () -> List<TabBounds>,
+    onDragStateChanged: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -262,16 +362,24 @@ private fun SessionTab(
         }
     )
 
-    val containerColor = if (item.active) {
-        MaterialTheme.colorScheme.secondaryContainer
-    } else {
-        Color.Transparent
-    }
-    val contentColor = if (item.active) {
-        MaterialTheme.colorScheme.onSecondaryContainer
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    // Colours fade between tabs instead of snapping. A tween, not the shell spring: a bouncy spec
+    // would overshoot the blend past the target colour and flash brighter than either end state.
+    val animationsEnabled = shellAnimationsEnabled()
+    val colorSpec = if (animationsEnabled) tween<Color>(durationMillis = 200) else snap<Color>()
+    val containerColor by animateColorAsState(
+        targetValue = if (item.active) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        animationSpec = colorSpec,
+        label = "sessionTabContainerColor",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (item.active) {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        animationSpec = colorSpec,
+        label = "sessionTabContentColor",
+    )
 
     val menuLabel = stringResource(R.string.action_session_menu)
 
@@ -293,7 +401,7 @@ private fun SessionTab(
     var boundsAtDragStart by remember(item.id) { mutableStateOf(emptyList<TabBounds>()) }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .zIndex(if (isDragging) 1f else 0f)
             .graphicsLayer {
                 translationX = if (isDragging) dragOffsetX else 0f
@@ -332,6 +440,7 @@ private fun SessionTab(
                             boundsAtDragStart = currentSnapshotTabBounds()
                             isDragging = true
                             dragOffsetX = 0f
+                            onDragStateChanged(true)
                         },
                         onDrag = { change, dragAmount ->
                             change.consume()
@@ -341,6 +450,7 @@ private fun SessionTab(
                             val draggedBy = dragOffsetX
                             isDragging = false
                             dragOffsetX = 0f
+                            onDragStateChanged(false)
 
                             val from = currentFromIndex
                             val own = boundsAtDragStart.firstOrNull { it.index == from }
@@ -354,6 +464,7 @@ private fun SessionTab(
                         onDragCancel = {
                             isDragging = false
                             dragOffsetX = 0f
+                            onDragStateChanged(false)
                         },
                     )
                 }
