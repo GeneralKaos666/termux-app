@@ -155,11 +155,12 @@ public final class TerminalRenderer {
             canvas.drawColor(palette[TextStyle.COLOR_INDEX_FOREGROUND], PorterDuff.Mode.SRC);
 
         // The halo goes down before the rows, so the glyphs of every cell are painted on top of it and stay
-        // crisp. It is skipped when the cursor's row is outside the band being drawn.
+        // crisp. It is skipped when the row actually drawn is outside the band being drawn.
+        final float haloRow = mEaseActive && easedCursorRow >= 0f ? easedCursorRow : cursorRow;
+        final float haloCol = mEaseActive && easedCursorCol >= 0f ? easedCursorCol : cursorCol;
         if (cursorVisible && mCursorAlpha > 0f && mGlowRadius > 0f
-            && cursorRow >= firstScreenRow - 1 && cursorRow <= lastScreenRowExclusive) {
-            drawCursorHalo(canvas, mEaseActive ? easedCursorCol : cursorCol,
-                mEaseActive ? easedCursorRow : cursorRow, topRow, cursorShape,
+            && haloRow >= firstScreenRow - 1 && haloRow <= lastScreenRowExclusive) {
+            drawCursorHalo(canvas, haloCol, haloRow, topRow, cursorShape,
                 palette[TextStyle.COLOR_INDEX_CURSOR]);
         }
 
@@ -248,8 +249,8 @@ public final class TerminalRenderer {
                         }
                         drawTextRun(canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun,
                             lastRunStartIndex, charsSinceLastRun,
-                            cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
-                            lastRunLinkId, lastRunUnderlineColor);
+                            cursorColor, cursorShape, lastRunStyle, reverseVideo || lastRunInsideSelection,
+                            invertCursorTextColor, lastRunLinkId, lastRunUnderlineColor);
                     }
                     lastRunStyle = style;
                     lastRunLinkId = linkId;
@@ -272,8 +273,8 @@ public final class TerminalRenderer {
                 invertCursorTextColor = true;
             }
             drawTextRun(canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun, lastRunStartIndex, charsSinceLastRun,
-                cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
-                lastRunLinkId, lastRunUnderlineColor);
+                cursorColor, cursorShape, lastRunStyle, reverseVideo || lastRunInsideSelection,
+                invertCursorTextColor, lastRunLinkId, lastRunUnderlineColor);
         }
 
         // An eased bar/underline cursor is drawn over the finished rows so it can sit between two cells.
@@ -287,7 +288,8 @@ public final class TerminalRenderer {
 
     private void drawTextRun(Canvas canvas, char[] text, int[] palette, float y, int startColumn, int runWidthColumns,
                              int startCharIndex, int runWidthChars, int cursor, int cursorStyle,
-                             long textStyle, boolean reverseVideo, int linkId, int underlineColor) {
+                             long textStyle, boolean reverseVideo, boolean invertCursorTextColor,
+                             int linkId, int underlineColor) {
         int foreColor = TextStyle.decodeForeColor(textStyle);
         final int effect = TextStyle.decodeEffect(textStyle);
         int backColor = TextStyle.decodeBackColor(textStyle);
@@ -317,7 +319,8 @@ public final class TerminalRenderer {
         backColor = resolveColor(backColor, false, palette);
 
         // Reverse video here if _one and only one_ of the reverse flags are set:
-        final boolean reverseVideoHere = reverseVideo ^ (effect & (TextStyle.CHARACTER_ATTRIBUTE_INVERSE)) != 0;
+        final boolean inverseEffect = (effect & TextStyle.CHARACTER_ATTRIBUTE_INVERSE) != 0;
+        final boolean reverseVideoHere = (reverseVideo || invertCursorTextColor) ^ inverseEffect;
         if (reverseVideoHere) {
             int tmp = foreColor;
             foreColor = backColor;
@@ -330,10 +333,16 @@ public final class TerminalRenderer {
         final boolean fadingBlockCursor = cursor != 0
             && cursorStyle == TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK && mCursorAlpha < 1f;
         if (fadingBlockCursor) {
-            // The cursor run is the same cell rendered with the reverse decision flipped, so the colours the cell
-            // has without the cursor are this run's two colours swapped.
-            int unCursoredBackground = foreColor;
-            int unCursoredForeground = backColor;
+            // The cell without the cursor is this run with the cursor's forced inversion removed. That leaves the
+            // run's colours as they are when the cell is already reversed by reverse video or a selection (the
+            // cursor's inversion then cancels that reversal), and swaps them when it is not.
+            final boolean unCursoredReverseVideoHere = reverseVideo ^ inverseEffect;
+            int unCursoredForeground = foreColor;
+            int unCursoredBackground = backColor;
+            if (unCursoredReverseVideoHere != reverseVideoHere) {
+                unCursoredForeground = backColor;
+                unCursoredBackground = foreColor;
+            }
             backColor = blendColor(unCursoredBackground, cursor, mCursorAlpha);
             foreColor = blendColor(unCursoredForeground, unCursoredBackground, mCursorAlpha);
         }

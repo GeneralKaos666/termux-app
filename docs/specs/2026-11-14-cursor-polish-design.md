@@ -124,7 +124,10 @@ the cursor's fade.
 background colour in front — so a translucent rect over it cannot fade it. When
 `cursor != 0 && cursorStyle == BLOCK && mCursorAlpha < 1f`, the run's two colours are blended towards
 the block's instead (`blendColor`), which fades the block and its inverted glyph together, and the
-overlay rect is skipped. At `mCursorAlpha == 1` the solid path above runs unchanged.
+overlay rect is skipped. The cell without the cursor is this run with the cursor's forced inversion
+removed: its colours are the run's swapped when the cell is not reversed, and the run's own when the
+cell is already reversed by global reverse video (`DECSET 5`) or a selection (the cursor's inversion
+then cancels that reversal). At `mCursorAlpha == 1` the solid path above runs unchanged.
 
 **Glow.** A `Paint` shadow layer is ignored for `Canvas.drawRect` on a hardware-accelerated canvas
 (what a `View`'s `onDraw` is handed), so the halo is drawn explicitly: three expanding rects of low,
@@ -163,9 +166,13 @@ guard). The runnable body changes from a boolean toggle to an animation loop:
   the glyphs and across the whole cluster's cells. A block cursor never eases.
 - **Invalidation.** Each animation frame invalidates only the union of the cursor's previous and current
   cell plus the halo, not the whole view, so an idle fade does not repaint every visible row at 60 fps.
-  Such a frame is flagged as cursor-only and `onDraw` then leaves the buffer's dirty state and the
-  overlay bookkeeping alone for the next screen update (a partial frame must not consume dirty rows it
-  did not paint). The runnable is always posted on the main thread, and its state fields are `volatile`.
+  Such a frame is flagged as cursor-only and `onDraw` then skips `clearDirtyState()`, so a partial frame
+  cannot consume dirty rows it did not paint. The change counter and the overlay bookkeeping are still
+  advanced: leaving the counter behind would make every content update during a blink look like a full
+  repaint, while the dirty flags alone are enough to repaint the band. The runnable is always posted on
+  the main thread, its state fields are `volatile`, and `stopTerminalCursorBlinker` cancels it — a frame
+  already executing on the main thread cannot be removed from the queue, so it checks the cancellation
+  flag before drawing and before re-posting itself.
 - **Fallback.** When neither blink nor ease is active the loop stops re-posting; the view still calls
   the new overload so the values are explicit.
 
@@ -194,8 +201,10 @@ emulator.getCursorRow()/Col()             │  animation   │ ── easedRow/C
   - `glowRadius > 0` draws the halo rects before the rows (no `Paint` shadow layer, which a hardware
     canvas ignores for `drawRect`), and `glowRadius == 0` draws none;
   - a fading block cursor blends its cell's background and glyph colours instead of painting an opaque
-    cell under a translucent overlay, and is solid at `cursorAlpha == 1`;
-  - an eased bar/underline cursor draws exactly one rect at the eased pixel position and none inline;
+    cell under a translucent overlay, and is solid at `cursorAlpha == 1`; the blend follows the cell
+    when global reverse video is on, and when reverse video and SGR inverse cancel;
+  - an eased bar/underline cursor draws exactly one rect at the eased pixel position and none inline,
+    and draws nothing at `cursorAlpha == 0` even when an eased position is supplied;
   - a block cursor never eases (rect stays at the true cell even when an eased position is passed).
 - **Not unit-testable on this host** (no Robolectric in `:terminal-view`): the `Choreographer`/
   `Handler` animation loop and the view wiring. These are kept thin; all their math lives in

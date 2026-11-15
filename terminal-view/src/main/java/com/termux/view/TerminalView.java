@@ -66,7 +66,7 @@ public final class TerminalView extends View {
     private TextSelectionCursorController mTextSelectionCursorController;
 
     private Handler mTerminalCursorBlinkerHandler;
-    private TerminalCursorBlinkerRunnable mTerminalCursorBlinkerRunnable;
+    private volatile TerminalCursorBlinkerRunnable mTerminalCursorBlinkerRunnable;
     private int mTerminalCursorBlinkerRate;
     private boolean mCursorInvisibleIgnoreOnce;
     public static final int TERMINAL_CURSOR_BLINK_RATE_MIN = 100;
@@ -1067,6 +1067,9 @@ public final class TerminalView extends View {
     protected void onDraw(Canvas canvas) {
         if (mEmulator == null) {
             canvas.drawColor(0XFF000000);
+            // The frame that was going to repaint the cursor cell never happened: do not let the flag leak
+            // into the first frame after a rebind, which would skip that frame's dirty-state consumption.
+            mCursorOnlyFrame = false;
         } else {
             // render the terminal view and highlight any selected text
             int[] sel = mDefaultSelectors;
@@ -1093,18 +1096,17 @@ public final class TerminalView extends View {
 
             // Consume the dirty state only once the frame has been drawn: invalidates coalesce, so this
             // cannot be done when the update arrives. A cursor-only frame repaints just the cursor cell, so it
-            // must leave the dirty flags (and the overlay bookkeeping) for the next screen update.
-            if (!mCursorOnlyFrame) {
-                TerminalBuffer screen = mEmulator.getScreen();
-                mLastSeenChangeCounter = screen.getChangeCounter();
-                screen.clearDirtyState();
-                mLastCursorRow = mEmulator.getCursorRow();
-                mLastCursorCol = mEmulator.getCursorCol();
-                mLastReverseVideo = mEmulator.isReverseVideo();
-                mLastCursorVisible = mEmulator.shouldCursorBeVisible();
-                mLastCursorStyle = mEmulator.getCursorStyle();
-                mLastPaletteChangeCounter = mEmulator.mColors.getChangeCounter();
-            }
+            // must leave the dirty flags for the next screen update; the change counter and the overlay
+            // bookkeeping are advanced either way, or every later update would look like a full repaint.
+            TerminalBuffer screen = mEmulator.getScreen();
+            if (!mCursorOnlyFrame) screen.clearDirtyState();
+            mLastSeenChangeCounter = screen.getChangeCounter();
+            mLastCursorRow = mEmulator.getCursorRow();
+            mLastCursorCol = mEmulator.getCursorCol();
+            mLastReverseVideo = mEmulator.isReverseVideo();
+            mLastCursorVisible = mEmulator.shouldCursorBeVisible();
+            mLastCursorStyle = mEmulator.getCursorStyle();
+            mLastPaletteChangeCounter = mEmulator.mColors.getChangeCounter();
             mCursorOnlyFrame = false;
 
             // render the text selection handles
@@ -1153,10 +1155,18 @@ public final class TerminalView extends View {
     private void startCursorAnimationFrames() {
         if (mTerminalCursorBlinkerHandler == null)
             mTerminalCursorBlinkerHandler = new Handler(Looper.getMainLooper());
-        if (mTerminalCursorBlinkerRunnable == null || mTerminalCursorBlinkerRunnable.mEmulator != mEmulator)
-            mTerminalCursorBlinkerRunnable = new TerminalCursorBlinkerRunnable(mEmulator, mTerminalCursorBlinkerRate);
-        mTerminalCursorBlinkerHandler.removeCallbacks(mTerminalCursorBlinkerRunnable);
-        mTerminalCursorBlinkerHandler.post(mTerminalCursorBlinkerRunnable);
+        TerminalCursorBlinkerRunnable current = mTerminalCursorBlinkerRunnable;
+        if (current == null || current.isCancelled() || current.mEmulator != mEmulator) {
+            // Cancel the old runnable so a frame already executing cannot re-post itself alongside the new one.
+            if (current != null) {
+                current.cancel();
+                mTerminalCursorBlinkerHandler.removeCallbacks(current);
+            }
+            current = new TerminalCursorBlinkerRunnable(mEmulator, mTerminalCursorBlinkerRate);
+            mTerminalCursorBlinkerRunnable = current;
+        }
+        mTerminalCursorBlinkerHandler.removeCallbacks(current);
+        mTerminalCursorBlinkerHandler.post(current);
     }
 
     /**
@@ -1174,6 +1184,7 @@ public final class TerminalView extends View {
         mCursorEasing = false;
         mDisplayCursorRow = -1f;
         mDisplayCursorCol = -1f;
+        mCursorOnlyFrame = false;
     }
 
     public TerminalSession getCurrentSession() {
@@ -1463,6 +1474,9 @@ public final class TerminalView extends View {
         if (mTerminalCursorBlinkerHandler != null && mTerminalCursorBlinkerRunnable != null) {
             if (TERMINAL_VIEW_KEY_LOGGING_ENABLED)
                 mClient.logVerbose(LOG_TAG, "Stopping cursor blinker");
+            // removeCallbacks cannot cancel a frame already executing on the main thread, so mark it cancelled:
+            // its finally block then declines to re-post itself and cannot race a later start into a second loop.
+            mTerminalCursorBlinkerRunnable.cancel();
             mTerminalCursorBlinkerHandler.removeCallbacks(mTerminalCursorBlinkerRunnable);
         }
         // A faded or gliding cursor must be redrawn opaque at its true cell when the animation stops.
@@ -1501,10 +1515,15 @@ public final class TerminalView extends View {
 
     private class TerminalCursorBlinkerRunnable implements Runnable {
 
-        private TerminalEmulator mEmulator;
+        private volatile TerminalEmulator mEmulator;
         private final int mBlinkRate;
         /** Start of the blink envelope, so the cursor is fully visible on the first frame after starting. */
         private final long mBlinkStartUptimeMs = SystemClock.uptimeMillis();
+        /**
+         * Set by {@link #stopTerminalCursorBlinker()}. A frame already executing on the main thread cannot be
+         * removed from the queue, so it checks this flag before drawing and before re-posting itself.
+         */
+        private volatile boolean mCancelled;
 
         public TerminalCursorBlinkerRunnable(TerminalEmulator emulator, int blinkRate) {
             mEmulator = emulator;
@@ -1515,8 +1534,19 @@ public final class TerminalView extends View {
             mEmulator = emulator;
         }
 
+        /** Stops this runnable from drawing again or re-posting itself. */
+        public void cancel() {
+            mCancelled = true;
+        }
+
+        /** Whether {@link #cancel()} was called; a cancelled runnable is never posted again. */
+        public boolean isCancelled() {
+            return mCancelled;
+        }
+
         public void run() {
             try {
+                if (mCancelled) return;
                 if (mEmulator != null) {
                     // Fade the cursor instead of toggling it on and off, and glide a bar or underline cursor to
                     // the cell it just moved to. Either effect invalidates the cursor's own pixels so this
@@ -1540,8 +1570,8 @@ public final class TerminalView extends View {
                         mDisplayCursorCol >= 0f ? mDisplayCursorCol : mEmulator.getCursorCol());
                 }
             } finally {
-                // Keep the loop alive only while an effect is actually running.
-                if (mCursorBlinkRunning || mCursorEasing)
+                // Keep the loop alive only while an effect is actually running and this runnable was not cancelled.
+                if (!mCancelled && (mCursorBlinkRunning || mCursorEasing))
                     mTerminalCursorBlinkerHandler.postDelayed(this, CURSOR_ANIMATION_INTERVAL_MS);
             }
         }

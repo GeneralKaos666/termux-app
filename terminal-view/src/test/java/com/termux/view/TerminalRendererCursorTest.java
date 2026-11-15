@@ -60,26 +60,31 @@ public class TerminalRendererCursorTest {
 
     /**
      * Records rects as {@code {left, top, right, bottom, color, alpha}} and glyph draws as
-     * {@code {x, color, alpha}}, in call order.
+     * {@code {x, color, alpha}}, in call order. {@link #order} keeps the interleaving: {@code true} for a glyph
+     * draw, {@code false} for a rect, so a test can pin that the halo is drawn before any glyph.
      */
     private static final class RecordingCanvas extends Canvas {
         final List<float[]> rects = new ArrayList<>();
         final List<float[]> glyphs = new ArrayList<>();
+        final List<Boolean> order = new ArrayList<>();
 
         @Override public void drawRect(float left, float top, float right, float bottom, Paint paint) {
             RecordingPaint recordingPaint = (RecordingPaint) paint;
             rects.add(new float[]{left, top, right, bottom, recordingPaint.lastColor, recordingPaint.lastAlpha});
+            order.add(Boolean.FALSE);
         }
 
         @Override public void drawText(char[] text, int index, int count, float x, float y, Paint paint) {
             RecordingPaint recordingPaint = (RecordingPaint) paint;
             glyphs.add(new float[]{x, recordingPaint.lastColor, recordingPaint.lastAlpha});
+            order.add(Boolean.TRUE);
         }
 
         @Override public void drawTextRun(char[] text, int index, int count, int contextIndex, int contextCount,
                                          float x, float y, boolean isRtl, Paint paint) {
             RecordingPaint recordingPaint = (RecordingPaint) paint;
             glyphs.add(new float[]{x, recordingPaint.lastColor, recordingPaint.lastAlpha});
+            order.add(Boolean.TRUE);
         }
 
         @Override public int save() { return 0; }
@@ -133,6 +138,14 @@ public class TerminalRendererCursorTest {
         throw new AssertionError("no glyph drawn at x=" + x);
     }
 
+    /** The rect whose left edge is at {@code x}, i.e. the one covering the cell in that column. */
+    private float[] rectAtX(float x) {
+        for (float[] rect : mCanvas.rects) {
+            if (Math.abs(rect[0] - x) < 0.01f) return rect;
+        }
+        throw new AssertionError("no rect drawn at x=" + x);
+    }
+
     @Test
     public void blockCursorFadesItsWholeCell() {
         render(0.5f, 0f, -1f, -1f);
@@ -142,6 +155,26 @@ public class TerminalRendererCursorTest {
             blend(mDefaultBackground, mCursorColor, 0.5f), (int) cell[4]);
         assertEquals("the blended cell must be painted opaque", 255f, cell[5], 0.01f);
         assertEquals("the block's glyph must blend towards the cell background",
+            blend(mDefaultForeground, mDefaultBackground, 0.5f), glyphColorAtX(0f));
+    }
+
+    @Test
+    public void blockCursorFadeBlendsTowardsAReverseVideoCell() {
+        enter("\033[?5h");
+        render(0.5f, 0f, -1f, -1f);
+        assertEquals("reverse video makes the cell background the foreground colour",
+            blend(mDefaultForeground, mCursorColor, 0.5f), (int) rectAtX(0f)[4]);
+        assertEquals("the glyph fades towards the reversed cell's glyph colour",
+            blend(mDefaultBackground, mDefaultForeground, 0.5f), glyphColorAtX(0f));
+    }
+
+    @Test
+    public void blockCursorFadeBlendsTowardsAnInverseAndReverseVideoCell() {
+        enter("\033[?5h\033[7ma\033[1D");
+        render(0.5f, 0f, -1f, -1f);
+        assertEquals("two reversals cancel: the cell keeps its normal background",
+            blend(mDefaultBackground, mCursorColor, 0.5f), (int) rectAtX(0f)[4]);
+        assertEquals("two reversals cancel: the glyph fades from the normal foreground",
             blend(mDefaultForeground, mDefaultBackground, 0.5f), glyphColorAtX(0f));
     }
 
@@ -166,6 +199,15 @@ public class TerminalRendererCursorTest {
         render(0.5f, 0f, -1f, -1f);
         assertEquals("a bar cursor draws exactly one rect, never one inline and one eased", 1, mCanvas.rects.size());
         assertEquals(128f, mCanvas.rects.get(0)[5], 1f);
+        assertEquals("the paint must be opaque again for the glyphs", 255, mPaint.lastAlpha);
+    }
+
+    @Test
+    public void barCursorAtZeroAlphaWithEasingDrawsNothing() {
+        enter("\033[6 q");
+        render(0f, 4f, 0f, 5.5f);
+        assertEquals("an invisible eased bar must not leave a phantom rect", 0, mCanvas.rects.size());
+        assertEquals("the cell's text is drawn normally at the off phase", mDefaultForeground, glyphColorAtX(0f));
     }
 
     @Test
@@ -194,6 +236,13 @@ public class TerminalRendererCursorTest {
         assertEquals("the halo uses the cursor colour", mCursorColor, (int) outermost[4]);
         assertTrue("the halo is translucent", outermost[5] < 255f);
         assertEquals("no Paint shadow layer: it is ignored for drawRect on a hardware canvas", 0, mPaint.shadowCalls);
+        // The halo must be under every glyph, not only earlier in the rect list: the canvas keeps one ordered
+        // call log so this cannot pass if the halo is moved after the rows.
+        int firstGlyph = mCanvas.order.indexOf(Boolean.TRUE);
+        assertTrue("the halo must be drawn before any glyph", firstGlyph >= 3);
+        for (int i = 0; i < 3; i++)
+            assertEquals("rect " + i + " must be a halo rect", Boolean.FALSE, mCanvas.order.get(i));
+        assertEquals("the paint must be opaque again for the glyphs", 255, mPaint.lastAlpha);
     }
 
     @Test
