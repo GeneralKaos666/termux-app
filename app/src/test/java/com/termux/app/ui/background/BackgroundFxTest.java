@@ -1,6 +1,7 @@
 package com.termux.app.ui.background;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -37,5 +38,38 @@ public class BackgroundFxTest {
         assertEquals(0.1f, BackgroundFx.INSTANCE.clampOpacity(5), 0.001f);
         assertEquals(0.6f, BackgroundFx.INSTANCE.clampOpacity(60), 0.001f);
         assertEquals(1f, BackgroundFx.INSTANCE.clampOpacity(150), 0.001f);
+    }
+
+    @Test
+    public void centerCropOfAOnePixelPictureStillCoversOnePixel() {
+        BackgroundFx.Crop crop = BackgroundFx.INSTANCE.centerCrop(1, 1, 1080, 2400);
+        assertEquals(0, crop.getLeft());
+        assertEquals(0, crop.getTop());
+        assertEquals(1, crop.getWidth());
+        assertEquals(1, crop.getHeight());
+    }
+
+    @Test
+    public void centerCropKeepsTheSourceAspectRatioAndCentres() {
+        BackgroundFx.Crop crop = BackgroundFx.INSTANCE.centerCrop(4000, 2000, 1080, 2400);
+        assertEquals(900, crop.getWidth());
+        assertEquals(2000, crop.getHeight());
+        assertEquals(1550, crop.getLeft());
+        assertEquals(0, crop.getTop());
+    }
+
+    @Test
+    public void centerCropNeverExceedsTheSource() {
+        BackgroundFx.Crop crop = BackgroundFx.INSTANCE.centerCrop(10, 1000, 1080, 2400);
+        assertEquals(10, crop.getWidth());
+        assertTrue(crop.getHeight() <= 1000);
+        assertTrue(crop.getHeight() >= 1);
+    }
+
+    @Test
+    public void centerCropOfAnEmptySizeIsEmpty() {
+        BackgroundFx.Crop crop = BackgroundFx.INSTANCE.centerCrop(0, 0, 1080, 2400);
+        assertEquals(0, crop.getWidth());
+        assertEquals(0, crop.getHeight());
     }
 }

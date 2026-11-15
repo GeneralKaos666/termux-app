@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.termux.app.ui.background.BackgroundFx
 import com.termux.app.ui.background.TerminalBackgroundState
 import com.termux.app.ui.firstrun.FirstRunOverlay
 import com.termux.app.ui.firstrun.FirstRunState
@@ -193,11 +194,12 @@ private fun TerminalShellHost(
                     if (picture != null && dstW > 0 && dstH > 0) {
                         val srcW = picture.width
                         val srcH = picture.height
-                        // Centre-crop the picture to fill the shell area.
-                        val scale = maxOf(dstW.toFloat() / srcW, dstH.toFloat() / srcH)
-                        val cropW = (dstW / scale).toInt().coerceAtMost(srcW)
-                        val cropH = (dstH / scale).toInt().coerceAtMost(srcH)
-                        val srcOffset = IntOffset((srcW - cropW) / 2, (srcH - cropH) / 2)
+                        // Centre-crop the picture to fill the shell area. The crop is never empty,
+                        // so a 1x1 live-wallpaper fallback still fills the screen.
+                        val crop = BackgroundFx.centerCrop(srcW, srcH, dstW, dstH)
+                        val srcOffset = IntOffset(crop.left, crop.top)
+                        val cropW = crop.width
+                        val cropH = crop.height
                         val opacity = terminalBackgroundState.pictureOpacity
                         val blurRadius = terminalBackgroundState.blurRadius
                         if (blurRadius > 0f) {
