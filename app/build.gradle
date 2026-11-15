@@ -53,7 +53,7 @@ android {
         minSdkVersion project.properties.minSdkVersion.toInteger()
         targetSdkVersion project.properties.targetSdkVersion.toInteger()
         versionCode 121
-        versionName "2.6.0-beta"
+        versionName "2.6.0"
 
         if (appVersionName) versionName = appVersionName
         validateVersionName(versionName)
