@@ -41,6 +41,13 @@ public class BackgroundFxTest {
     }
 
     @Test
+    public void clampBlurRadiusCoercesRange() {
+        assertEquals(0f, BackgroundFx.INSTANCE.clampBlurRadius(-5), 0.001f);
+        assertEquals(12f, BackgroundFx.INSTANCE.clampBlurRadius(12), 0.001f);
+        assertEquals(25f, BackgroundFx.INSTANCE.clampBlurRadius(60), 0.001f);
+    }
+
+    @Test
     public void centerCropOfAOnePixelPictureStillCoversOnePixel() {
         BackgroundFx.Crop crop = BackgroundFx.INSTANCE.centerCrop(1, 1, 1080, 2400);
         assertEquals(0, crop.getLeft());

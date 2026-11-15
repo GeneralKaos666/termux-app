@@ -926,7 +926,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         final boolean wallpaperMode = mPreferences.shouldUseWallpaperTerminalBackground();
         final boolean imageMode = mPreferences.shouldUseCustomImageTerminalBackground();
         final int dim = mPreferences.getTerminalBackgroundDim();
-        final float blur = mPreferences.getTerminalBackgroundBlur();
+        final float blur = BackgroundFx.clampBlurRadius(mPreferences.getTerminalBackgroundBlur());
         final float opacity = BackgroundFx.clampOpacity(mPreferences.getTerminalBackgroundOpacity());
 
         if (!wallpaperMode && !imageMode) {
@@ -954,9 +954,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 wallpaperMode ? loadSystemWallpaperBitmap() : loadCustomImageBitmap(), blur);
             runOnUiThread(() -> {
                 mTerminalBackgroundLoading = false;
+                if (mTerminalBackgroundState == null) return;
+                // The radius is baked into the bitmap by the load-time downscale, so the state keeps
+                // the request-time value; dim and opacity apply per draw, so read their current
+                // preferences in case the user moved a slider while the picture was loading.
+                final int currentDim = mPreferences == null
+                    ? dim : mPreferences.getTerminalBackgroundDim();
+                final float currentOpacity = mPreferences == null
+                    ? opacity : BackgroundFx.clampOpacity(mPreferences.getTerminalBackgroundOpacity());
                 mTerminalBackgroundLoadedBlur = blur;
-                if (mTerminalBackgroundState != null)
-                    mTerminalBackgroundState.update(backgroundBitmap, dim, blur, opacity);
+                mTerminalBackgroundState.update(backgroundBitmap, currentDim, blur, currentOpacity);
             });
         }, "terminal-background-loader").start();
     }

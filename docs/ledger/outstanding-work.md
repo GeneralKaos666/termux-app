@@ -103,11 +103,11 @@ drag-to-reorder, rename and close have all since shipped.
   and the float bubble/window grows and fades in on first composition. Everything collapses to
   instant when `shellAnimationsEnabled()` is false. Device pass: `manual-checks.md` D-15.
 - `[shipped 2026-11-14]` acrylic terminal background in `:app`: the wallpaper/custom-image picture
-  behind the shell can be blurred (0–25 px; a `RenderEffect` on a remembered `RenderNode` on API 31+,
-  a load-time downscale with filtered upscale below it) and lightened independently of the dim
-  (opacity 10–100 %). Both live in `TerminalBackgroundState` and draw in `ShellHost.drawBehind`; the
-  two preferences are additive in `:termux-shared`. Defaults (0 px, 100 %) reproduce the previous
-  rendering exactly. Device pass: `manual-checks.md` D-16.
+  behind the shell can be blurred (0–25 px; a cached `BlurLayer` with a `RenderEffect` on its
+  `RenderNode` on API 31+, a load-time downscale with filtered upscale below it) and lightened
+  independently of the dim (opacity 10–100 %). Both live in `TerminalBackgroundState` and draw from
+  `ShellHost.drawBehind`; the two preferences are additive in `:termux-shared`. Defaults (0 px,
+  100 %) reproduce the previous rendering exactly. Device pass: `manual-checks.md` D-16.
 - `[limitation]` with a live (animated) wallpaper, `WallpaperManager.getDrawable()` yields no usable
   frame, so the system-wallpaper background falls back to a flat colour: the wallpaper's primary
   colour on API 27+, else the terminal background colour. The live animation itself is not captured.

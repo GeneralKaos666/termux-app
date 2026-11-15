@@ -1,6 +1,7 @@
 package com.termux.app.ui.background
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -8,6 +9,15 @@ import org.junit.Test
  * it, so a bad preference value can never make the picture disappear or the dim opaque.
  */
 class TerminalBackgroundStateTest {
+
+    @Test
+    fun `a fresh state has no picture and the defaults`() {
+        val state = TerminalBackgroundState()
+        assertNull(state.bitmap)
+        assertEquals(60, state.dimPercent)
+        assertEquals(0f, state.blurRadius, 0.001f)
+        assertEquals(1f, state.pictureOpacity, 0.001f)
+    }
 
     @Test
     fun `two argument update keeps the picture sharp and fully opaque`() {

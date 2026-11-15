@@ -70,13 +70,15 @@ The `update` overload grows; callers pass the two new values from preferences.
 
 ### 3.2 Blur application — `ShellHost.drawBehind`
 
-The existing `drawImage` gains a blur. On API 31+ this is a `RenderEffect` on a per-draw `Paint`
-(the image is drawn through `drawIntoCanvas` with a blurred paint); below API 31 there is no
-`RenderEffect`, so the fallback is a **cheap pre-blur at load time**: the bitmap is downscaled by the
-blur factor and drawn back up with `Paint.FILTER_BITMAP_FLAG`, which reads as a soft blur on every
-API level.
+The existing `drawImage` gains a blur. On API 31+ this is a `RenderEffect` on a `RenderNode` owned
+by a reusable `BlurLayer` (the image is drawn through `drawIntoCanvas` into the node); below API 31
+there is no `RenderEffect`, so the fallback is a **cheap pre-blur at load time**: the bitmap is
+downscaled by the blur factor and drawn back up with `Paint.FILTER_BITMAP_FLAG`, which reads as a
+soft blur on every API level.
 
 - `blurRadius == 0` → no blur, no extra paint, identical to today.
+- `BlurLayer` keeps its `Paint`, rects, `RenderEffect` and recording between frames, and re-records
+  the node only when the picture, destination size, crop, radius or opacity changes.
 - The blur runs on the already-downsampled background bitmap, so cost is one blur per draw, gated to
   wallpaper/image mode only.
 

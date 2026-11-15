@@ -35,6 +35,13 @@ object BackgroundFx {
     @JvmStatic
     fun clampOpacity(percent: Int): Float = percent.coerceIn(10, 100) / 100f
 
+    /**
+     * The blur radius in pixels: the preference is an integer in `[0, 25]`, clamped here so a
+     * corrupt preference can never blur with a negative or absurdly large radius.
+     */
+    @JvmStatic
+    fun clampBlurRadius(radiusPx: Int): Float = radiusPx.coerceIn(0, 25).toFloat()
+
     /** The source rectangle of a centre-crop, in source pixels. */
     data class Crop(val left: Int, val top: Int, val width: Int, val height: Int)
 
