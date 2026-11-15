@@ -216,6 +216,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private boolean mTerminalBackgroundLoading;
 
     /**
+     * The blur radius the current picture was loaded with. Below API 31 the blur is baked into the
+     * bitmap as a load-time downscale, so a changed radius needs a reload to take effect.
+     */
+    private float mTerminalBackgroundLoadedBlur;
+
+    /**
      * Compose-observable first-run onboarding state (overlay + install progress).
      */
     private FirstRunState mFirstRunState;
@@ -910,7 +916,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /**
      * Applies the configured terminal background to the Compose state. In solid mode the picture is
      * cleared; in wallpaper mode the system wallpaper is decoded on a background thread and pushed
-     * in when ready. The dim is always applied immediately.
+     * in when ready. The dim, blur and opacity are applied immediately.
      *
      * @param forceReload Reload the picture even if one is already showing (e.g. the wallpaper changed).
      */
@@ -925,12 +931,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (!wallpaperMode && !imageMode) {
             mTerminalBackgroundLoading = false;
+            mTerminalBackgroundLoadedBlur = 0f;
             if (mTerminalBackgroundState.getBitmap() != null)
                 mTerminalBackgroundState.update(null, dim);
             return;
         }
 
-        if (forceReload) mTerminalBackgroundState.update(null, dim);
+        // Below API 31 the blur is a load-time downscale of the bitmap, so a changed radius has to
+        // reload the picture; above it the RenderEffect is applied per draw and only the state moves.
+        final boolean blurChanged = mTerminalBackgroundState.getBitmap() != null
+            && blur != mTerminalBackgroundLoadedBlur;
+
+        if (forceReload || blurChanged) mTerminalBackgroundState.update(null, dim);
         else mTerminalBackgroundState.update(mTerminalBackgroundState.getBitmap(), dim, blur, opacity);
 
         if (mTerminalBackgroundState.getBitmap() != null || mTerminalBackgroundLoading) return;
@@ -941,6 +953,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 wallpaperMode ? loadSystemWallpaperBitmap() : loadCustomImageBitmap(), blur);
             runOnUiThread(() -> {
                 mTerminalBackgroundLoading = false;
+                mTerminalBackgroundLoadedBlur = blur;
                 if (mTerminalBackgroundState != null)
                     mTerminalBackgroundState.update(backgroundBitmap, dim, blur, opacity);
             });
@@ -950,11 +963,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /**
      * The API &lt; 31 blur fallback: the bitmap is downscaled here at load time and drawn back up with
      * filtering, so it reads as a soft blur without a {@code RenderEffect}. A no-op for 0 (the
-     * default) and for radii that round to no change.
+     * default), for radii that round to no change, and on API 31+ where the draw applies a real
+     * {@code RenderEffect} and a downscale would only cost sharpness.
      */
     @Nullable
     private static Bitmap downscaleForBlur(@Nullable Bitmap bitmap, float blurRadius) {
         if (bitmap == null || blurRadius <= 0f) return bitmap;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return bitmap;
         float divisor = BackgroundFx.blurDownscale(blurRadius);
         if (divisor <= 1f) return bitmap;
         int width = Math.max(1, Math.round(bitmap.getWidth() / divisor));
