@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# termux-backup — back up and restore a Termux environment.
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+usage() {
+    cat <<'EOF'
+Usage: termux-backup <command> [options]
+
+Commands:
+  backup   Create a backup of packages, $HOME and $PREFIX/etc
+  restore  Restore a backup
+  list     List available backups
+  verify   Verify a backup's checksums
+  delete   Delete a backup
+  prune    Keep only the newest N backups
+  status   Show configuration and storage state
+
+Global options:
+  --json   Print one JSON object to stdout
+  --quiet  Suppress progress output
+  -h, --help  Show this help
+
+Run "termux-backup <command> --help" for command options.
+EOF
+}
+
+cmd_backup() { die 1 "not implemented"; }
+cmd_restore() { die 1 "not implemented"; }
+cmd_list() { die 1 "not implemented"; }
+cmd_verify() { die 1 "not implemented"; }
+cmd_delete() { die 1 "not implemented"; }
+cmd_prune() { die 1 "not implemented"; }
+cmd_status() { die 1 "not implemented"; }
+
+JSON=0
+QUIET=0
+
+if [ "$#" -eq 0 ]; then
+    usage
+    exit 1
+fi
+
+sub=$1
+case $sub in
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    backup | restore | list | verify | delete | prune | status) ;;
+    *)
+        usage
+        exit 1
+        ;;
+esac
+shift
+
+for arg in "$@"; do
+    case $arg in
+        --json) JSON=1 ;;
+        --quiet) QUIET=1 ;;
+    esac
+done
+
+if [ "$JSON" -eq 1 ] && [ "$QUIET" -eq 1 ]; then
+    die 1 "--json and --quiet cannot be combined"
+fi
+
+trap 'rc=$?; log_run "$sub" "$rc"; exit "$rc"' EXIT
+"cmd_$sub" "$@"
