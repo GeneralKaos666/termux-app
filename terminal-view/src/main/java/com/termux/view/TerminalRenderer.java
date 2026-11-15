@@ -37,6 +37,16 @@ public final class TerminalRenderer {
     /** Grow-only scratch for shaped advances; only the run just measured is ever read back. */
     private float[] mRunAdvancesBuffer = new float[0];
 
+    /** Cursor fade/envelope opacity for the current frame, 0..1. */
+    private float mCursorAlpha = 1f;
+    /** Halo radius drawn around the cursor rect, in pixels; zero means no halo. */
+    private float mGlowRadius = 0f;
+    /** Eased cursor position, in cells, for the current frame; negative disables the eased drawing. */
+    private float mEasedCursorRow = -1f;
+    private float mEasedCursorCol = -1f;
+    /** Whether the cursor is drawn at its eased position instead of snapping to its cell. */
+    private boolean mEaseActive = false;
+
     /** The width of a single mono spaced character obtained by {@link Paint#measureText(String)} on a single 'X'. */
     final float mFontWidth;
     /** The {@link Paint#getFontSpacing()}. See http://www.fampennings.nl/maarten/android/08numgrid/font.png */
@@ -109,6 +119,21 @@ public final class TerminalRenderer {
     public final void render(TerminalEmulator mEmulator, Canvas canvas, int topRow,
                              int selectionY1, int selectionY2, int selectionX1, int selectionX2,
                              int firstScreenRow, int lastScreenRowExclusive) {
+        render(mEmulator, canvas, topRow, selectionY1, selectionY2, selectionX1, selectionX2,
+            firstScreenRow, lastScreenRowExclusive, 1f, 0f, -1f, -1f);
+    }
+
+    /**
+     * Render like the row-range overload, additionally applying the cursor's visual effects:
+     * {@code cursorAlpha} fades the cursor rect, {@code glowRadius} adds a halo of the same colour, and
+     * {@code easedCursorRow}/{@code easedCursorCol} move a bar or underline cursor smoothly towards its cell
+     * (a block cursor always snaps, because its cell inversion is baked into the text run). A negative eased
+     * row or column disables the easing, and an alpha of zero hides the cursor and its text inversion.
+     */
+    public final void render(TerminalEmulator mEmulator, Canvas canvas, int topRow,
+                             int selectionY1, int selectionY2, int selectionX1, int selectionX2,
+                             int firstScreenRow, int lastScreenRowExclusive,
+                             float cursorAlpha, float glowRadius, float easedCursorRow, float easedCursorCol) {
         final boolean reverseVideo = mEmulator.isReverseVideo();
         final int columns = mEmulator.mColumns;
         final int cursorCol = mEmulator.getCursorCol();
@@ -117,6 +142,14 @@ public final class TerminalRenderer {
         final TerminalBuffer screen = mEmulator.getScreen();
         final int[] palette = mEmulator.mColors.mCurrentColors;
         final int cursorShape = mEmulator.getCursorStyle();
+
+        mCursorAlpha = cursorAlpha;
+        mGlowRadius = glowRadius;
+        mEasedCursorRow = easedCursorRow;
+        mEasedCursorCol = easedCursorCol;
+        mEaseActive = easedCursorRow >= 0f && easedCursorCol >= 0f
+            && (cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR
+                || cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE);
 
         if (reverseVideo)
             canvas.drawColor(palette[TextStyle.COLOR_INDEX_FOREGROUND], PorterDuff.Mode.SRC);
@@ -127,7 +160,7 @@ public final class TerminalRenderer {
         for (int row = firstScreenRow; row < lastScreenRowExclusive; row++) {
             heightOffset += mFontLineSpacing;
 
-            final int cursorX = (row == cursorRow && cursorVisible) ? cursorCol : -1;
+            final int cursorX = (row == cursorRow && cursorVisible && mCursorAlpha > 0f) ? cursorCol : -1;
             int selx1 = -1, selx2 = -1;
             if (row >= selectionY1 && row <= selectionY2) {
                 if (row == selectionY1) selx1 = selectionX1;
@@ -233,6 +266,14 @@ public final class TerminalRenderer {
                 cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
                 lastRunLinkId, lastRunUnderlineColor);
         }
+
+        // An eased bar/underline cursor is drawn over the finished rows so it can sit between two cells.
+        if (mEaseActive && cursorVisible && mCursorAlpha > 0f && mEasedCursorRow >= 0f) {
+            float easedLeft = mEasedCursorCol * mFontWidth;
+            float easedY = mFontLineSpacingAndAscent + (mEasedCursorRow - topRow + 1) * mFontLineSpacing;
+            drawCursorRect(canvas, easedLeft, easedLeft + mFontWidth, easedY, cursorShape,
+                palette[TextStyle.COLOR_INDEX_CURSOR]);
+        }
     }
 
     private void drawTextRun(Canvas canvas, char[] text, int[] palette, float y, int startColumn, int runWidthColumns,
@@ -289,12 +330,8 @@ public final class TerminalRenderer {
             canvas.drawRect(left, y - mFontLineSpacingAndAscent + mFontAscent, right, y, mTextPaint);
         }
 
-        if (cursor != 0) {
-            mTextPaint.setColor(cursor);
-            float cursorHeight = mFontLineSpacingAndAscent - mFontAscent;
-            if (cursorStyle == TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE) cursorHeight /= 4.f;
-            else if (cursorStyle == TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR) right -= (((right - left) * 3) / 4.f);
-            canvas.drawRect(left, y - cursorHeight, right, y, mTextPaint);
+        if (cursor != 0 && !mEaseActive) {
+            drawCursorRect(canvas, left, right, y, cursorStyle, cursor);
         }
 
         if ((effect & TextStyle.CHARACTER_ATTRIBUTE_INVISIBLE) == 0) {
@@ -332,6 +369,23 @@ public final class TerminalRenderer {
                 drawUnderline(canvas, left, runRight, y, underlineDrawColor, underlineDrawStyle);
             }
         }
+    }
+
+    /**
+     * Fills the cursor's cell (or its cell-sized eased footprint) with the cursor colour, applying the frame's
+     * alpha and halo. Leaves {@link #mTextPaint} opaque and halo-free, because the glyphs of the same run are
+     * drawn with the same paint right after this rect.
+     */
+    private void drawCursorRect(Canvas canvas, float left, float right, float y, int cursorShape, int cursorColor) {
+        mTextPaint.setColor(cursorColor);
+        mTextPaint.setAlpha((int) (mCursorAlpha * 255f + 0.5f));
+        if (mGlowRadius > 0f) mTextPaint.setShadowLayer(mGlowRadius, 0f, 0f, cursorColor);
+        float cursorHeight = mFontLineSpacingAndAscent - mFontAscent;
+        if (cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE) cursorHeight /= 4.f;
+        else if (cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR) right -= (((right - left) * 3) / 4.f);
+        canvas.drawRect(left, y - cursorHeight, right, y, mTextPaint);
+        if (mGlowRadius > 0f) mTextPaint.clearShadowLayer();
+        mTextPaint.setAlpha(255);
     }
 
     /**
