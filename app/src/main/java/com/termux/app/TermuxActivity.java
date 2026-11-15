@@ -2,6 +2,7 @@ package com.termux.app;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.app.WallpaperColors;
 import android.app.WallpaperManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -13,6 +14,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.DisplayMetrics;
@@ -36,6 +38,7 @@ import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
 import com.termux.app.ui.SnackbarState;
 import com.termux.app.ui.ShellChromeState;
+import com.termux.app.ui.background.BackgroundFx;
 import com.termux.app.ui.background.TerminalBackgroundState;
 import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
@@ -68,8 +71,10 @@ import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
 import com.termux.shared.termux.theme.TermuxThemeUtils;
 import com.termux.shared.theme.NightMode;
 import com.termux.shared.view.ViewUtils;
+import com.termux.terminal.TerminalColors;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
+import com.termux.terminal.TextStyle;
 import com.termux.view.TerminalView;
 import com.termux.view.TerminalViewClient;
 
@@ -915,6 +920,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         final boolean wallpaperMode = mPreferences.shouldUseWallpaperTerminalBackground();
         final boolean imageMode = mPreferences.shouldUseCustomImageTerminalBackground();
         final int dim = mPreferences.getTerminalBackgroundDim();
+        final float blur = mPreferences.getTerminalBackgroundBlur();
+        final float opacity = BackgroundFx.clampOpacity(mPreferences.getTerminalBackgroundOpacity());
 
         if (!wallpaperMode && !imageMode) {
             mTerminalBackgroundLoading = false;
@@ -924,19 +931,36 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         if (forceReload) mTerminalBackgroundState.update(null, dim);
-        else mTerminalBackgroundState.update(mTerminalBackgroundState.getBitmap(), dim);
+        else mTerminalBackgroundState.update(mTerminalBackgroundState.getBitmap(), dim, blur, opacity);
 
         if (mTerminalBackgroundState.getBitmap() != null || mTerminalBackgroundLoading) return;
         mTerminalBackgroundLoading = true;
 
         new Thread(() -> {
-            final Bitmap backgroundBitmap = wallpaperMode ? loadSystemWallpaperBitmap() : loadCustomImageBitmap();
+            final Bitmap backgroundBitmap = downscaleForBlur(
+                wallpaperMode ? loadSystemWallpaperBitmap() : loadCustomImageBitmap(), blur);
             runOnUiThread(() -> {
                 mTerminalBackgroundLoading = false;
                 if (mTerminalBackgroundState != null)
-                    mTerminalBackgroundState.update(backgroundBitmap, mPreferences.getTerminalBackgroundDim());
+                    mTerminalBackgroundState.update(backgroundBitmap, dim, blur, opacity);
             });
         }, "terminal-background-loader").start();
+    }
+
+    /**
+     * The API &lt; 31 blur fallback: the bitmap is downscaled here at load time and drawn back up with
+     * filtering, so it reads as a soft blur without a {@code RenderEffect}. A no-op for 0 (the
+     * default) and for radii that round to no change.
+     */
+    @Nullable
+    private static Bitmap downscaleForBlur(@Nullable Bitmap bitmap, float blurRadius) {
+        if (bitmap == null || blurRadius <= 0f) return bitmap;
+        float divisor = BackgroundFx.blurDownscale(blurRadius);
+        if (divisor <= 1f) return bitmap;
+        int width = Math.max(1, Math.round(bitmap.getWidth() / divisor));
+        int height = Math.max(1, Math.round(bitmap.getHeight() / divisor));
+        if (width == bitmap.getWidth() && height == bitmap.getHeight()) return bitmap;
+        return Bitmap.createScaledBitmap(bitmap, width, height, true);
     }
 
     /**
@@ -965,12 +989,35 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         try {
             WallpaperManager wallpaperManager = WallpaperManager.getInstance(this);
             Drawable wallpaperDrawable = wallpaperManager.getDrawable();
-            if (wallpaperDrawable == null) return null;
+            if (wallpaperDrawable == null) return wallpaperFallbackBitmap(wallpaperManager);
             return drawableToScreenBitmap(wallpaperDrawable);
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the system wallpaper", e);
             return null;
         }
+    }
+
+    /**
+     * A 1x1 bitmap for the live-wallpaper case, where {@code getDrawable()} yields nothing: the
+     * wallpaper's primary colour when the platform can sample one (API 27+), else the terminal
+     * background colour. Replaces the black the shell used to show behind a live wallpaper; the
+     * live animation itself is still not captured.
+     */
+    @NonNull
+    private Bitmap wallpaperFallbackBitmap(@NonNull WallpaperManager wallpaperManager) {
+        int terminalBackgroundColor =
+            TerminalColors.COLOR_SCHEME.mDefaultColors[TextStyle.COLOR_INDEX_BACKGROUND];
+        boolean colorsAvailable = false;
+        int primaryColor = terminalBackgroundColor;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            WallpaperColors colors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM);
+            if (colors != null) {
+                colorsAvailable = true;
+                primaryColor = colors.getPrimaryColor().toArgb();
+            }
+        }
+        int color = BackgroundFx.wallpaperFallbackColor(colorsAvailable, primaryColor, terminalBackgroundColor);
+        return Bitmap.createBitmap(new int[] { color }, 1, 1, Bitmap.Config.ARGB_8888);
     }
 
     @Nullable
