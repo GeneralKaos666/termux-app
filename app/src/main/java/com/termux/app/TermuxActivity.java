@@ -938,11 +938,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         // Below API 31 the blur is a load-time downscale of the bitmap, so a changed radius has to
-        // reload the picture; above it the RenderEffect is applied per draw and only the state moves.
+        // reload the picture; above it the RenderEffect is applied per draw, so only the state moves.
         final boolean blurChanged = mTerminalBackgroundState.getBitmap() != null
             && blur != mTerminalBackgroundLoadedBlur;
 
-        if (forceReload || blurChanged) mTerminalBackgroundState.update(null, dim);
+        if (forceReload || (blurChanged && Build.VERSION.SDK_INT < Build.VERSION_CODES.S))
+            mTerminalBackgroundState.update(null, dim);
         else mTerminalBackgroundState.update(mTerminalBackgroundState.getBitmap(), dim, blur, opacity);
 
         if (mTerminalBackgroundState.getBitmap() != null || mTerminalBackgroundLoading) return;
@@ -1004,7 +1005,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         try {
             WallpaperManager wallpaperManager = WallpaperManager.getInstance(this);
             Drawable wallpaperDrawable = wallpaperManager.getDrawable();
-            if (wallpaperDrawable == null) return wallpaperFallbackBitmap(wallpaperManager);
+            if (wallpaperDrawable == null
+                || wallpaperDrawable.getIntrinsicWidth() <= 0
+                || wallpaperDrawable.getIntrinsicHeight() <= 0) {
+                Logger.logDebug(LOG_TAG, "No usable wallpaper frame, using the fallback colour");
+                return wallpaperFallbackBitmap(wallpaperManager);
+            }
             return drawableToScreenBitmap(wallpaperDrawable);
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the system wallpaper", e);
@@ -1032,6 +1038,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             }
         }
         int color = BackgroundFx.wallpaperFallbackColor(colorsAvailable, primaryColor, terminalBackgroundColor);
+        Logger.logDebug(LOG_TAG, "Live-wallpaper fallback colour: "
+            + (colorsAvailable ? "wallpaper primary" : "terminal background"));
         return Bitmap.createBitmap(new int[] { color }, 1, 1, Bitmap.Config.ARGB_8888);
     }
 
