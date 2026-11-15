@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
@@ -39,6 +40,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.R
 import com.termux.app.ui.materialIcon
 import com.termux.app.ui.theme.TermuxShellTheme
+import com.termux.app.ui.theme.floatEnterProgress
 import kotlin.math.roundToInt
 
 /**
@@ -67,11 +69,17 @@ fun FloatingWindow(
     onToggleKeyboard: () -> Unit,
 ) {
     val hostView = LocalView.current
+    val enterProgress = floatEnterProgress()
 
     TermuxShellTheme {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = enterProgress
+                    scaleY = enterProgress
+                    alpha = enterProgress
+                }
                 .clip(WindowShape)
                 .background(MaterialTheme.colorScheme.surface)
                 .border(1.dp, MaterialTheme.colorScheme.outline, WindowShape),
