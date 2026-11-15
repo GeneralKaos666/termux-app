@@ -36,6 +36,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-13 | IME text round-trip after the `TerminalView` seam split | deferred to the device phase | §14 below |
 | D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
 | D-15 | Shell UI motion (springy chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
+| D-16 | Acrylic background (blur, opacity, live-wallpaper fallback colour) | deferred to the device phase | §17 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -54,6 +55,8 @@ pixels, including a scrolled-back hit-test and a link-without-`SGR 4` control).
 8. **D-14** — cursor polish; needs a live shell and a few cursor styles, so it rides along with D-6.
 9. **D-15** — shell UI motion; a short eyeball pass on the same run as D-14, plus one run with
    "remove animations" on.
+10. **D-16** — acrylic background; needs a wallpaper and a custom image, so it rides along with D-6,
+    and one live-wallpaper pass for the fallback colour.
 
 ## 3. D-1 — WS3 shaping and ligatures
 
@@ -452,5 +455,42 @@ Run with at least three sessions and the float session available:
 - [ ] Remove animations: turn on the system "remove animations" setting (or set
       `ANIMATOR_DURATION_SCALE` to 0) and restart the app. Every transition above is instant, with no
       fade, slide or overshoot.
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 17. D-16 — acrylic background (blur, opacity, live-wallpaper fallback colour)
+
+The picture behind the shell (system wallpaper or custom image) can now be blurred and lightened,
+independently of the existing dim. The blur is a `RenderEffect` on API 31+ and a load-time downscale
+with a filtered upscale below it; the opacity is the picture's alpha under the dim overlay. Everything
+is in `:app` (`ShellHost.kt`, `TerminalBackgroundState.kt`, `BackgroundFx.kt`, `TermuxActivity`'s
+wallpaper loader); `:terminal-view` and `:terminal-emulator` are untouched. **Deferred to the device
+phase**, per the ledger work order. Run at least once on an API < 31 device or emulator if one is
+available, because the blur fallback differs there.
+
+Run with a busy static wallpaper and with a custom image:
+
+- [ ] Defaults unchanged: with blur 0 and opacity 100 %, the background renders exactly as before this
+      change (same crop, same dim, no visible softening).
+- [ ] Blur: raise `Background blur` to a mid value (around 12). The picture visibly frosts while the
+      terminal text stays sharp; the blur is smooth, not blocky, and the edges of the screen do not
+      show a sharp border.
+- [ ] Blur extremes: 0 restores the sharp picture, 25 is the strongest frost, and neither crashes nor
+      leaves the previous frame behind.
+- [ ] Blur persistence: leave the settings screen and return to the terminal — the new radius applies
+      without restarting the app (the picture reloads once below API 31).
+- [ ] Opacity: lower `Background opacity` to around 40. The picture lightens towards the terminal
+      background colour while the dim slider keeps working independently; 10 % is the faintest
+      setting and the terminal stays readable.
+- [ ] Opacity and dim together: with dim high and opacity low the text stays readable; with dim 0 and
+      opacity 100 the picture is at its most visible.
+- [ ] Solid mode: switch `Background` to `Solid colour`. The blur and opacity sliders disappear and the
+      terminal shows the plain palette background.
+- [ ] Live wallpaper: set an animated wallpaper. The background is a flat sampled colour (the
+      wallpaper primary on API 27+), not black, and not a frozen frame.
+- [ ] Persistence across restart: set blur 12 and opacity 40, force-stop the app, reopen it. Both
+      values are still set and still applied.
+- [ ] Rotation: rotate with a blurred picture showing. No crash, no stretched crop, and the blur does
+      not become sharper or softer across the rotation.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
