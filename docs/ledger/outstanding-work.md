@@ -80,7 +80,7 @@ drag-to-reorder, rename and close have all since shipped.
 - The onboarding and settings checks in `manual-checks.md` D-7 and D-8 are closed (D-7 measured
   2026-11-02; D-8 on the maintainer's verdict, since exercising the edges needs a data wipe).
 
-### 1.4 Appearance — shipped, one device pass outstanding
+### 1.4 Appearance — shipped, device passes outstanding
 
 - Seven colour presets ship; Solarized Light, Gruvbox Dark and One Dark have had a machine contrast
   pass but still need the human aesthetic pass (`manual-checks.md` D-5).
@@ -90,6 +90,13 @@ drag-to-reorder, rename and close have all since shipped.
 - `[done 349cbd66]` cursor style and blink are nullable overrides (`null` = follow
   `termux.properties`), with Default chips and a Reset that stages `null`; a colour-only Apply no
   longer creates a cursor override.
+- `[shipped 2026-11-14]` cursor visual polish in `:terminal-view`: the blink is a triangular fade
+  envelope (`CursorFx.blinkAlpha`, driven at ~16 ms by the existing `TerminalCursorBlinkerRunnable`),
+  the cursor rect carries a halo of its own colour, and bar/underline cursors glide to the new cell
+  (`CursorFx.easeTowards`, ~0.35 per frame). A block cursor never eases, since its text inversion is
+  baked into the cell. The engine and the public renderer API are unchanged (a new 13-argument
+  `render(...)` overload does the effects; the existing overloads delegate with neutral values).
+  Device pass: `manual-checks.md` D-14.
 - `[limitation]` with a live (animated) wallpaper, `WallpaperManager.getDrawable()` yields no usable
   frame (black), so the system-wallpaper background works only with a static image. Ruled a
   device/engine quirk seen on the ZTE live wallpaper, not app code.

@@ -34,6 +34,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-11 | Obfuscated release APK runs (R8 hardening) | **passed 2026-11-02** (maintainer verdict, not machine-measured) | `outstanding-work.md` §4.1 |
 | D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** (all window, IME, permission and lifecycle checks; three defects fixed) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
 | D-13 | IME text round-trip after the `TerminalView` seam split | deferred to the device phase | §14 below |
+| D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -49,6 +50,7 @@ pixels, including a scrolled-back hit-test and a link-without-`SGR 4` control).
 5. **D-1 remaining** — only if an API 21–28 device becomes available.
 6. **D-10** — only if Termux:Float gets picked up.
 7. **D-12** — only if the in-app floating terminal gets picked up (alongside the other pending appearance/float checks).
+8. **D-14** — cursor polish; needs a live shell and a few cursor styles, so it rides along with D-6.
 
 ## 3. D-1 — WS3 shaping and ligatures
 
@@ -385,5 +387,32 @@ foreground command so the received bytes are visible:
       `ESC` prefix arrived before the `b`.
 - [ ] `Tab` completes a path prefix rather than inserting a literal tab.
 - [ ] Enter submits the line (`\n` from the IME is still mapped to control-M, not a literal newline).
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 15. D-14 — cursor fade blink, glow and eased bar/underline movement
+
+The cursor now fades along a triangular envelope instead of toggling on and off, carries a halo, and a
+bar or underline cursor glides to its new cell. A block cursor still snaps, because its text inversion
+lives in the cell itself. All of this is in `:terminal-view` (`CursorFx`, `TerminalRenderer`,
+`TerminalView`); the engine is untouched. **Deferred to the device phase**, per the ledger work order.
+
+Run in a live shell session:
+
+- [ ] Blink fade: with the default block cursor and blinking on, the cursor fades down and back up with
+      no hard on/off snap and no flicker.
+- [ ] Glow: the cursor carries a visible halo in its own colour; neighbouring glyphs stay crisp and are
+      not tinted or smeared by it. Check at the smallest and a mid font size.
+- [ ] Bar cursor glide: `printf '\033[6 q'` then move with the arrow keys/hold them. The bar slides
+      between cells and comes to rest exactly on the cursor cell, never half a cell off.
+- [ ] Underline cursor glide: `printf '\033[4 q'`, same movement, same landing.
+- [ ] Block cursor snaps: `printf '\033[2 q'` (or the default) — the block never eases and its cell
+      text inversion stays aligned with the block.
+- [ ] Blink off: set the cursor blink rate to 0 in the app settings — the cursor is steady and fully
+      opaque (no residual fade), and a bar/underline cursor still glides on movement.
+- [ ] Cursor hidden/shown: `printf '\033[?25l'` hides the cursor with no ghost left behind;
+      `printf '\033[?25h'` brings it back fully opaque.
+- [ ] Fast input: holding an arrow key in `nano`/`cat`-less editing keeps the drawn cursor with the true
+      caret with no visible lag or trail.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
