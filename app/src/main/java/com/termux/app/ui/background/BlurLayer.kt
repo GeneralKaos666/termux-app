@@ -63,7 +63,12 @@ class BlurLayer {
         src.set(crop.left, crop.top, crop.left + crop.width, crop.top + crop.height)
         dst.set(0, 0, width, height)
 
-        if (node == null || !canvas.isHardwareAccelerated) {
+        // The node path needs API 29 (`RenderNode`) and API 31 (`RenderEffect`); the version check is
+        // spelled out here because lint cannot infer it from `node` being null below API 31.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+            || node == null
+            || !canvas.isHardwareAccelerated
+        ) {
             canvas.drawBitmap(picture, src, dst, paint)
             return
         }
