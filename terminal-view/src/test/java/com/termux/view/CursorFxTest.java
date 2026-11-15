@@ -26,6 +26,12 @@ public class CursorFxTest {
     }
 
     @Test
+    public void blinkAlphaHandlesNegativeElapsed() {
+        assertEquals(0.5f, CursorFx.blinkAlpha(-250, 1000), 0.0001f);
+        assertEquals(1f, CursorFx.blinkAlpha(-1000, 1000), 0.0001f);
+    }
+
+    @Test
     public void blinkAlphaDisabledPeriodIsFull() {
         assertEquals(1f, CursorFx.blinkAlpha(123, 0), 0.0001f);
         assertEquals(1f, CursorFx.blinkAlpha(123, -5), 0.0001f);

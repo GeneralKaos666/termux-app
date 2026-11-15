@@ -78,14 +78,16 @@ public final class TerminalView extends View {
     private static final float CURSOR_EASING_FACTOR = 0.35f;
 
     /** Cursor opacity of the current frame, from the fade-blink envelope. */
-    private float mCursorAlpha = 1f;
+    private volatile float mCursorAlpha = 1f;
     /** The cursor position drawn so far, in cells, for the eased bar/underline cursor; negative when unset. */
-    private float mDisplayCursorRow = -1f;
-    private float mDisplayCursorCol = -1f;
+    private volatile float mDisplayCursorRow = -1f;
+    private volatile float mDisplayCursorCol = -1f;
     /** Whether the cursor is currently gliding towards its true cell. */
-    private boolean mCursorEasing;
+    private volatile boolean mCursorEasing;
     /** Whether the blink envelope owns {@link #mCursorAlpha}; false means the cursor stays opaque. */
-    private boolean mCursorBlinkRunning;
+    private volatile boolean mCursorBlinkRunning;
+    /** Set while a frame was requested only to repaint the cursor, so it must not consume the dirty state. */
+    private volatile boolean mCursorOnlyFrame;
 
     /** The top row of text to display. Ranges from -activeTranscriptRows to 0. */
     int mTopRow;
@@ -1081,22 +1083,29 @@ public final class TerminalView extends View {
 
             updateCursorAnimationBeforeRender();
 
+            // The eased position is only supplied while the cursor is actually gliding: at rest the inline path
+            // draws the bar/underline behind the glyphs and across the whole cluster's cells.
+            boolean cursorEases = mCursorEasing && isCursorStyleEaseable(mEmulator.getCursorStyle());
             mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3],
                 band.firstRow, band.lastRowExclusive, mCursorAlpha, cursorGlowRadius(),
-                isCursorStyleEaseable(mEmulator.getCursorStyle()) ? mDisplayCursorRow : -1f,
-                isCursorStyleEaseable(mEmulator.getCursorStyle()) ? mDisplayCursorCol : -1f);
+                cursorEases ? mDisplayCursorRow : -1f,
+                cursorEases ? mDisplayCursorCol : -1f);
 
             // Consume the dirty state only once the frame has been drawn: invalidates coalesce, so this
-            // cannot be done when the update arrives.
-            TerminalBuffer screen = mEmulator.getScreen();
-            mLastSeenChangeCounter = screen.getChangeCounter();
-            screen.clearDirtyState();
-            mLastCursorRow = mEmulator.getCursorRow();
-            mLastCursorCol = mEmulator.getCursorCol();
-            mLastReverseVideo = mEmulator.isReverseVideo();
-            mLastCursorVisible = mEmulator.shouldCursorBeVisible();
-            mLastCursorStyle = mEmulator.getCursorStyle();
-            mLastPaletteChangeCounter = mEmulator.mColors.getChangeCounter();
+            // cannot be done when the update arrives. A cursor-only frame repaints just the cursor cell, so it
+            // must leave the dirty flags (and the overlay bookkeeping) for the next screen update.
+            if (!mCursorOnlyFrame) {
+                TerminalBuffer screen = mEmulator.getScreen();
+                mLastSeenChangeCounter = screen.getChangeCounter();
+                screen.clearDirtyState();
+                mLastCursorRow = mEmulator.getCursorRow();
+                mLastCursorCol = mEmulator.getCursorCol();
+                mLastReverseVideo = mEmulator.isReverseVideo();
+                mLastCursorVisible = mEmulator.shouldCursorBeVisible();
+                mLastCursorStyle = mEmulator.getCursorStyle();
+                mLastPaletteChangeCounter = mEmulator.mColors.getChangeCounter();
+            }
+            mCursorOnlyFrame = false;
 
             // render the text selection handles
             renderTextSelection();
@@ -1442,7 +1451,8 @@ public final class TerminalView extends View {
             mEmulator.setCursorBlinkState(true);
             mCursorAlpha = 1f;
             mCursorBlinkRunning = true;
-            mTerminalCursorBlinkerRunnable.run();
+            // Run on the main thread like every later frame, so the animation never touches the view off it.
+            mTerminalCursorBlinkerHandler.post(mTerminalCursorBlinkerRunnable);
         }
     }
 
@@ -1455,12 +1465,38 @@ public final class TerminalView extends View {
                 mClient.logVerbose(LOG_TAG, "Stopping cursor blinker");
             mTerminalCursorBlinkerHandler.removeCallbacks(mTerminalCursorBlinkerRunnable);
         }
+        // A faded or gliding cursor must be redrawn opaque at its true cell when the animation stops.
+        boolean wasAnimating = mCursorAlpha != 1f || mCursorEasing;
         mCursorBlinkRunning = false;
         mCursorAlpha = 1f;
         // Drop any glide in progress so the next draw snaps to the true cell instead of resuming mid-way.
         mCursorEasing = false;
         mDisplayCursorRow = -1f;
         mDisplayCursorCol = -1f;
+        if (wasAnimating) postInvalidate();
+    }
+
+    /**
+     * Invalidates only the pixels the cursor occupies — its previous and its current cell, plus the halo — so a
+     * fade or a glide does not repaint the whole view on every frame. The requested frame is flagged as
+     * cursor-only, so {@link #onDraw(Canvas)} leaves the dirty state for the next screen update.
+     */
+    private void invalidateCursor(float oldRow, float oldCol, float newRow, float newCol) {
+        if (mRenderer == null) {
+            postInvalidate();
+            return;
+        }
+        float glow = cursorGlowRadius();
+        float left = Math.min(oldCol, newCol) * mRenderer.mFontWidth - glow;
+        float right = (Math.max(oldCol, newCol) + 1f) * mRenderer.mFontWidth + glow;
+        float top = mRenderer.mFontLineSpacingAndAscent
+            + (Math.min(oldRow, newRow) - mTopRow) * mRenderer.mFontLineSpacing - glow;
+        float bottom = mRenderer.mFontLineSpacingAndAscent
+            + (Math.max(oldRow, newRow) - mTopRow + 1f) * mRenderer.mFontLineSpacing + glow;
+        mCursorOnlyFrame = true;
+        // Only reached from the animation runnable, which always runs on the main thread.
+        invalidate((int) Math.floor(left), (int) Math.floor(top),
+            (int) Math.ceil(right), (int) Math.ceil(bottom));
     }
 
     private class TerminalCursorBlinkerRunnable implements Runnable {
@@ -1483,8 +1519,10 @@ public final class TerminalView extends View {
             try {
                 if (mEmulator != null) {
                     // Fade the cursor instead of toggling it on and off, and glide a bar or underline cursor to
-                    // the cell it just moved to. Either effect invalidates the view so this runnable paints the
-                    // next frame, which is what keeps the animation running.
+                    // the cell it just moved to. Either effect invalidates the cursor's own pixels so this
+                    // runnable paints the next frame, which is what keeps the animation running.
+                    float oldRow = mDisplayCursorRow >= 0f ? mDisplayCursorRow : mEmulator.getCursorRow();
+                    float oldCol = mDisplayCursorCol >= 0f ? mDisplayCursorCol : mEmulator.getCursorCol();
                     mCursorAlpha = mCursorBlinkRunning
                         ? CursorFx.blinkAlpha(SystemClock.uptimeMillis() - mBlinkStartUptimeMs, 2L * mBlinkRate)
                         : 1f;
@@ -1497,7 +1535,9 @@ public final class TerminalView extends View {
                         if (Math.abs(mDisplayCursorCol - targetCol) < 0.05f) mDisplayCursorCol = targetCol;
                         if (mDisplayCursorRow == targetRow && mDisplayCursorCol == targetCol) mCursorEasing = false;
                     }
-                    invalidate();
+                    invalidateCursor(oldRow, oldCol,
+                        mDisplayCursorRow >= 0f ? mDisplayCursorRow : mEmulator.getCursorRow(),
+                        mDisplayCursorCol >= 0f ? mDisplayCursorCol : mEmulator.getCursorCol());
                 }
             } finally {
                 // Keep the loop alive only while an effect is actually running.

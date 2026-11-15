@@ -104,24 +104,32 @@ This gates the inline cursor rect *and* the block-cursor text inversion together
 phase (`mCursorAlpha == 0`) the cell reverts to plain text with no inversion.
 
 **Cursor rect.** The rect is still drawn inside `drawTextRun` (the cursor cell is always its own run,
-so the run's `left`/`right` are the cell bounds), but now with alpha and glow applied around it on the
-shared `mTextPaint`, then cleared:
+so the run's `left`/`right` are the cell bounds), with the frame's alpha applied on the shared
+`mTextPaint`, then reset:
 
 ```java
-if (cursor != 0 && !mEaseActive) {
+if (cursor != 0 && !mEaseActive && !fadingBlockCursor) {
     mTextPaint.setColor(cursor);
     mTextPaint.setAlpha((int) (mCursorAlpha * 255f + 0.5f));
-    if (mGlowRadius > 0f) mTextPaint.setShadowLayer(mGlowRadius, 0f, 0f, cursor);
     // ... existing cursorHeight / bar-shrink geometry ...
     canvas.drawRect(left, y - cursorHeight, right, y, mTextPaint);
-    if (mGlowRadius > 0f) mTextPaint.clearShadowLayer();
     mTextPaint.setAlpha(255);
 }
 ```
 
-`setAlpha(255)` and `clearShadowLayer()` are mandatory: the same paint immediately draws the run's
-glyphs, which must not inherit the cursor's fade or glow. The block cursor's text inversion is
-unchanged except that it is already gated off by `cursorX` above.
+`setAlpha(255)` is mandatory: the same paint immediately draws the run's glyphs, which must not inherit
+the cursor's fade.
+
+**Block cursor fade.** A block cursor's cell is painted opaque — the cursor colour behind, the cell's
+background colour in front — so a translucent rect over it cannot fade it. When
+`cursor != 0 && cursorStyle == BLOCK && mCursorAlpha < 1f`, the run's two colours are blended towards
+the block's instead (`blendColor`), which fades the block and its inverted glyph together, and the
+overlay rect is skipped. At `mCursorAlpha == 1` the solid path above runs unchanged.
+
+**Glow.** A `Paint` shadow layer is ignored for `Canvas.drawRect` on a hardware-accelerated canvas
+(what a `View`'s `onDraw` is handed), so the halo is drawn explicitly: three expanding rects of low,
+alpha-scaled opacity, **before the rows**, so every glyph is painted on top of it and stays crisp.
+`glowRadius == 0` draws no halo at all.
 
 **Eased rect (post-pass).** After the row loop, when `mEaseActive` and `mCursorAlpha > 0`, the eased
 rect is drawn once at the eased pixel position instead of inline:
@@ -150,11 +158,16 @@ guard). The runnable body changes from a boolean toggle to an animation loop:
 - **Easing.** On a cursor move (the `overlayChanged` check already detects row/col changes), a display
   cursor (`mDisplayCursorRow`, `mDisplayCursorCol`, floats) eases toward the true cell via
   `CursorFx.easeTowards(..., factor)` each frame; it snaps to the target when within a small epsilon
-  and the animation stops. The eased floats are passed to the new `render(...)` overload only for
-  bar/underline cursors; for a block cursor the true cell is passed (no ease).
-- **Fallback.** When neither blink nor ease is active, the old single `invalidate()` path is used and
-  the 8-argument overload would still suffice; the view always calls the new overload so the values
-  are explicit.
+  and the animation stops. The eased floats are passed to the new `render(...)` overload only while the
+  glide is running (`mCursorEasing`); at rest the renderer's inline path draws the bar/underline behind
+  the glyphs and across the whole cluster's cells. A block cursor never eases.
+- **Invalidation.** Each animation frame invalidates only the union of the cursor's previous and current
+  cell plus the halo, not the whole view, so an idle fade does not repaint every visible row at 60 fps.
+  Such a frame is flagged as cursor-only and `onDraw` then leaves the buffer's dirty state and the
+  overlay bookkeeping alone for the next screen update (a partial frame must not consume dirty rows it
+  did not paint). The runnable is always posted on the main thread, and its state fields are `volatile`.
+- **Fallback.** When neither blink nor ease is active the loop stops re-posting; the view still calls
+  the new overload so the values are explicit.
 
 ## 4. Data flow
 
@@ -178,7 +191,10 @@ emulator.getCursorRow()/Col()             │  animation   │ ── easedRow/C
   `clearShadowLayer` calls): assert —
   - at `cursorAlpha == 0` no cursor rect is drawn and the paint is never given a cursor alpha;
   - at `cursorAlpha == 0.5` the cursor rect is drawn with the paint's alpha set to ~128;
-  - `glowRadius > 0` sets a shadow layer before the cursor rect and clears it after;
+  - `glowRadius > 0` draws the halo rects before the rows (no `Paint` shadow layer, which a hardware
+    canvas ignores for `drawRect`), and `glowRadius == 0` draws none;
+  - a fading block cursor blends its cell's background and glyph colours instead of painting an opaque
+    cell under a translucent overlay, and is solid at `cursorAlpha == 1`;
   - an eased bar/underline cursor draws exactly one rect at the eased pixel position and none inline;
   - a block cursor never eases (rect stays at the true cell even when an eased position is passed).
 - **Not unit-testable on this host** (no Robolectric in `:terminal-view`): the `Choreographer`/
@@ -193,7 +209,8 @@ emulator.getCursorRow()/Col()             │  animation   │ ── easedRow/C
 
 - Blink disabled (`periodMs <= 0`) → `blinkAlpha` returns 1, cursor fully opaque, no glow artefact.
 - `cursorAlpha == 0` → no rect, no block inversion; the cell's text is drawn normally.
-- `glowRadius == 0` (default 8-arg overload) → no `setShadowLayer` call, identical to today.
+- `glowRadius == 0` (default 8-arg overload) → no halo rects at all, identical to today.
+- A fading block cursor blends its cell colours; at `cursorAlpha == 1` the solid path is unchanged.
 - Eased position not active (`easedCursorCol < 0`) → inline path, no post-pass.
 - Block cursor with an eased position supplied → `mEaseActive` is false, inline rect at the true cell.
 - Alpha/shadow must always be reset after the cursor rect so glyphs are not faded or haloed.

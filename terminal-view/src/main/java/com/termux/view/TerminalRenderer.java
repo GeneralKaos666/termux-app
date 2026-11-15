@@ -154,6 +154,15 @@ public final class TerminalRenderer {
         if (reverseVideo)
             canvas.drawColor(palette[TextStyle.COLOR_INDEX_FOREGROUND], PorterDuff.Mode.SRC);
 
+        // The halo goes down before the rows, so the glyphs of every cell are painted on top of it and stay
+        // crisp. It is skipped when the cursor's row is outside the band being drawn.
+        if (cursorVisible && mCursorAlpha > 0f && mGlowRadius > 0f
+            && cursorRow >= firstScreenRow - 1 && cursorRow <= lastScreenRowExclusive) {
+            drawCursorHalo(canvas, mEaseActive ? easedCursorCol : cursorCol,
+                mEaseActive ? easedCursorRow : cursorRow, topRow, cursorShape,
+                palette[TextStyle.COLOR_INDEX_CURSOR]);
+        }
+
         // The offset is advanced by one line spacing per row, so rows skipped at the start of the range must be
         // accounted for here to keep every row at its true pixel offset.
         float heightOffset = mFontLineSpacingAndAscent + (firstScreenRow - topRow) * mFontLineSpacing;
@@ -315,6 +324,20 @@ public final class TerminalRenderer {
             backColor = tmp;
         }
 
+        // A block cursor's cell is painted opaque (the cursor colour behind, the cell's background colour in
+        // front), so a translucent rect over it could not fade it. Blend the two colours by the frame's alpha
+        // instead, which fades the block and its inverted glyph together.
+        final boolean fadingBlockCursor = cursor != 0
+            && cursorStyle == TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK && mCursorAlpha < 1f;
+        if (fadingBlockCursor) {
+            // The cursor run is the same cell rendered with the reverse decision flipped, so the colours the cell
+            // has without the cursor are this run's two colours swapped.
+            int unCursoredBackground = foreColor;
+            int unCursoredForeground = backColor;
+            backColor = blendColor(unCursoredBackground, cursor, mCursorAlpha);
+            foreColor = blendColor(unCursoredForeground, unCursoredBackground, mCursorAlpha);
+        }
+
         float left = startColumn * mFontWidth;
         float right = left + runWidthColumns * mFontWidth;
 
@@ -330,7 +353,7 @@ public final class TerminalRenderer {
             canvas.drawRect(left, y - mFontLineSpacingAndAscent + mFontAscent, right, y, mTextPaint);
         }
 
-        if (cursor != 0 && !mEaseActive) {
+        if (cursor != 0 && !mEaseActive && !fadingBlockCursor) {
             drawCursorRect(canvas, left, right, y, cursorStyle, cursor);
         }
 
@@ -373,19 +396,51 @@ public final class TerminalRenderer {
 
     /**
      * Fills the cursor's cell (or its cell-sized eased footprint) with the cursor colour, applying the frame's
-     * alpha and halo. Leaves {@link #mTextPaint} opaque and halo-free, because the glyphs of the same run are
-     * drawn with the same paint right after this rect.
+     * alpha. Leaves {@link #mTextPaint} opaque, because the glyphs of the same run are drawn with the same paint
+     * right after this rect.
      */
     private void drawCursorRect(Canvas canvas, float left, float right, float y, int cursorShape, int cursorColor) {
         mTextPaint.setColor(cursorColor);
         mTextPaint.setAlpha((int) (mCursorAlpha * 255f + 0.5f));
-        if (mGlowRadius > 0f) mTextPaint.setShadowLayer(mGlowRadius, 0f, 0f, cursorColor);
         float cursorHeight = mFontLineSpacingAndAscent - mFontAscent;
         if (cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE) cursorHeight /= 4.f;
         else if (cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR) right -= (((right - left) * 3) / 4.f);
         canvas.drawRect(left, y - cursorHeight, right, y, mTextPaint);
-        if (mGlowRadius > 0f) mTextPaint.clearShadowLayer();
         mTextPaint.setAlpha(255);
+    }
+
+    /**
+     * Draws the cursor's halo as a few expanding rects of low opacity. A {@link Paint} shadow layer is ignored
+     * for {@link Canvas#drawRect} on a hardware-accelerated canvas, which is what a {@code View}'s
+     * {@code onDraw} is handed, so the halo is painted explicitly. Callers draw it before the rows so it can
+     * never tint a glyph.
+     */
+    private void drawCursorHalo(Canvas canvas, float column, float row, int topRow, int cursorShape, int color) {
+        final int steps = 3;
+        final int stepAlpha = (int) (mCursorAlpha * 255f * 0.12f);
+        if (stepAlpha <= 0) return;
+        float left = column * mFontWidth;
+        float right = left + mFontWidth;
+        float y = mFontLineSpacingAndAscent + (row - topRow + 1) * mFontLineSpacing;
+        float cursorHeight = mFontLineSpacingAndAscent - mFontAscent;
+        if (cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE) cursorHeight /= 4.f;
+        else if (cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR) right -= (((right - left) * 3) / 4.f);
+        float top = y - cursorHeight;
+        mTextPaint.setColor(color);
+        mTextPaint.setAlpha(stepAlpha);
+        for (int step = steps; step >= 1; step--) {
+            float expand = mGlowRadius * step / steps;
+            canvas.drawRect(left - expand, top - expand, right + expand, y + expand, mTextPaint);
+        }
+        mTextPaint.setAlpha(255);
+    }
+
+    /** Linear blend of two opaque colours: {@code factor} 0 keeps {@code from}, 1 returns {@code to}. */
+    private static int blendColor(int from, int to, float factor) {
+        int red = (int) (((from >> 16) & 0xFF) + ((((to >> 16) & 0xFF) - ((from >> 16) & 0xFF)) * factor) + 0.5f);
+        int green = (int) (((from >> 8) & 0xFF) + ((((to >> 8) & 0xFF) - ((from >> 8) & 0xFF)) * factor) + 0.5f);
+        int blue = (int) ((from & 0xFF) + (((to & 0xFF) - (from & 0xFF)) * factor) + 0.5f);
+        return 0xFF000000 | (red << 16) | (green << 8) | blue;
     }
 
     /**
