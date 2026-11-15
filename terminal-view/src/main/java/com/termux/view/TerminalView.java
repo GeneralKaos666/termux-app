@@ -1474,8 +1474,9 @@ public final class TerminalView extends View {
         if (mTerminalCursorBlinkerHandler != null && mTerminalCursorBlinkerRunnable != null) {
             if (TERMINAL_VIEW_KEY_LOGGING_ENABLED)
                 mClient.logVerbose(LOG_TAG, "Stopping cursor blinker");
-            // removeCallbacks cannot cancel a frame already executing on the main thread, so mark it cancelled:
-            // its finally block then declines to re-post itself and cannot race a later start into a second loop.
+            // Everything here runs on the UI thread (the emulator is fed by TerminalSession's main-thread
+            // handler), so removeCallbacks alone would suffice today. The flag is kept as defence for a future
+            // off-thread caller: a frame already executing then declines to re-post itself.
             mTerminalCursorBlinkerRunnable.cancel();
             mTerminalCursorBlinkerHandler.removeCallbacks(mTerminalCursorBlinkerRunnable);
         }
@@ -1520,8 +1521,9 @@ public final class TerminalView extends View {
         /** Start of the blink envelope, so the cursor is fully visible on the first frame after starting. */
         private final long mBlinkStartUptimeMs = SystemClock.uptimeMillis();
         /**
-         * Set by {@link #stopTerminalCursorBlinker()}. A frame already executing on the main thread cannot be
-         * removed from the queue, so it checks this flag before drawing and before re-posting itself.
+         * Set by {@link #stopTerminalCursorBlinker()}. The view and this runnable both run on the UI thread
+         * today, so this is defence for a future off-thread caller: a frame that is already executing then
+         * declines to draw again or re-post itself.
          */
         private volatile boolean mCancelled;
 

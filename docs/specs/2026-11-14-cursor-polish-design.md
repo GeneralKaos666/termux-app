@@ -202,7 +202,8 @@ emulator.getCursorRow()/Col()             │  animation   │ ── easedRow/C
     canvas ignores for `drawRect`), and `glowRadius == 0` draws none;
   - a fading block cursor blends its cell's background and glyph colours instead of painting an opaque
     cell under a translucent overlay, and is solid at `cursorAlpha == 1`; the blend follows the cell
-    when global reverse video is on, and when reverse video and SGR inverse cancel;
+    when global reverse video is on, when a selection covers it, and when reverse video and SGR
+    inverse cancel;
   - an eased bar/underline cursor draws exactly one rect at the eased pixel position and none inline,
     and draws nothing at `cursorAlpha == 0` even when an eased position is supplied;
   - a block cursor never eases (rect stays at the true cell even when an eased position is passed).

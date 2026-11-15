@@ -6,6 +6,7 @@ import android.graphics.Typeface;
 
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalOutput;
+import com.termux.terminal.TextStyle;
 
 import junit.framework.TestCase;
 
@@ -41,6 +42,8 @@ public class TerminalRendererRunTest extends TestCase {
         /** When set (>= 0), the advance reported for a multi-char slice starting at this char index. */
         int spanAdvanceStartChar = -1;
         float spanAdvance = -1f;
+        /** The colour left on the paint by the last draw. */
+        int lastColor;
 
         @Override public float getFontSpacing() { return 20f; }
         @Override public float ascent() { return -15f; }
@@ -51,27 +54,30 @@ public class TerminalRendererRunTest extends TestCase {
             if (spanAdvance >= 0f && index == spanAdvanceStartChar) return spanAdvance;
             return cellWidth * count;
         }
+        @Override public void setColor(int color) { lastColor = color; }
     }
 
-    /** A canvas that records glyph draws as {startCharIndex, charCount, x} plus the transform calls. */
+    /** A canvas that records glyph draws as {startCharIndex, charCount, x, colour} and rects as {left, colour}. */
     private static final class RecordingCanvas extends Canvas {
         final List<String> calls = new ArrayList<>();
         final List<float[]> glyphs = new ArrayList<>();
+        final List<float[]> rects = new ArrayList<>();
         final List<Float> scales = new ArrayList<>();
 
         @Override public void drawText(char[] text, int index, int count, float x, float y, Paint paint) {
             calls.add("text");
-            glyphs.add(new float[]{index, count, x});
+            glyphs.add(new float[]{index, count, x, ((StubPaint) paint).lastColor});
         }
 
         @Override public void drawTextRun(char[] text, int index, int count, int contextIndex, int contextCount,
                                          float x, float y, boolean isRtl, Paint paint) {
             calls.add("textRun");
-            glyphs.add(new float[]{index, count, x});
+            glyphs.add(new float[]{index, count, x, ((StubPaint) paint).lastColor});
         }
 
         @Override public void drawRect(float left, float top, float right, float bottom, Paint paint) {
             calls.add("rect");
+            rects.add(new float[]{left, ((StubPaint) paint).lastColor});
         }
 
         @Override public void scale(float sx, float sy) {
@@ -126,8 +132,13 @@ public class TerminalRendererRunTest extends TestCase {
 
     /** Renders row 0. The row is space-filled to the full width, so its final run covers all 10 cells. */
     private void render(RunAdvancesSource advances) {
+        render(advances, -1, -1, -1, -1);
+    }
+
+    /** Renders row 0 with a rectangular selection (all four selectors -1 for none). */
+    private void render(RunAdvancesSource advances, int selectionY1, int selectionY2, int selectionX1, int selectionX2) {
         TerminalRenderer renderer = new TerminalRenderer(14, Typeface.MONOSPACE, true, mPaint, advances);
-        renderer.render(mTerminal, mCanvas, 0, -1, -1, -1, -1, 0, 1);
+        renderer.render(mTerminal, mCanvas, 0, selectionY1, selectionY2, selectionX1, selectionX2, 0, 1);
     }
 
     public void testAlignedRunDrawsOneShapedSpan() {
@@ -267,5 +278,41 @@ public class TerminalRendererRunTest extends TestCase {
             assertEquals(20f * i, mCanvas.glyphs.get(i)[2], 0.001f);
         }
         assertEquals(7f, mCanvas.glyphs.get(3)[1], 0.001f);
+    }
+
+    public void testReverseVideoInvertsPlainCells() {
+        enter("\033[?5h\033[?25l");
+        render(null);
+        int foreground = mTerminal.mColors.mCurrentColors[TextStyle.COLOR_INDEX_FOREGROUND];
+        int background = mTerminal.mColors.mCurrentColors[TextStyle.COLOR_INDEX_BACKGROUND];
+        assertFalse("a reversed row paints a background rect", mCanvas.rects.isEmpty());
+        assertEquals("a reversed cell's background is the foreground colour", foreground, (int) mCanvas.rects.get(0)[1]);
+        assertEquals("a reversed cell's glyph is the background colour", background, (int) mCanvas.glyphs.get(0)[3]);
+    }
+
+    public void testSelectedCellsAreReversed() {
+        enter("ab\r\n");
+        render(null, 0, 0, 1, 1); // only the 'b' is selected
+        int foreground = mTerminal.mColors.mCurrentColors[TextStyle.COLOR_INDEX_FOREGROUND];
+        int background = mTerminal.mColors.mCurrentColors[TextStyle.COLOR_INDEX_BACKGROUND];
+        assertEquals("an unselected cell keeps its foreground colour", foreground, (int) glyphAtX(0f)[3]);
+        assertEquals("a selected cell's glyph is the background colour", background, (int) glyphAtX(CELL_WIDTH)[3]);
+        assertEquals("a selected cell's background is the foreground colour", foreground, (int) rectAtX(CELL_WIDTH)[1]);
+    }
+
+    /** The recorded glyph that starts at {@code x}. */
+    private float[] glyphAtX(float x) {
+        for (float[] glyph : mCanvas.glyphs) {
+            if (Math.abs(glyph[2] - x) < 0.01f) return glyph;
+        }
+        throw new AssertionError("no glyph drawn at x=" + x);
+    }
+
+    /** The recorded rect whose left edge is at {@code x}. */
+    private float[] rectAtX(float x) {
+        for (float[] rect : mCanvas.rects) {
+            if (Math.abs(rect[0] - x) < 0.01f) return rect;
+        }
+        throw new AssertionError("no rect drawn at x=" + x);
     }
 }

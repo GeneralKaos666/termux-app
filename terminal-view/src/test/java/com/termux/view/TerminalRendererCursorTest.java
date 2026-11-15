@@ -122,6 +122,13 @@ public class TerminalRendererCursorTest {
             cursorAlpha, glowRadius, easedCursorRow, easedCursorCol);
     }
 
+    /** Renders row 0 with a rectangular selection and the given cursor alpha. */
+    private void renderSelected(float cursorAlpha, int selectionY1, int selectionY2, int selectionX1, int selectionX2) {
+        TerminalRenderer renderer = new TerminalRenderer(14, Typeface.MONOSPACE, true, mPaint, null);
+        renderer.render(mTerminal, mCanvas, 0, selectionY1, selectionY2, selectionX1, selectionX2, 0, 1,
+            cursorAlpha, 0f, -1f, -1f);
+    }
+
     /** The same blend the renderer uses for a fading block cursor's colours. */
     private static int blend(int from, int to, float factor) {
         int r = (int) (((from >> 16) & 0xFF) + ((((to >> 16) & 0xFF) - ((from >> 16) & 0xFF)) * factor) + 0.5f);
@@ -176,6 +183,16 @@ public class TerminalRendererCursorTest {
             blend(mDefaultBackground, mCursorColor, 0.5f), (int) rectAtX(0f)[4]);
         assertEquals("two reversals cancel: the glyph fades from the normal foreground",
             blend(mDefaultForeground, mDefaultBackground, 0.5f), glyphColorAtX(0f));
+    }
+
+    @Test
+    public void blockCursorFadeBlendsTowardsASelectedCell() {
+        // The selection covers the cursor's own cell, which reverses it exactly like global reverse video.
+        renderSelected(0.5f, 0, 0, 0, 0);
+        assertEquals("a selected cell's background is the foreground colour",
+            blend(mDefaultForeground, mCursorColor, 0.5f), (int) rectAtX(0f)[4]);
+        assertEquals("the glyph fades towards the selected cell's glyph colour",
+            blend(mDefaultBackground, mDefaultForeground, 0.5f), glyphColorAtX(0f));
     }
 
     @Test
@@ -243,6 +260,16 @@ public class TerminalRendererCursorTest {
         for (int i = 0; i < 3; i++)
             assertEquals("rect " + i + " must be a halo rect", Boolean.FALSE, mCanvas.order.get(i));
         assertEquals("the paint must be opaque again for the glyphs", 255, mPaint.lastAlpha);
+        assertEquals("the halo's own alpha must be reset before the glyphs", 255f, mCanvas.glyphs.get(0)[2], 0.01f);
+    }
+
+    @Test
+    public void haloAlphaIsResetBeforeTheRows() {
+        // At half alpha a fading block cursor draws no rect of its own, so only the halo touches the paint's
+        // alpha: the cell background and its glyphs must still be drawn opaque.
+        render(0.5f, 4f, -1f, -1f);
+        assertEquals("the halo's alpha must be reset before the cell background", 255f, mCanvas.rects.get(3)[5], 0.01f);
+        assertEquals("the halo's alpha must be reset before the glyphs", 255f, mCanvas.glyphs.get(0)[2], 0.01f);
     }
 
     @Test
