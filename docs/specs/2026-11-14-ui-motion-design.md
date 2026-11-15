@@ -88,11 +88,11 @@ Three effects in `SessionsBar.kt`:
 
 ### 3.3 Float transition
 
-`FloatingWindow.kt` content gets a scale+fade in/out on the expand/collapse toggle, and
-`FloatingBubble.kt` gets the matching fade/scale so the two reads as one morph. The transition keys
-off the existing expand/collapse state the `FloatController` already toggles; no `WindowManager`
-change. The overlay window's outer bounds are unchanged, so the resize/drag clamp logic in
-`FloatWindowGeometry` is untouched.
+`FloatingWindow.kt` and `FloatingBubble.kt` each get a scale+fade **in** on first composition: the
+root composable's `graphicsLayer` is driven by an `Animatable(0f)` animating to `1f` over ~150 ms in a
+`LaunchedEffect(Unit)`. There is no exit animation: the `FloatController` swaps the two overlay
+`ComposeView`s synchronously, so the outgoing window is removed before an exit could be observed. The
+two enter animations share one spring spec so the swap still reads as a single morph.
 
 ## 4. Data flow
 

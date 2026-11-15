@@ -44,8 +44,10 @@ Non-goals:
 - **No live-wallpaper animation capture.** Android exposes no public bitmap of a running live
   wallpaper to another app; the fallback is a flat sampled colour, and that limitation is documented,
   not "fixed".
-- **No change to `:terminal-view`, `:terminal-emulator` or `:termux-shared`.** Everything lives in
-  `:app`.
+- **No change to `:terminal-view` or `:terminal-emulator`.** The only `:termux-shared` touch is
+  additive: two new preference keys in `TermuxPreferenceConstants.TERMUX_APP` and two getter/setter
+  pairs in `TermuxAppSharedPreferences` (the terminal background preferences already live there, e.g.
+  `KEY_TERMINAL_BACKGROUND_DIM`). No existing key, constant or method changes behaviour.
 - **No new dependency.**
 
 ## 3. Design
@@ -96,8 +98,9 @@ tone. The live animation itself is still not captured.
 
 The existing Display/Background preferences gain two entries next to `terminal_background_dim`:
 `terminal_background_blur` (0–25) and `terminal_background_opacity` (10–100). They persist through
-`TermuxSharedPreferences`, read in `syncTerminalBackground` and passed through to
-`TerminalBackgroundState.update`.
+`TermuxAppSharedPreferences` (getters/setters added next to `getTerminalBackgroundDim`/
+`setTerminalBackgroundDim`; keys/defaults added to `TermuxPreferenceConstants.TERMUX_APP`), are read
+in `syncTerminalBackground` and passed through to `TerminalBackgroundState.update`.
 
 ## 4. Data flow
 
