@@ -1,6 +1,7 @@
 package com.termux.app.ui.background;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -38,6 +39,18 @@ public class BackgroundFxTest {
         assertEquals(0.1f, BackgroundFx.INSTANCE.clampOpacity(5), 0.001f);
         assertEquals(0.6f, BackgroundFx.INSTANCE.clampOpacity(60), 0.001f);
         assertEquals(1f, BackgroundFx.INSTANCE.clampOpacity(150), 0.001f);
+    }
+
+    @Test
+    public void liveWallpaperAlwaysUsesTheFallbackColour() {
+        assertTrue(BackgroundFx.INSTANCE.useWallpaperFallbackColor(true, true));
+        assertTrue(BackgroundFx.INSTANCE.useWallpaperFallbackColor(true, false));
+    }
+
+    @Test
+    public void staticWallpaperUsesAFrameOnlyWhenItIsUsable() {
+        assertFalse(BackgroundFx.INSTANCE.useWallpaperFallbackColor(false, true));
+        assertTrue(BackgroundFx.INSTANCE.useWallpaperFallbackColor(false, false));
     }
 
     @Test

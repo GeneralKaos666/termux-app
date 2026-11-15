@@ -1005,17 +1005,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return mPreferences != null && mPreferences.shouldUseCustomImageTerminalBackground();
     }
 
-    /** Loads the current system wallpaper as a bitmap downsampled to at most the screen size. */
+    /**
+     * Loads the current system wallpaper as a bitmap downsampled to at most the screen size. A live
+     * wallpaper's animation is never captured, so it always takes the sampled fallback colour; a
+     * static wallpaper is drawn from its frame unless that frame is unusable.
+     */
     @Nullable
     @SuppressWarnings("deprecation")
     private Bitmap loadSystemWallpaperBitmap() {
         try {
             WallpaperManager wallpaperManager = WallpaperManager.getInstance(this);
+            boolean liveWallpaper = wallpaperManager.getWallpaperInfo() != null;
             Drawable wallpaperDrawable = wallpaperManager.getDrawable();
-            if (wallpaperDrawable == null
-                || wallpaperDrawable.getIntrinsicWidth() <= 0
-                || wallpaperDrawable.getIntrinsicHeight() <= 0) {
-                Logger.logDebug(LOG_TAG, "No usable wallpaper frame, using the fallback colour");
+            boolean usableFrame = wallpaperDrawable != null
+                && wallpaperDrawable.getIntrinsicWidth() > 0
+                && wallpaperDrawable.getIntrinsicHeight() > 0;
+            if (BackgroundFx.useWallpaperFallbackColor(liveWallpaper, usableFrame)) {
+                Logger.logDebug(LOG_TAG, liveWallpaper
+                    ? "Live wallpaper frame not captured, using the fallback colour"
+                    : "No usable wallpaper frame, using the fallback colour");
                 return wallpaperFallbackBitmap(wallpaperManager);
             }
             return drawableToScreenBitmap(wallpaperDrawable);
@@ -1026,10 +1034,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
-     * A 1x1 bitmap for the live-wallpaper case, where {@code getDrawable()} yields nothing: the
+     * A 1x1 bitmap for the live-wallpaper case, where the animation itself cannot be captured: the
      * wallpaper's primary colour when the platform can sample one (API 27+), else the terminal
-     * background colour. Replaces the black the shell used to show behind a live wallpaper; the
-     * live animation itself is still not captured.
+     * background colour. Some devices hand back a stale static frame through {@code getDrawable()}
+     * for a live wallpaper, so that frame is not drawn; the sampled colour is used instead.
      */
     @NonNull
     private Bitmap wallpaperFallbackBitmap(@NonNull WallpaperManager wallpaperManager) {

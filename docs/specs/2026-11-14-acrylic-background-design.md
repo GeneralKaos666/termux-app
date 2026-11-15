@@ -90,11 +90,14 @@ lightens the picture, dim darkens it for text contrast.
 
 ### 3.4 Live-wallpaper fallback — `TermuxActivity.loadSystemWallpaperBitmap`
 
-When `WallpaperManager.getDrawable()` returns a null/empty drawable (the live-wallpaper case), fall
-back to a 1×1 solid `Bitmap` coloured with the wallpaper's primary colour from
-`WallpaperManager.getWallpaperColors()` (API 27+), falling back to the terminal background colour on
-older APIs. This replaces today's black with a colour that matches the live wallpaper's dominant
-tone. The live animation itself is still not captured.
+A live wallpaper is detected with `WallpaperManager.getWallpaperInfo()` and always takes the flat
+colour: its animation cannot be captured, and some devices hand back a stale static frame through
+`getDrawable()`, which would freeze the previous wallpaper behind the terminal. A static wallpaper
+falls back only when its drawable is null or has no intrinsic size. The fallback is a 1×1 solid
+`Bitmap` coloured with the wallpaper's primary colour from `WallpaperManager.getWallpaperColors()`
+(API 27+), falling back to the terminal background colour on older APIs. This replaces today's black
+with a colour that matches the live wallpaper's dominant tone. The live animation itself is still not
+captured.
 
 ### 3.5 Settings surface
 

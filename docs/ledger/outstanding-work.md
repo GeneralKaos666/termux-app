@@ -108,10 +108,11 @@ drag-to-reorder, rename and close have all since shipped.
   independently of the dim (opacity 10–100 %). Both live in `TerminalBackgroundState` and draw from
   `ShellHost.drawBehind`; the two preferences are additive in `:termux-shared`. Defaults (0 px,
   100 %) reproduce the previous rendering exactly. Device pass: `manual-checks.md` D-16.
-- `[limitation]` with a live (animated) wallpaper, `WallpaperManager.getDrawable()` yields no usable
-  frame, so the system-wallpaper background falls back to a flat colour: the wallpaper's primary
-  colour on API 27+, else the terminal background colour. The live animation itself is not captured.
-  Ruled a device/engine quirk seen on the ZTE live wallpaper, not app code.
+- `[limitation]` a live (animated) wallpaper is never captured: the system-wallpaper background falls
+  back to a flat colour, the wallpaper's primary colour on API 27+, else the terminal background
+  colour. Live wallpapers are detected with `WallpaperManager.getWallpaperInfo()` because some
+  devices return a stale static frame through `getDrawable()` instead of none, which would freeze the
+  previous wallpaper behind the terminal.
 
 ---
 

@@ -36,7 +36,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-13 | IME text round-trip after the `TerminalView` seam split | deferred to the device phase | §14 below |
 | D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
 | D-15 | Shell UI motion (springy chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
-| D-16 | Acrylic background (blur, opacity, live-wallpaper fallback colour) | deferred to the device phase | §17 below |
+| D-16 | Acrylic background (blur, opacity, live-wallpaper fallback colour) | **passed 2026-11-14** on NX769J / API 34 (12 of 12; the live-wallpaper rows needed the `getWallpaperInfo()` fix) | §17 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -55,8 +55,9 @@ pixels, including a scrolled-back hit-test and a link-without-`SGR 4` control).
 8. **D-14** — cursor polish; needs a live shell and a few cursor styles, so it rides along with D-6.
 9. **D-15** — shell UI motion; a short eyeball pass on the same run as D-14, plus one run with
    "remove animations" on.
-10. **D-16** — acrylic background; needs a wallpaper and a custom image, so it rides along with D-6,
-    and one live-wallpaper pass for the fallback colour.
+10. **D-16** — done 2026-11-14 on NX769J / API 34; blur, opacity, defaults, solid mode,
+    persistence and rotation passed, and the live-wallpaper pass exposed a stale static frame that
+    needed the `getWallpaperInfo()` fix.
 
 ## 3. D-1 — WS3 shaping and ligatures
 
@@ -464,39 +465,44 @@ The picture behind the shell (system wallpaper or custom image) can now be blurr
 independently of the existing dim. The blur is a `RenderEffect` on API 31+ and a load-time downscale
 with a filtered upscale below it; the opacity is the picture's alpha under the dim overlay. Everything
 is in `:app` (`ShellHost.kt`, `TerminalBackgroundState.kt`, `BackgroundFx.kt`, `TermuxActivity`'s
-wallpaper loader); `:terminal-view` and `:terminal-emulator` are untouched. **Deferred to the device
-phase**, per the ledger work order. Run at least once on an API < 31 device or emulator if one is
-available, because the blur fallback differs there.
+wallpaper loader); `:terminal-view` and `:terminal-emulator` are untouched.
+
+**Passed 2026-11-14** on NX769J / API 34 (1116x2480, 408 dpi) with a build from `2172d6c4` plus the
+`getWallpaperInfo()` fix. The API < 31 downscale fallback is still unmeasured: no API < 31 device was
+available. Evidence is the screenshot metrics recorded in `~/.tmp/opencode/device-checks-2026-11-14.md`;
+this device exposes almost no app logs, so the rendering was verified from pixels, not logcat.
 
 Run with a busy static wallpaper and with a custom image:
 
-- [ ] Defaults unchanged: with blur 0 and opacity 100 %, the background renders exactly as before this
+- [x] Defaults unchanged: with blur 0 and opacity 100 %, the background renders exactly as before this
       change (same crop, same dim, no visible softening).
-- [ ] Blur: raise `Background blur` to a mid value (around 12). The picture visibly frosts while the
+- [x] Blur: raise `Background blur` to a mid value (around 12). The picture visibly frosts while the
       terminal text stays sharp; the blur is smooth, not blocky, and the edges of the screen do not
       show a sharp border.
-- [ ] Blur extremes: 0 restores the sharp picture, 25 is the strongest frost, and neither crashes nor
+- [x] Blur extremes: 0 restores the sharp picture, 25 is the strongest frost, and neither crashes nor
       leaves the previous frame behind.
-- [ ] Blur persistence: leave the settings screen and return to the terminal — the new radius applies
+- [x] Blur persistence: leave the settings screen and return to the terminal — the new radius applies
       without restarting the app. On API < 31 the picture reloads once; on API 31+ there is no blank
       frame or flash.
-- [ ] Opacity: lower `Background opacity` to around 40. The picture lightens towards the terminal
+- [x] Opacity: lower `Background opacity` to around 40. The picture lightens towards the terminal
       background colour while the dim slider keeps working independently; 10 % is the faintest
       setting and the terminal stays readable.
-- [ ] Opacity and dim together: with dim high and opacity low the text stays readable; with dim 0 and
+- [x] Opacity and dim together: with dim high and opacity low the text stays readable; with dim 0 and
       opacity 100 the picture is at its most visible.
-- [ ] Solid mode: switch `Background` to `Solid colour`. The blur and opacity sliders disappear and the
+- [x] Solid mode: switch `Background` to `Solid colour`. The blur and opacity sliders disappear and the
       terminal shows the plain palette background.
-- [ ] Live wallpaper: set an animated wallpaper. The background is a flat sampled colour (the
-      wallpaper primary on API 27+), not black, and not a frozen frame. Check `logcat` for
-      "No usable wallpaper frame" or "Live-wallpaper fallback colour" to see which branch ran.
-- [ ] Live wallpaper without a frame: a live wallpaper whose drawable has no intrinsic size must take
+- [x] Live wallpaper: set an animated wallpaper. The background is a flat sampled colour (the
+      wallpaper primary on API 27+), not black, and not a frozen frame. This device returned a stale
+      static frame through `getDrawable()`, so live wallpapers are now detected with
+      `getWallpaperInfo()` and always take the sampled colour; the two live rows therefore share one
+      branch and the logcat markers are not observable here.
+- [x] Live wallpaper without a frame: a live wallpaper whose drawable has no intrinsic size must take
       the same fallback colour, not a black or transparent screen.
-- [ ] One-pixel fallback fills the screen: with the live wallpaper set, the colour covers the whole
+- [x] One-pixel fallback fills the screen: with the live wallpaper set, the colour covers the whole
       shell (no black border, no zero-width draw) and is still visible through the dim.
-- [ ] Persistence across restart: set blur 12 and opacity 40, force-stop the app, reopen it. Both
+- [x] Persistence across restart: set blur 12 and opacity 40, force-stop the app, reopen it. Both
       values are still set and still applied.
-- [ ] Rotation: rotate with a blurred picture showing. No crash, no stretched crop, and the blur does
+- [x] Rotation: rotate with a blurred picture showing. No crash, no stretched crop, and the blur does
       not become sharper or softer across the rotation.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.

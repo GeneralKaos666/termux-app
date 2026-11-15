@@ -42,6 +42,16 @@ object BackgroundFx {
     @JvmStatic
     fun clampBlurRadius(radiusPx: Int): Float = radiusPx.coerceIn(0, 25).toFloat()
 
+    /**
+     * Whether the live-wallpaper fallback colour must be sampled instead of drawing a frame. A live
+     * wallpaper's animation is never captured: some devices return no frame at all, others return a
+     * stale snapshot through {@code getDrawable()}, so live is always sampled. A static wallpaper is
+     * sampled only when its frame is unusable.
+     */
+    @JvmStatic
+    fun useWallpaperFallbackColor(liveWallpaper: Boolean, hasUsableFrame: Boolean): Boolean =
+        liveWallpaper || !hasUsableFrame
+
     /** The source rectangle of a centre-crop, in source pixels. */
     data class Crop(val left: Int, val top: Int, val width: Int, val height: Int)
 
