@@ -48,6 +48,7 @@ import com.termux.app.ui.sessions.SessionsRestoreHandle
 import com.termux.app.ui.sessions.SessionsState
 import com.termux.app.ui.theme.TermuxShellTheme
 import com.termux.app.ui.theme.shellAnimationsEnabled
+import com.termux.app.ui.theme.shellSpringSpec
 import com.termux.shared.termux.extrakeys.ExtraKeysView
 
 /**
@@ -198,8 +199,8 @@ private fun TerminalShellHost(
                 if (!firstRunOverlayVisible) {
                     AnimatedVisibility(
                         visible = sessionsBarExpanded,
-                        enter = if (animationsEnabled) expandVertically() + fadeIn() else EnterTransition.None,
-                        exit = if (animationsEnabled) shrinkVertically() + fadeOut() else ExitTransition.None,
+                        enter = if (animationsEnabled) expandVertically(shellSpringSpec()) + fadeIn(shellSpringSpec()) else EnterTransition.None,
+                        exit = if (animationsEnabled) shrinkVertically(shellSpringSpec()) + fadeOut(shellSpringSpec()) else ExitTransition.None,
                     ) {
                         SessionsBar(
                             sessions = sessionsState.sessions,
@@ -249,8 +250,8 @@ private fun TerminalShellHost(
 
                 AnimatedVisibility(
                     visible = extraKeysState.visible,
-                    enter = if (animationsEnabled) expandVertically() + fadeIn() else EnterTransition.None,
-                    exit = if (animationsEnabled) shrinkVertically() + fadeOut() else ExitTransition.None,
+                    enter = if (animationsEnabled) expandVertically(shellSpringSpec()) + fadeIn(shellSpringSpec()) else EnterTransition.None,
+                    exit = if (animationsEnabled) shrinkVertically(shellSpringSpec()) + fadeOut(shellSpringSpec()) else ExitTransition.None,
                 ) {
                     ExtraKeysBar(
                         state = extraKeysState,
