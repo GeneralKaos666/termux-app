@@ -17,8 +17,21 @@ class TerminalBackgroundState {
     var dimPercent by mutableStateOf(60)
         private set
 
-    fun update(bitmap: Bitmap?, dimPercent: Int) {
+    /** Blur radius applied to the picture in pixels, 0 = sharp. */
+    var blurRadius by mutableStateOf(0f)
+        private set
+
+    /** Opacity of the picture, 0.1-1.0. Independent of [dimPercent]. */
+    var pictureOpacity by mutableStateOf(1f)
+        private set
+
+    /** Keeps callers that predate blur/opacity working with today's sharp, opaque picture. */
+    fun update(bitmap: Bitmap?, dimPercent: Int) = update(bitmap, dimPercent, 0f, 1f)
+
+    fun update(bitmap: Bitmap?, dimPercent: Int, blurRadius: Float, pictureOpacity: Float) {
         this.bitmap = bitmap
         this.dimPercent = dimPercent.coerceIn(0, 90)
+        this.blurRadius = blurRadius.coerceAtLeast(0f)
+        this.pictureOpacity = pictureOpacity.coerceIn(0.1f, 1f)
     }
 }

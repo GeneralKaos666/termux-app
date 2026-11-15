@@ -1,5 +1,11 @@
 package com.termux.app.ui
 
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RenderEffect
+import android.graphics.RenderNode
+import android.graphics.Shader
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
@@ -31,6 +37,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
@@ -50,6 +58,7 @@ import com.termux.app.ui.theme.TermuxShellTheme
 import com.termux.app.ui.theme.shellAnimationsEnabled
 import com.termux.app.ui.theme.shellSpringSpec
 import com.termux.shared.termux.extrakeys.ExtraKeysView
+import kotlin.math.roundToInt
 
 /**
  * Callbacks from the Compose shell back to the hosting Java activity, so the Compose tree never has
@@ -161,6 +170,12 @@ private fun TerminalShellHost(
     // terminal grows down to the bottom edge, where the floating handle restores the keys.
     var extraKeysExpanded by rememberSaveable { mutableStateOf(true) }
 
+    // Reused across draws: the blur is recorded into this node once per changed picture/size and
+    // drawn as one layer. Null below API 31, where the load-time downscale is the blur.
+    val blurNode = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) RenderNode("terminalBackgroundBlur") else null
+    }
+
     // Dark-first chrome: the terminal and the extra-keys grid are always dark, so the shell follows
     // them rather than the system light/dark setting. Material You (dark variant) on API 31+,
     // Termux palette fallback elsewhere; see the theme module.
@@ -182,13 +197,49 @@ private fun TerminalShellHost(
                         val scale = maxOf(dstW.toFloat() / srcW, dstH.toFloat() / srcH)
                         val cropW = (dstW / scale).toInt().coerceAtMost(srcW)
                         val cropH = (dstH / scale).toInt().coerceAtMost(srcH)
-                        drawImage(
-                            image = picture.asImageBitmap(),
-                            srcOffset = IntOffset((srcW - cropW) / 2, (srcH - cropH) / 2),
-                            srcSize = IntSize(cropW, cropH),
-                            dstOffset = IntOffset.Zero,
-                            dstSize = IntSize(dstW, dstH),
-                        )
+                        val srcOffset = IntOffset((srcW - cropW) / 2, (srcH - cropH) / 2)
+                        val opacity = terminalBackgroundState.pictureOpacity
+                        val blurRadius = terminalBackgroundState.blurRadius
+                        if (blurRadius > 0f) {
+                            // Blur is a RenderEffect on a reusable RenderNode, API 31+. Below that
+                            // there is no RenderEffect: the bitmap was already downscaled at load
+                            // time by BackgroundFx.blurDownscale, so the filtered upscale below is
+                            // the fallback blur.
+                            val paint = Paint().apply {
+                                alpha = (opacity * 255f).roundToInt().coerceIn(0, 255)
+                                isFilterBitmap = true
+                            }
+                            val src = Rect(srcOffset.x, srcOffset.y, srcOffset.x + cropW, srcOffset.y + cropH)
+                            val dst = Rect(0, 0, dstW, dstH)
+                            drawIntoCanvas { canvas ->
+                                val nativeCanvas = canvas.nativeCanvas
+                                if (blurNode != null && nativeCanvas.isHardwareAccelerated) {
+                                    blurNode.setPosition(0, 0, dstW, dstH)
+                                    blurNode.setRenderEffect(
+                                        RenderEffect.createBlurEffect(
+                                            blurRadius,
+                                            blurRadius,
+                                            Shader.TileMode.CLAMP,
+                                        ),
+                                    )
+                                    val recording = blurNode.beginRecording(dstW, dstH)
+                                    recording.drawBitmap(picture, src, dst, paint)
+                                    blurNode.endRecording()
+                                    nativeCanvas.drawRenderNode(blurNode)
+                                } else {
+                                    nativeCanvas.drawBitmap(picture, src, dst, paint)
+                                }
+                            }
+                        } else {
+                            drawImage(
+                                image = picture.asImageBitmap(),
+                                srcOffset = srcOffset,
+                                srcSize = IntSize(cropW, cropH),
+                                dstOffset = IntOffset.Zero,
+                                dstSize = IntSize(dstW, dstH),
+                                alpha = opacity,
+                            )
+                        }
 
                         val dim = terminalBackgroundState.dimPercent
                         if (dim > 0) drawRect(Color.Black.copy(alpha = dim / 100f))
