@@ -115,7 +115,8 @@ extra_excludes=.my-local-cache
 
 `SHA256SUMS` uses the standard `sha256sum` format (`<hash>  <name>`), one line per archive, and is
 generated last. A backup directory missing `SHA256SUMS` is reported as unusable and is never
-restored or pruned.
+restored or pruned. The manifest is read only for the format and arch guards: if it is missing or
+unreadable, restore warns and skips the arch check instead of blocking.
 
 Archive layout inside the tarballs:
 
