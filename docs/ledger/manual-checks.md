@@ -35,6 +35,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** (all window, IME, permission and lifecycle checks; three defects fixed) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
 | D-13 | IME text round-trip after the `TerminalView` seam split | deferred to the device phase | §14 below |
 | D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
+| D-15 | Shell UI motion (springy chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -51,6 +52,8 @@ pixels, including a scrolled-back hit-test and a link-without-`SGR 4` control).
 6. **D-10** — only if Termux:Float gets picked up.
 7. **D-12** — only if the in-app floating terminal gets picked up (alongside the other pending appearance/float checks).
 8. **D-14** — cursor polish; needs a live shell and a few cursor styles, so it rides along with D-6.
+9. **D-15** — shell UI motion; a short eyeball pass on the same run as D-14, plus one run with
+   "remove animations" on.
 
 ## 3. D-1 — WS3 shaping and ligatures
 
@@ -414,5 +417,38 @@ Run in a live shell session:
       `printf '\033[?25h'` brings it back fully opaque.
 - [ ] Fast input: holding an arrow key in `nano`/`cat`-less editing keeps the drawn cursor with the true
       caret with no visible lag or trail.
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 16. D-15 — shell UI motion (springy chrome, animated tabs, float enter)
+
+The Compose shell now moves: both chrome bars spring open and closed, session tabs slide/fade on add,
+close and reorder, the active tab's surface fades in and a rounded pill glides between tabs, and the
+float bubble/window grows and fades in on first composition. Everything is in `:app` Compose
+(`ShellHost.kt`, `SessionsBar.kt`, `FloatingWindow.kt`, `FloatingBubble.kt`, `theme/Motion.kt`);
+`TerminalView` and the float `WindowManager` maths are untouched. **Deferred to the device phase**,
+per the ledger work order.
+
+Run with at least three sessions and the float session available:
+
+- [ ] Sessions bar spring: collapse it with the chevron and expand it with the floating handle. It
+      grows and shrinks with a slight overshoot, not a linear tween, and the terminal resizes cleanly
+      underneath.
+- [ ] Extra-keys bar spring: hide and show the key grid with its handle. Same motion; no clipped or
+      jumping rows.
+- [ ] Tab add/close: open a new tab and close one. The new tab slides/fades in and the closing one
+      slides/fades out; the remaining tabs close the gap smoothly.
+- [ ] Tab reorder: long-press a tab and drag it past another. The other tabs animate around the
+      dragged tab, and the dragged tab lands in its new slot without a jump.
+- [ ] Active indicator: switch tabs (tap and the session menu). The surface colour fades in and the
+      pill glides to the newly active tab, including while the row is scrolled; it never trails
+      behind a scroll fling.
+- [ ] Float enter: collapse the window to the bubble and expand it again. Both grow and fade in
+      instead of popping; the terminal content is sharp once settled.
+- [ ] Empty sessions list: with no sessions the bar shows the "start a session" prompt and there is
+      no stray pill or animation artifact.
+- [ ] Remove animations: turn on the system "remove animations" setting (or set
+      `ANIMATOR_DURATION_SCALE` to 0) and restart the app. Every transition above is instant, with no
+      fade, slide or overshoot.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.

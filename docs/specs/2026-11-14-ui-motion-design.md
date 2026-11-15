@@ -4,9 +4,9 @@
 **Scope:** make the Compose shell's motion fluid and springy where it is currently abrupt, and add the
 transitions that are missing. All changes are in `:app` Compose UI under
 `app/src/main/java/com/termux/app/ui/`.
-**Status:** design approved in chat 2026-11-14; not yet implemented.
-**Ledger item:** none yet — new feature; a device check (D-15) is added to `manual-checks.md` on
-implementation.
+**Status:** design approved in chat 2026-11-14; implemented 2026-11-14 (`75e605d3`, `5c98ef31`,
+`3f923e3d`). Device check D-15 outstanding.
+**Ledger item:** `outstanding-work.md` §1.4; device check D-15 in `manual-checks.md`.
 
 ## 1. Why
 
@@ -80,11 +80,15 @@ Three effects in `SessionsBar.kt`:
   moves because of a reorder. The drag path is excluded (the dragged tab already uses its own
   `graphicsLayer.translationX`), so a reorder animates the *other* tabs around the dragged one.
 - **Active-tab surface** — replace the instant `containerColor` swap with `animateColorAsState(...)`
-  on the active tab's `containerColor`/`contentColor`, so selection fades in.
+  on the active tab's `containerColor`/`contentColor`, so selection fades in. Colours use a 200 ms
+  tween rather than the shell spring: a bouncy spec would overshoot the blend past the target colour.
 - **Active indicator** — a thin rounded pill under the active tab that slides between tabs with
   `animateDpAsState(...)`/`animateOffsetAsState(...)` keyed to the active tab's measured bounds
   (already captured in `tabBounds`). The pill is a sibling to the `LazyRow`, so its slide does not
-  fight the row's own layout.
+  fight the row's own layout. The bounds are read through a `snapshotFlow`, not during composition,
+  because that map is written from layout and reading it there would schedule another layout on
+  every write. The pill snaps while the row is scrolling (the bounds move every frame) and springs
+  otherwise, so it never trails behind a fling.
 
 ### 3.3 Float transition
 
@@ -125,7 +129,9 @@ float expand/collapse   ──► FloatingWindow / FloatingBubble ──► scal
 
 ## 7. Verification
 
-1. `./gradlew :app:assembleDebug` green.
+1. `./gradlew :app:assembleDebug` green. On this host that step cannot run: the NDK `ndk-build`
+   fails with `ERROR: Unknown host CPU architecture: aarch64` (pre-existing, unrelated). The gate
+   used instead is `./gradlew test :app:compileDebugKotlin :app:compileDebugJavaWithJavac`.
 2. Full `./gradlew test` green (no new tests; the existing suite must stay green).
 3. Device check D-15 in the device phase (kept last, per the work order).
 

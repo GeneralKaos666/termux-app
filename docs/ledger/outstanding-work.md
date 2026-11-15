@@ -97,6 +97,11 @@ drag-to-reorder, rename and close have all since shipped.
   baked into the cell. The engine and the public renderer API are unchanged (a new 13-argument
   `render(...)` overload does the effects; the existing overloads delegate with neutral values).
   Device pass: `manual-checks.md` D-14.
+- `[shipped 2026-11-14]` shell UI motion in `:app` Compose: both chrome bars spring open and closed
+  (`theme/Motion.kt#shellSpringSpec`), session tabs slide/fade on add, close and reorder
+  (`Modifier.animateItem`), the active tab's colours fade in and a rounded pill glides between tabs,
+  and the float bubble/window grows and fades in on first composition. Everything collapses to
+  instant when `shellAnimationsEnabled()` is false. Device pass: `manual-checks.md` D-15.
 - `[limitation]` with a live (animated) wallpaper, `WallpaperManager.getDrawable()` yields no usable
   frame (black), so the system-wallpaper background works only with a static image. Ruled a
   device/engine quirk seen on the ZTE live wallpaper, not app code.
