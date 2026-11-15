@@ -438,11 +438,13 @@ Run with at least three sessions and the float session available:
       jumping rows.
 - [ ] Tab add/close: open a new tab and close one. The new tab slides/fades in and the closing one
       slides/fades out; the remaining tabs close the gap smoothly.
-- [ ] Tab reorder: long-press a tab and drag it past another. The other tabs animate around the
-      dragged tab, and the dragged tab lands in its new slot without a jump.
+- [ ] Tab reorder: long-press a tab and drag it past another. Nothing reorders under the finger; on
+      drop the dragged tab glides from where it was released into its new slot and the other tabs
+      slide over to close the gap.
 - [ ] Active indicator: switch tabs (tap and the session menu). The surface colour fades in and the
       pill glides to the newly active tab, including while the row is scrolled; it never trails
-      behind a scroll fling.
+      behind a scroll fling. Scroll the active tab out of view: the pill is clipped to the row and
+      does not draw over the chevron or the "+" button.
 - [ ] Float enter: collapse the window to the bubble and expand it again. Both grow and fade in
       instead of popping; the terminal content is sharp once settled.
 - [ ] Empty sessions list: with no sessions the bar shows the "start a session" prompt and there is

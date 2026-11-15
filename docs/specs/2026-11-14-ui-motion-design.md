@@ -77,26 +77,32 @@ Three effects in `SessionsBar.kt`:
 
 - **Add/remove/reorder** — give the `LazyRow`'s item composable `Modifier.animateItem()`
   (foundation 1.12.1), which slides and fades an item into place when it appears, is removed, or
-  moves because of a reorder. The drag path is excluded (the dragged tab already uses its own
-  `graphicsLayer.translationX`), so a reorder animates the *other* tabs around the dragged one.
+  moves because of a reorder. The dragged tab is excluded while the drag is in flight (it already
+  uses its own `graphicsLayer.translationX`), so a reorder animates the *other* tabs around it; on
+  drop the residual drag offset decays to 0 over the same spring, so the tab continues from where
+  the finger released it instead of snapping back to its old slot first.
 - **Active-tab surface** — replace the instant `containerColor` swap with `animateColorAsState(...)`
   on the active tab's `containerColor`/`contentColor`, so selection fades in. Colours use a 200 ms
   tween rather than the shell spring: a bouncy spec would overshoot the blend past the target colour.
 - **Active indicator** — a thin rounded pill under the active tab that slides between tabs with
-  `animateDpAsState(...)`/`animateOffsetAsState(...)` keyed to the active tab's measured bounds
+  `animateDpAsState(...)`/`animateIntOffsetAsState(...)` keyed to the active tab's measured bounds
   (already captured in `tabBounds`). The pill is a sibling to the `LazyRow`, so its slide does not
   fight the row's own layout. The bounds are read through a `snapshotFlow`, not during composition,
   because that map is written from layout and reading it there would schedule another layout on
   every write. The pill snaps while the row is scrolling (the bounds move every frame) and springs
-  otherwise, so it never trails behind a fling.
+  otherwise, so it never trails behind a fling. It is inset by the tab's corner radius, uses a tween
+  for its width (a spring would briefly overshoot past the tab), and lives in a clipped layer over
+  the row so it cannot draw over the chevron or the "+" when the active tab is scrolled away.
 
 ### 3.3 Float transition
 
 `FloatingWindow.kt` and `FloatingBubble.kt` each get a scale+fade **in** on first composition: the
-root composable's `graphicsLayer` is driven by an `Animatable(0f)` animating to `1f` over ~150 ms in a
-`LaunchedEffect(Unit)`. There is no exit animation: the `FloatController` swaps the two overlay
-`ComposeView`s synchronously, so the outgoing window is removed before an exit could be observed. The
-two enter animations share one spring spec so the swap still reads as a single morph.
+root composable's `graphicsLayer` is driven by a remembered `Animatable(0f)` animating to `1f` with the
+shell spring in `LaunchedEffect(progress)` (both roots read one helper,
+`theme/Motion.kt#floatEnterScaleAndAlpha`, which clamps the alpha because the spring overshoots past
+1f). There is no exit animation: the `FloatController` swaps the two overlay `ComposeView`s
+synchronously, so the outgoing window is removed before an exit could be observed. The two enter
+animations share one spring spec so the swap still reads as a single morph.
 
 ## 4. Data flow
 
@@ -137,7 +143,8 @@ float expand/collapse   ──► FloatingWindow / FloatingBubble ──► scal
 
 ## 8. Documentation and rollback
 
-- `outstanding-work.md` gains a short entry under §3 for the feature and its D-15 check.
+- `outstanding-work.md` gains a short entry under §1.4 (appearance, next to the cursor polish) for the
+  feature, plus its D-15 check.
 - `manual-checks.md` gains D-15.
 - Each of the three effects is an independent, small change (spring specs; tab animation; float
   transition), so any one can be reverted without the others.

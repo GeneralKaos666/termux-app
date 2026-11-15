@@ -2,6 +2,7 @@ package com.termux.app.ui.sessions
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.snap
@@ -45,6 +46,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -106,8 +108,9 @@ fun SessionsBar(
     var newSessionMenuExpanded by remember { mutableStateOf(false) }
 
     // Horizontal extent of each tab in the root coordinate space, keyed by session id, recorded by
-    // the tab itself once it has been laid out. Only read from gesture callbacks, never during
-    // composition, so updating it does not invalidate any composable.
+    // the tab itself once it has been laid out. Never read during composition — only from gesture
+    // callbacks and from the indicator's snapshotFlow — so updating it does not invalidate any
+    // composable and cannot schedule another layout on every write.
     val tabBounds = remember { mutableStateMapOf<Int, TabBounds>() }
 
     // Bounds in session order, for the drop-index maths. Tabs that have not been laid out yet are
@@ -213,7 +216,13 @@ fun SessionsBar(
                             onTabBoundsChanged = { id, bounds -> tabBounds[id] = bounds },
                             snapshotTabBounds = snapshotTabBounds,
                             onDragStateChanged = { dragging ->
-                                draggingSessionId = if (dragging) item.id else null
+                                draggingSessionId = if (dragging) {
+                                    item.id
+                                } else {
+                                    // Only clear our own drag: another tab's end/cancel must not
+                                    // release the exclusion of a tab that is still being dragged.
+                                    draggingSessionId.takeIf { it != item.id }
+                                }
                             },
                             modifier = if (animationsEnabled && item.id != draggingSessionId) {
                                 Modifier.animateItem(
@@ -233,8 +242,11 @@ fun SessionsBar(
                 val bounds = activeTabBounds
                 if (bounds != null) {
                     val density = LocalDensity.current
-                    val targetOffset = IntOffset(bounds.startPx - rowLeftPx, 0)
-                    val targetWidth = (bounds.endPx - bounds.startPx).coerceAtLeast(0)
+                    // Inset by the tab's corner radius so the pill stays under the flat part of the
+                    // capsule instead of poking past its rounded ends.
+                    val insetPx = with(density) { TabIndicatorInset.toPx() }.roundToInt()
+                    val targetOffset = IntOffset(bounds.startPx - rowLeftPx + insetPx, 0)
+                    val targetWidth = (bounds.endPx - bounds.startPx - 2 * insetPx).coerceAtLeast(0)
                     // While the row scrolls, the measured bounds move every frame: snap so the pill
                     // stays glued to its tab instead of trailing behind the fling. The spring is
                     // for the slide between tabs, which only happens once scrolling has settled.
@@ -248,22 +260,33 @@ fun SessionsBar(
                         animationSpec = offsetSpec,
                         label = "activeTabIndicatorOffset",
                     )
+                    // A tween, not the spring: an overshooting width would briefly make the pill
+                    // wider than its tab.
                     val indicatorWidth by animateDpAsState(
                         targetValue = with(density) { targetWidth.toDp() },
-                        animationSpec = if (animationsEnabled) shellSpringSpec() else snap(),
+                        animationSpec = if (animationsEnabled) tween(durationMillis = 200) else snap(),
                         label = "activeTabIndicatorWidth",
                     )
+                    // Clipped to the row so the pill never draws over the chevron or the "+" when
+                    // the active tab is scrolled out of view. Only this layer is clipped, not the
+                    // row: a dragged tab must still be drawn outside it while it is being moved.
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .offset { offsetX }
-                            .width(indicatorWidth)
-                            .height(2.dp)
-                            .background(
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                                RoundedCornerShape(1.dp),
-                            ),
-                    )
+                            .matchParentSize()
+                            .clipToBounds(),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .offset { offsetX }
+                                .width(indicatorWidth)
+                                .height(2.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                    RoundedCornerShape(1.dp),
+                                ),
+                        )
+                    }
                 }
             }
 
@@ -396,15 +419,32 @@ private fun SessionTab(
 
     var dragOffsetX by remember(item.id) { mutableStateOf(0f) }
     var isDragging by remember(item.id) { mutableStateOf(false) }
+    // Residual drag translation after release. The tab is placed in its new slot the moment the
+    // order changes, so without this it would snap back to its pre-drag slot before gliding out;
+    // instead the finger's offset decays to 0 over the same spring as the placement animation, so
+    // the drop continues from where the tab was let go.
+    var releaseOffsetX by remember(item.id) { mutableStateOf(0f) }
+    var releaseTick by remember(item.id) { mutableIntStateOf(0) }
     // Tab extent captured when the drag starts. The drop maths measures the dragged centre against
     // the layout as it was before the drag, so the tab changing place mid-drag cannot skew it.
     var boundsAtDragStart by remember(item.id) { mutableStateOf(emptyList<TabBounds>()) }
+
+    LaunchedEffect(releaseTick) {
+        if (releaseOffsetX == 0f) return@LaunchedEffect
+        if (!animationsEnabled) {
+            releaseOffsetX = 0f
+            return@LaunchedEffect
+        }
+        animate(releaseOffsetX, 0f, animationSpec = shellSpringSpec()) { value, _ ->
+            releaseOffsetX = value
+        }
+    }
 
     Box(
         modifier = modifier
             .zIndex(if (isDragging) 1f else 0f)
             .graphicsLayer {
-                translationX = if (isDragging) dragOffsetX else 0f
+                translationX = if (isDragging) dragOffsetX else releaseOffsetX
             }
             .clickable { onSelect(item.id) }
             .semantics {
@@ -450,6 +490,8 @@ private fun SessionTab(
                             val draggedBy = dragOffsetX
                             isDragging = false
                             dragOffsetX = 0f
+                            releaseOffsetX = draggedBy
+                            releaseTick++
                             onDragStateChanged(false)
 
                             val from = currentFromIndex
@@ -462,8 +504,11 @@ private fun SessionTab(
                             if (target != from) currentOnMove(item.id, target)
                         },
                         onDragCancel = {
+                            val draggedBy = dragOffsetX
                             isDragging = false
                             dragOffsetX = 0f
+                            releaseOffsetX = draggedBy
+                            releaseTick++
                             onDragStateChanged(false)
                         },
                     )
@@ -651,3 +696,6 @@ private fun SessionActionsMenuPreview() {
         )
     }
 }
+
+/** Horizontal inset of the active-tab pill, so it stays under the flat part of the tab capsule. */
+private val TabIndicatorInset = 10.dp

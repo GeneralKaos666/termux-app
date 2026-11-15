@@ -35,3 +35,14 @@ fun floatEnterProgress(): Float {
     }
     return progress.value
 }
+
+/**
+ * [floatEnterProgress] as a scale and an alpha for a `graphicsLayer`. The scale keeps the spring's
+ * overshoot (that is the pop); the alpha is clamped, since a bouncy spring goes above 1 and only the
+ * platform's clamping would hide it.
+ */
+@Composable
+fun floatEnterScaleAndAlpha(): Pair<Float, Float> {
+    val progress = floatEnterProgress()
+    return progress to progress.coerceIn(0f, 1f)
+}

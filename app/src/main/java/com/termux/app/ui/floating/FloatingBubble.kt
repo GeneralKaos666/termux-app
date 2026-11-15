@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.termux.R
 import com.termux.app.ui.materialIcon
 import com.termux.app.ui.theme.TermuxShellTheme
-import com.termux.app.ui.theme.floatEnterProgress
+import com.termux.app.ui.theme.floatEnterScaleAndAlpha
 import kotlin.math.roundToInt
 
 /**
@@ -42,15 +42,15 @@ fun FloatingBubble(
     onTap: () -> Unit,
     onDrag: (IntOffset) -> Unit,
 ) {
-    val enterProgress = floatEnterProgress()
+    val (enterScale, enterAlpha) = floatEnterScaleAndAlpha()
     TermuxShellTheme {
         Box(
             modifier = Modifier
                 .size(BubbleDiameter)
                 .graphicsLayer {
-                    scaleX = enterProgress
-                    scaleY = enterProgress
-                    alpha = enterProgress
+                    scaleX = enterScale
+                    scaleY = enterScale
+                    alpha = enterAlpha
                 }
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer)
