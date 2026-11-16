@@ -6,10 +6,13 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.database.ContentObserver;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.Editable;
@@ -66,6 +69,8 @@ public final class TerminalView extends View {
     private TextSelectionCursorController mTextSelectionCursorController;
 
     private Choreographer mChoreographer;
+    /** Observes the system animator scale so a change while attached stops or resumes the cursor. */
+    private ContentObserver mAnimatorScaleObserver;
     private volatile TerminalCursorBlinkerRunnable mTerminalCursorBlinkerRunnable;
     private int mTerminalCursorBlinkerRate;
     private boolean mCursorInvisibleIgnoreOnce;
@@ -1156,6 +1161,21 @@ public final class TerminalView extends View {
             1f) > 0f;
     }
 
+    /**
+     * Reacts to the system animator scale changing while the view is attached. With motion allowed the
+     * blink resumes; with it removed the cursor is stopped and left steady and fully opaque at its true
+     * cell. Mirrors the Compose shell's observer so both follow the setting live, with no restart.
+     */
+    private void onAnimatorScaleChanged() {
+        if (mEmulator == null) return;
+        if (animationsEnabled()) {
+            if (!mCursorBlinkRunning) setTerminalCursorBlinkerState(true, true);
+        } else {
+            stopTerminalCursorBlinker();
+            mEmulator.setCursorBlinkingEnabled(false);
+        }
+    }
+
     /** The cursor halo radius: one eighth of the line spacing, but always at least one pixel. */
     private float cursorGlowRadius() {
         return Math.max(1f, mRenderer.mFontLineSpacing / 8f);
@@ -1697,11 +1717,30 @@ public final class TerminalView extends View {
         if (mTextSelectionCursorController != null) {
             getViewTreeObserver().addOnTouchModeChangeListener(mTextSelectionCursorController);
         }
+
+        // Follow the "remove animations" setting while the view is on screen: toggling it stops or
+        // resumes the cursor without the activity being recreated.
+        if (mAnimatorScaleObserver == null) {
+            mAnimatorScaleObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
+                @Override
+                public void onChange(boolean selfChange) {
+                    onAnimatorScaleChanged();
+                }
+            };
+        }
+        getContext().getContentResolver().registerContentObserver(
+            Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE),
+            false,
+            mAnimatorScaleObserver);
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+
+        if (mAnimatorScaleObserver != null) {
+            getContext().getContentResolver().unregisterContentObserver(mAnimatorScaleObserver);
+        }
 
         if (mTextSelectionCursorController != null) {
             // Might solve the following exception
