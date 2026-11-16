@@ -5,6 +5,10 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=lib/storage.sh
+source "$SCRIPT_DIR/lib/storage.sh"
+# shellcheck source=lib/report.sh
+source "$SCRIPT_DIR/lib/report.sh"
 
 usage() {
     cat <<'EOF'
@@ -30,11 +34,9 @@ EOF
 
 cmd_backup() { die 1 "not implemented"; }
 cmd_restore() { die 1 "not implemented"; }
-cmd_list() { die 1 "not implemented"; }
 cmd_verify() { die 1 "not implemented"; }
 cmd_delete() { die 1 "not implemented"; }
 cmd_prune() { die 1 "not implemented"; }
-cmd_status() { die 1 "not implemented"; }
 
 JSON=0
 QUIET=0
