@@ -878,6 +878,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setMargins();
         syncInterfaceTransparency();
         mFirstRunState = new FirstRunState();
+        // Only a cold start shows the intro; rotation and process restore go straight to the shell.
+        mShellChromeState.setSplashVisible(savedInstanceState == null);
         mPaletteState = new PaletteState();
         mUiPreferences = new AndroidUiPreferences(this);
         mSnippetStore = new SnippetStore(mUiPreferences);
