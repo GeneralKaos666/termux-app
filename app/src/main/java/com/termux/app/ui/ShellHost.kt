@@ -37,11 +37,16 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.termux.R
 import com.termux.app.domain.background.BackgroundFx
+import com.termux.app.domain.palette.PaletteEntry
+import com.termux.app.domain.palette.PaletteLabels
+import com.termux.app.domain.palette.paletteEntries
 import com.termux.app.ui.background.BlurLayer
 import com.termux.app.ui.background.TerminalBackgroundState
 import com.termux.app.ui.firstrun.FirstRunOverlay
@@ -49,6 +54,8 @@ import com.termux.app.ui.firstrun.FirstRunState
 import com.termux.app.ui.keys.ExtraKeysBar
 import com.termux.app.ui.keys.ExtraKeysHandle
 import com.termux.app.ui.keys.ExtraKeysState
+import com.termux.app.ui.palette.CommandPalette
+import com.termux.app.ui.palette.PaletteState
 import com.termux.app.ui.sessions.SessionsBar
 import com.termux.app.ui.sessions.SessionsRestoreHandle
 import com.termux.app.ui.sessions.SessionsState
@@ -93,6 +100,12 @@ interface ShellHostCallbacks {
     /** Start a session and insert [command] (the empty bar's starter chips). */
     fun onStarterCommand(command: String)
 
+    /** Open the command palette. */
+    fun onOpenPalette()
+
+    /** Run the palette row the user chose; [payload] is the session id or snippet command. */
+    fun onPaletteAction(action: com.termux.app.domain.palette.PaletteAction, payload: String?)
+
     /**
      * Wire the given [view] for pager [page] to its client and load that page's key layout. Called
      * once per creation, and once per key-grid page (both grids stay composed together).
@@ -133,6 +146,7 @@ fun installTerminalShellHost(
     terminalBackgroundState: TerminalBackgroundState,
     shellChromeState: ShellChromeState,
     firstRunState: FirstRunState,
+    paletteState: PaletteState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
@@ -145,6 +159,7 @@ fun installTerminalShellHost(
             terminalBackgroundState,
             shellChromeState,
             firstRunState,
+            paletteState,
             savedTextInput,
             callbacks,
         )
@@ -160,6 +175,7 @@ private fun TerminalShellHost(
     terminalBackgroundState: TerminalBackgroundState,
     shellChromeState: ShellChromeState,
     firstRunState: FirstRunState,
+    paletteState: PaletteState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
@@ -171,6 +187,20 @@ private fun TerminalShellHost(
     // empty-state "start a session" button in the bar is not composed underneath it (it would be
     // an unreachable, focusable duplicate).
     val firstRunOverlayVisible = firstRunState.visible && sessionsState.sessions.isEmpty()
+
+    // Rows are rebuilt from localized labels; snippets join this list once their store exists.
+    val paletteLabels = PaletteLabels(
+        newSession = stringResource(R.string.palette_action_new_session),
+        newFloatSession = stringResource(R.string.palette_action_new_float_session),
+        openAppearance = stringResource(R.string.palette_action_appearance),
+        openSettings = stringResource(R.string.palette_action_settings),
+        toggleKeys = stringResource(R.string.palette_action_toggle_keys),
+        paste = stringResource(R.string.palette_action_paste),
+    )
+    val paletteRows = remember(sessionsState.sessions, paletteLabels) {
+        paletteEntries(sessionsState.sessions, emptyList(), paletteLabels)
+    }
+    LaunchedEffect(paletteRows) { paletteState.updateEntries(paletteRows) }
 
     // Whether the sessions bar is expanded. Persisted across rotation; when collapsed, only the
     // floating restore handle stays on screen.
@@ -256,6 +286,7 @@ private fun TerminalShellHost(
                             onNewFloatSession = callbacks::onNewFloatSession,
                             onCollapse = { sessionsBarExpanded = false },
                             onStarterCommand = callbacks::onStarterCommand,
+                            onOpenPalette = callbacks::onOpenPalette,
                             backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
                             unseen = sessionsState.unseen,
                             starterCommands = sessionsState.starterCommands,
@@ -339,6 +370,15 @@ private fun TerminalShellHost(
                     onInstall = callbacks::onFirstRunInstall,
                 )
             }
+
+            CommandPalette(
+                state = paletteState,
+                onChoose = { entry: PaletteEntry ->
+                    paletteState.close()
+                    callbacks.onPaletteAction(entry.action, entry.payload)
+                },
+                onDismiss = paletteState::close,
+            )
         }
     }
 
