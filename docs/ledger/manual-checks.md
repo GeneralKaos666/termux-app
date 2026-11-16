@@ -554,3 +554,26 @@ package manager or a second device yet.
       the failing root named, not a hang or a partial backup in `list`.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 21. D-21 — app layering extraction (domain/data/ui, 2026-11-15)
+
+`TermuxActivity`/`TermuxService` split: session mapping, wallpaper loading, service notification and
+wake lock moved into `domain`/`data` helpers behind `LayeringTest` (no new module, plugin-facing
+surfaces unchanged). Verify companion/plugin integration and service UI behavior on device.
+
+- [ ] **termux-api companion.** Run a `termux-api` command through the companion app (e.g.
+      `termux-toast` or `termux-battery-status`). Command completes and returns the expected result.
+- [ ] **Termux:Widget shortcut.** Launch a Termux:Widget shortcut that runs a command. Command runs
+      in the expected session/context.
+- [ ] **Termux:Tasker action.** Run a Termux:Tasker action, including its result callback. Action
+      executes and the callback/result is delivered.
+- [ ] **Termux:X11 launch.** Launch Termux:X11 from Termux. X11 starts and connects as before.
+- [ ] **Termux:Float toggle.** Toggle the float terminal (app/notification action as applicable).
+      Float opens/closes and its session behaves normally.
+- [ ] **Service notification actions.** With the foreground service active, use the notification's
+      **Exit**, **wake-lock** and **float** actions. Each performs the correct action (service/locks
+      stop or release as appropriate, float toggles).
+- [ ] **Wake-lock tapped twice.** Tap the wake-lock notification action twice in a row (release/no-op
+      path). No crash or exception; state/notification remain consistent.
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.

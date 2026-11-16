@@ -494,11 +494,22 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   terminal internals. Inverted relative to a clean layering, but `:termux-shared` is published to
   JitPack and consumed by the plugin apps, so the dependency cannot be removed without breaking
   them. Accepted 2026-11-15.
-- `[open]` app layering: `docs/specs/2026-11-15-app-layering-design.md` and
+- `[done 2026-11-15]` app layering: `docs/specs/2026-11-15-app-layering-design.md` and
   `docs/plans/2026-11-15-app-layering.md`. Layer packages inside `:app` (`domain`/`data`/`ui`)
-  enforced by `LayeringTest`, plus the extraction of session mapping and wallpaper loading from
+  enforced by `LayeringTest`, plus extraction of session mapping and wallpaper loading from
   `TermuxActivity` and the notification and wake-lock split of `TermuxService`. No new Gradle
-  module. Plugin-facing surfaces frozen and checked mechanically.
+  module. Plugin-facing surfaces frozen and checked mechanically. Commits: Task 2 `ea1464ad`,
+  Task 3 `6b3e7e4e`, Task 4 `40a7d8e7`, Task 5 `640e11d0`, Task 6 `33506f57`, Task 7 `f07167dd`,
+  Tasks 8–9 `a08922af` (notification and wake-lock extractions folded into one commit on this
+  branch; Task 8's earlier `1718f3c6` is not on the current history). `wc -l` before →
+  after: `TermuxActivity.java` 1593 → 1477, `TermuxService.java` 1057 → 961. Left in
+  `TermuxActivity`: composition/wiring, terminal/session UI orchestration, settings/property
+  reactions and remaining activity-level behavior. Left in `TermuxService`: service lifecycle and
+  foreground/start-stop flow, shell/session/task and plugin intent execution, and float/session
+  orchestration glue. Task 9 test adapted for Termux Robolectric conscrypt env (see SDD ledger
+  ruling). `:app:testDebugUnitTest` passed; `:app:assembleDebug` failed in this aarch64 Termux env
+  at `:app:configureNdkBuildDebug` (`ndk-build` host CPU `aarch64` unsupported), unrelated to these
+  Java/Kotlin changes.
 
 ---
 
