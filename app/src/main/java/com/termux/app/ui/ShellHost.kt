@@ -90,6 +90,9 @@ interface ShellHostCallbacks {
     /** Start a new floating session. */
     fun onNewFloatSession()
 
+    /** Start a session and insert [command] (the empty bar's starter chips). */
+    fun onStarterCommand(command: String)
+
     /**
      * Wire the given [view] for pager [page] to its client and load that page's key layout. Called
      * once per creation, and once per key-grid page (both grids stay composed together).
@@ -252,8 +255,10 @@ private fun TerminalShellHost(
                             onNewSession = callbacks::onNewSession,
                             onNewFloatSession = callbacks::onNewFloatSession,
                             onCollapse = { sessionsBarExpanded = false },
+                            onStarterCommand = callbacks::onStarterCommand,
                             backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
                             unseen = sessionsState.unseen,
+                            starterCommands = sessionsState.starterCommands,
                         )
                     }
                 }
