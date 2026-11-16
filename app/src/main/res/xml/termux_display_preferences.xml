@@ -86,4 +86,15 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        app:key="snippets_group"
+        app:title="@string/termux_display_snippets_title">
+
+        <Preference
+            app:key="snippets"
+            app:title="@string/termux_display_snippets_title"
+            app:summary="@string/termux_display_snippets_summary" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

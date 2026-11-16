@@ -30,6 +30,14 @@ public class DisplayPreferencesFragment extends PreferenceFragmentCompat {
 
         setPreferencesFromResource(R.xml.termux_display_preferences, rootKey);
 
+        Preference snippets = findPreference("snippets");
+        if (snippets != null) {
+            snippets.setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(getContext(), com.termux.app.ui.snippets.SnippetsActivity.class));
+                return true;
+            });
+        }
+
         Preference appearance = findPreference("appearance");
         if (appearance != null) {
             appearance.setOnPreferenceClickListener(preference -> {
