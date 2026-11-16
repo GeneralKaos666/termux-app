@@ -19,6 +19,28 @@ class ShellChromeStateTest {
     }
 
     @Test
+    fun `a bell flash starts on and clears`() {
+        val state = ShellChromeState()
+        assertEquals(false, state.bellFlash)
+
+        state.flashBell()
+        assertEquals(true, state.bellFlash)
+        assertEquals(1, state.bellSequence)
+
+        state.clearBellFlash()
+        assertEquals(false, state.bellFlash)
+        assertEquals(1, state.bellSequence)
+    }
+
+    @Test
+    fun `a repeated bell bumps the sequence so the host restarts its timer`() {
+        val state = ShellChromeState()
+        state.flashBell()
+        state.flashBell()
+        assertEquals(2, state.bellSequence)
+    }
+
+    @Test
     fun `state clamps the stored percentage`() {
         val state = ShellChromeState()
         assertEquals(30, state.barTransparencyPercent)

@@ -37,6 +37,20 @@ class ShellChromeState {
         private set
 
     /**
+     * Whether the visual bell is tinting the sessions bar right now. [flashBell] turns it on; the
+     * shell host turns it off after [BELL_FLASH_MILLIS].
+     */
+    var bellFlash by mutableStateOf(false)
+        private set
+
+    /**
+     * Increments on every bell, so a bell that arrives while a flash is running restarts the
+     * host's timer instead of being swallowed by the already-running effect.
+     */
+    var bellSequence by mutableStateOf(0)
+        private set
+
+    /**
      * Whether the cold-start intro is still on screen. Set by the activity only when there is no
      * saved instance state, so a rotation or restore does not replay it.
      */
@@ -47,6 +61,17 @@ class ShellChromeState {
         splashVisible = false
     }
 
+    /** Starts a visual-bell flash on the chrome. */
+    fun flashBell() {
+        bellFlash = true
+        bellSequence++
+    }
+
+    /** Ends the flash; called by the host when [BELL_FLASH_MILLIS] have passed. */
+    fun clearBellFlash() {
+        bellFlash = false
+    }
+
     fun updateTerminalMargins(horizontalDp: Int, verticalDp: Int) {
         terminalMarginHorizontalDp = horizontalDp.coerceAtLeast(0)
         terminalMarginVerticalDp = verticalDp.coerceAtLeast(0)
@@ -54,6 +79,9 @@ class ShellChromeState {
 
     companion object {
         const val DEFAULT_TRANSPARENCY_PERCENT = 30
+
+        /** How long the visual bell tints the chrome, in milliseconds. */
+        const val BELL_FLASH_MILLIS = 250L
     }
 }
 

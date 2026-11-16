@@ -173,11 +173,13 @@ public final class TermuxPropertyConstants {
     public static final String VALUE_BELL_BEHAVIOUR_VIBRATE = "vibrate";
     public static final String VALUE_BELL_BEHAVIOUR_BEEP = "beep";
     public static final String VALUE_BELL_BEHAVIOUR_IGNORE = "ignore";
+    public static final String VALUE_BELL_BEHAVIOUR_VISUAL = "visual";
     public static final String DEFAULT_VALUE_BELL_BEHAVIOUR = VALUE_BELL_BEHAVIOUR_VIBRATE;
 
     public static final int IVALUE_BELL_BEHAVIOUR_VIBRATE = 1;
     public static final int IVALUE_BELL_BEHAVIOUR_BEEP = 2;
     public static final int IVALUE_BELL_BEHAVIOUR_IGNORE = 3;
+    public static final int IVALUE_BELL_BEHAVIOUR_VISUAL = 4;
     public static final int DEFAULT_IVALUE_BELL_BEHAVIOUR = IVALUE_BELL_BEHAVIOUR_VIBRATE;
 
     /** Defines the bidirectional map for bell behaviour values and their internal values */
@@ -186,6 +188,7 @@ public final class TermuxPropertyConstants {
             .put(VALUE_BELL_BEHAVIOUR_VIBRATE, IVALUE_BELL_BEHAVIOUR_VIBRATE)
             .put(VALUE_BELL_BEHAVIOUR_BEEP, IVALUE_BELL_BEHAVIOUR_BEEP)
             .put(VALUE_BELL_BEHAVIOUR_IGNORE, IVALUE_BELL_BEHAVIOUR_IGNORE)
+            .put(VALUE_BELL_BEHAVIOUR_VISUAL, IVALUE_BELL_BEHAVIOUR_VISUAL)
             .build();
 
 
