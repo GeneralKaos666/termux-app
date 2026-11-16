@@ -775,8 +775,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     /** Starts the bootstrap install from the first-run overlay; the first session appears when done. */
     public void startFirstRunBootstrapInstall() {
-        if (mFirstRunState != null) mFirstRunState.setInstalling(true);
-        TermuxInstaller.setupBootstrapIfNeeded(this, this::addSessionAfterBootstrap);
+        if (mFirstRunState != null) mFirstRunState.beginInstall();
+        TermuxInstaller.setupBootstrapIfNeeded(this, stage -> runOnUiThread(() -> {
+            if (mFirstRunState != null) mFirstRunState.setStage(stage);
+        }), this::addSessionAfterBootstrap);
     }
 
     @Override

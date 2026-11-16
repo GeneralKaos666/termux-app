@@ -10,6 +10,7 @@ import android.system.Os;
 import android.util.Pair;
 import android.view.WindowManager;
 
+import com.termux.app.ui.firstrun.BootstrapStage;
 import com.termux.R;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
@@ -83,8 +84,22 @@ final class TermuxInstaller {
         }
     }
 
+    /** Receives the install stages; called from the install thread, so marshal to the main thread. */
+    interface BootstrapProgressListener {
+        void onStage(BootstrapStage stage);
+    }
+
+    /** A listener that ignores every stage, used by callers that do not show progress. */
+    private static final BootstrapProgressListener NO_STAGE_LISTENER = stage -> { };
+
     /** Performs bootstrap setup if necessary. */
     static void setupBootstrapIfNeeded(final Activity activity, final Runnable whenDone) {
+        setupBootstrapIfNeeded(activity, NO_STAGE_LISTENER, whenDone);
+    }
+
+    /** Performs bootstrap setup if necessary, reporting [listener] each stage it enters. */
+    static void setupBootstrapIfNeeded(final Activity activity, final BootstrapProgressListener listener,
+                                       final Runnable whenDone) {
         String bootstrapErrorMessage;
         Error filesDirectoryAccessibleError;
 
@@ -191,7 +206,9 @@ final class TermuxInstaller {
                     final byte[] buffer = new byte[8096];
                     final List<Pair<String, String>> symlinks = new ArrayList<>(50);
 
+                    listener.onStage(BootstrapStage.DOWNLOADING);
                     final byte[] zipBytes = loadZipBytes();
+                    listener.onStage(BootstrapStage.EXTRACTING);
                     try (ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
                         ZipEntry zipEntry;
                         while ((zipEntry = zipInput.getNextEntry()) != null) {
@@ -245,6 +262,7 @@ final class TermuxInstaller {
                         Os.symlink(symlink.first, symlink.second);
                     }
 
+                    listener.onStage(BootstrapStage.FINISHING);
                     Logger.logInfo(LOG_TAG, "Moving termux prefix staging to prefix directory.");
 
                     if (!TERMUX_STAGING_PREFIX_DIR.renameTo(TERMUX_PREFIX_DIR)) {
