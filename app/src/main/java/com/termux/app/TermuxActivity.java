@@ -23,6 +23,7 @@ import android.util.DisplayMetrics;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -36,6 +37,7 @@ import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
+import com.termux.app.domain.palette.PaletteAction;
 import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
 import com.termux.app.ui.SnackbarState;
@@ -44,6 +46,7 @@ import com.termux.app.domain.background.BackgroundFx;
 import com.termux.app.ui.background.TerminalBackgroundState;
 import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
+import com.termux.app.ui.palette.PaletteState;
 import com.termux.app.domain.sessions.ForegroundProcessKt;
 import com.termux.app.domain.sessions.SessionContextKt;
 import com.termux.app.domain.sessions.SessionIdAllocator;
@@ -238,6 +241,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     private FirstRunState mFirstRunState;
 
+    /** State of the command palette overlay; owned here so Ctrl+K can open it from a key event. */
+    private PaletteState mPaletteState;
+
     /**
      * Whether the first session to be created after the bootstrap install should be a failsafe session.
      */
@@ -315,6 +321,51 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     session.write(command + "\r");
                 }
             }, 300);
+        }
+
+        @Override
+        public void onOpenPalette() {
+            if (mPaletteState != null) mPaletteState.open();
+        }
+
+        @Override
+        public void onPaletteAction(PaletteAction action, String payload) {
+            switch (action) {
+                case NEW_SESSION:
+                    if (mTermuxTerminalSessionActivityClient != null)
+                        mTermuxTerminalSessionActivityClient.addNewSession(false, null);
+                    break;
+                case NEW_FLOAT_SESSION: {
+                    TermuxService service = getTermuxService();
+                    if (service != null) service.getFloatController().showNewSession();
+                    break;
+                }
+                case JUMP_SESSION:
+                    if (payload != null) selectSessionById(Integer.parseInt(payload));
+                    break;
+                case OPEN_APPEARANCE:
+                    ActivityUtils.startActivity(TermuxActivity.this,
+                        new Intent(TermuxActivity.this, AppearanceActivity.class));
+                    break;
+                case OPEN_SETTINGS:
+                    ActivityUtils.startActivity(TermuxActivity.this,
+                        new Intent(TermuxActivity.this, SettingsActivity.class));
+                    break;
+                case TOGGLE_KEYS:
+                    toggleTerminalToolbar();
+                    break;
+                case PASTE:
+                    if (mTermuxTerminalSessionActivityClient != null)
+                        mTermuxTerminalSessionActivityClient.onPasteTextFromClipboard(getCurrentSession());
+                    break;
+                case RUN_SNIPPET:
+                    // Insert the command only: the user decides when to press Enter.
+                    if (payload != null) {
+                        TerminalSession session = getCurrentSession();
+                        if (session != null) session.write(payload);
+                    }
+                    break;
+            }
         }
 
         @Override
@@ -806,6 +857,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setMargins();
         syncInterfaceTransparency();
         mFirstRunState = new FirstRunState();
+        mPaletteState = new PaletteState();
 
         String savedTextInput = null;
         if (savedInstanceState != null)
@@ -813,7 +865,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
         ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState,
-            mExtraKeysState, mSnackbarState, mTerminalBackgroundState, mShellChromeState, mFirstRunState, savedTextInput, mShellHostCallbacks);
+            mExtraKeysState, mSnackbarState, mTerminalBackgroundState, mShellChromeState, mFirstRunState,
+            mPaletteState, savedTextInput, mShellHostCallbacks);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
@@ -1077,11 +1130,31 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // Ctrl+K opens the palette before the terminal sees it as a control character. Handled here
+        // rather than per-view so it works whether the terminal or the extra-keys bar has focus.
+        if (mPaletteState != null
+            && event.getAction() == KeyEvent.ACTION_DOWN
+            && event.getKeyCode() == KeyEvent.KEYCODE_K
+            && event.isCtrlPressed()
+            && !event.isAltPressed()) {
+            mPaletteState.open();
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
     // Deliberately does not call super.onBackPressed(): the finish-if-not-finishing guard below is
     // the intended back behavior and calling super would finish() unconditionally.
     @SuppressLint("MissingSuperCall")
     @Override
     public void onBackPressed() {
+        // Back dismisses the palette instead of leaving the activity while it is up.
+        if (mPaletteState != null && mPaletteState.getVisible()) {
+            mPaletteState.close();
+            return;
+        }
         finishActivityIfNotFinishing();
     }
 
