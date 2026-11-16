@@ -258,6 +258,26 @@ class AppearanceStateTest {
     }
 
     @Test
+    fun `groups split dark and light`() {
+        val groups = groupPresets(listOf(ColorSchemes.SOLARIZED_DARK, ColorSchemes.SOLARIZED_LIGHT))
+        assertEquals(listOf("Dark", "Light"), groups.map { it.name })
+        assertEquals(listOf(ColorSchemes.SOLARIZED_DARK), groups[0].presets)
+        assertEquals(listOf(ColorSchemes.SOLARIZED_LIGHT), groups[1].presets)
+    }
+
+    @Test
+    fun `every preset appears in exactly one group`() {
+        val grouped = groupPresets(ColorSchemes.presets).flatMap { it.presets }
+        assertEquals(ColorSchemes.presets.size, grouped.size)
+        assertEquals(ColorSchemes.presets.toSet(), grouped.toSet())
+    }
+
+    @Test
+    fun `an empty preset list has no groups`() {
+        assertEquals(emptyList<PresetGroup>(), groupPresets(emptyList()))
+    }
+
+    @Test
     fun `reset leaves the ligature flag alone`() {
         // Reset is documented as leaving the font settings (family, size) alone, so the toggle is not reset.
         val state = AppearanceState(appearance(ligatures = false))
