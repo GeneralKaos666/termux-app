@@ -387,4 +387,12 @@
     <string name="starter_command_pkg_upgrade">Update packages</string>
     <string name="starter_command_pkg_install_neofetch">Install neofetch</string>
     <string name="starter_command_ls">List files</string>
+    <string name="palette_hint">Type a command or session</string>
+    <string name="palette_no_match">No matching command</string>
+    <string name="palette_action_new_session">New session</string>
+    <string name="palette_action_new_float_session">New floating session</string>
+    <string name="palette_action_appearance">Appearance</string>
+    <string name="palette_action_settings">Settings</string>
+    <string name="palette_action_toggle_keys">Toggle extra keys</string>
+    <string name="palette_action_paste">Paste clipboard</string>
 </resources>

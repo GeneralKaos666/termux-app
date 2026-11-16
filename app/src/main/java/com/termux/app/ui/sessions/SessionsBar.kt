@@ -19,6 +19,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -108,6 +109,7 @@ fun SessionsBar(
     onNewFloatSession: () -> Unit,
     onCollapse: () -> Unit,
     onStarterCommand: (String) -> Unit = {},
+    onOpenPalette: () -> Unit = {},
     backgroundAlpha: Float = 1f,
     unseen: Set<Int> = emptySet(),
     starterCommands: List<StarterCommand> = emptyList(),
@@ -380,7 +382,13 @@ fun SessionsBar(
                     contentDescription = newSessionLabel,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
-                        .clickable { newSessionMenuExpanded = true }
+                        .combinedClickable(
+                            onClick = { newSessionMenuExpanded = true },
+                            onLongClick = {
+                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                onOpenPalette()
+                            },
+                        )
                         .padding(2.dp)
                         .size(24.dp),
                 )
