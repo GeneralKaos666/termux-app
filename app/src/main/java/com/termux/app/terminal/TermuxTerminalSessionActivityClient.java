@@ -139,6 +139,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void onTextChanged(@NonNull TerminalSession changedSession) {
         if (!mActivity.isVisible()) return;
 
+        mActivity.recordSessionOutput(changedSession);
         if (mActivity.getCurrentSession() == changedSession) mActivity.getTerminalView().onScreenUpdated();
     }
 

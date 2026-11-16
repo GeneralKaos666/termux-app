@@ -50,4 +50,23 @@ class SessionItemsTest {
     fun `mismatched id and snapshot counts are rejected`() {
         sessionItems(listOf(SessionSnapshot("a", null, true, 0)), emptyList(), 0)
     }
+
+    @Test
+    fun `contexts and unseen are projected per stable id`() {
+        val snapshots = listOf(
+            SessionSnapshot("a", null, true, 0),
+            SessionSnapshot("b", null, true, 0),
+        )
+        val items = sessionItems(
+            snapshots,
+            listOf(7, 9),
+            activeIndex = 0,
+            contexts = mapOf(7 to "~/repos"),
+            unseen = setOf(9),
+        )
+        assertEquals("~/repos", items[0].subtitle)
+        assertFalse(items[0].unseenOutput)
+        assertEquals(null, items[1].subtitle)
+        assertTrue(items[1].unseenOutput)
+    }
 }

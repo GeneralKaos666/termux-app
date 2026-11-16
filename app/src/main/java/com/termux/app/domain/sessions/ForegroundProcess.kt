@@ -10,6 +10,7 @@ import java.io.IOException
  * inspected for a process in that group. Everything here is best-effort: a denied or vanished entry
  * means "no command label", never an error the tab should show.
  */
+@JvmOverloads
 fun readForegroundCommand(pid: Int, procRoot: File = File("/proc")): String? {
     if (pid < 1) return null
     return try {

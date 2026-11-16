@@ -20,6 +20,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -101,6 +102,7 @@ fun SessionsBar(
     onNewFloatSession: () -> Unit,
     onCollapse: () -> Unit,
     backgroundAlpha: Float = 1f,
+    unseen: Set<Int> = emptySet(),
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
@@ -215,6 +217,7 @@ fun SessionsBar(
                     items(sessions, key = { it.id }) { item ->
                         SessionTab(
                             item = item,
+                            unseen = item.id in unseen,
                             allSessions = sessions,
                             onSelect = onSelect,
                             onRename = onRename,
@@ -375,6 +378,7 @@ internal fun SessionsRestoreHandle(
 @Composable
 private fun SessionTab(
     item: SessionItem,
+    unseen: Boolean,
     allSessions: List<SessionItem>,
     onSelect: (Int) -> Unit,
     onRename: (Int) -> Unit,
@@ -527,15 +531,26 @@ private fun SessionTab(
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SessionStateDot(state)
+            SessionStateDot(state, unseen)
             Spacer(Modifier.width(6.dp))
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleSmall,
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Column {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (item.subtitle != null) {
+                    Text(
+                        text = item.subtitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = 0.72f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
             Spacer(Modifier.width(4.dp))
             // A plain clickable icon rather than an IconButton: Material3's IconButton enforces
             // a 48dp minimum interactive size, which alone would keep the bar that tall.
@@ -620,27 +635,39 @@ private fun SessionActionsMenu(
  * a hollow ring, exited-with-error is a square (WCAG 1.4.1).
  */
 @Composable
-private fun SessionStateDot(state: SessionState) {
+private fun SessionStateDot(state: SessionState, unseen: Boolean) {
     val color = sessionStateColor(state)
-    when (state) {
-        SessionState.RUNNING -> Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        SessionState.EXITED_SUCCESS -> Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .border(width = 2.dp, color = color, shape = CircleShape)
-        )
-        SessionState.EXITED_ERROR -> Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(color)
-        )
+    // The wrapper keeps every tab the same width whether or not the halo is drawn, so a badge
+    // appearing cannot shift the neighbouring tabs.
+    Box(modifier = Modifier.size(16.dp), contentAlignment = Alignment.Center) {
+        if (unseen) {
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.28f))
+            )
+        }
+        when (state) {
+            SessionState.RUNNING -> Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+            SessionState.EXITED_SUCCESS -> Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .border(width = 2.dp, color = color, shape = CircleShape)
+            )
+            SessionState.EXITED_ERROR -> Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(color)
+            )
+        }
     }
 }
 
