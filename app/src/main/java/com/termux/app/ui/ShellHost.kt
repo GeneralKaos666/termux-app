@@ -55,6 +55,8 @@ import com.termux.app.ui.keys.ExtraKeysBar
 import com.termux.app.ui.keys.ExtraKeysHandle
 import com.termux.app.ui.keys.ExtraKeysState
 import com.termux.app.ui.palette.CommandPalette
+import com.termux.app.ui.snippets.SnippetChipsState
+import com.termux.app.ui.snippets.SnippetChipsRow
 import com.termux.app.ui.palette.PaletteState
 import com.termux.app.ui.sessions.SessionsBar
 import com.termux.app.ui.sessions.SessionsRestoreHandle
@@ -106,6 +108,9 @@ interface ShellHostCallbacks {
     /** Run the palette row the user chose; [payload] is the session id or snippet command. */
     fun onPaletteAction(action: com.termux.app.domain.palette.PaletteAction, payload: String?)
 
+    /** Insert [text] into the current session without pressing Enter (snippets, palette). */
+    fun onInsertText(text: String)
+
     /**
      * Wire the given [view] for pager [page] to its client and load that page's key layout. Called
      * once per creation, and once per key-grid page (both grids stay composed together).
@@ -147,6 +152,7 @@ fun installTerminalShellHost(
     shellChromeState: ShellChromeState,
     firstRunState: FirstRunState,
     paletteState: PaletteState,
+    snippetChipsState: SnippetChipsState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
@@ -160,6 +166,7 @@ fun installTerminalShellHost(
             shellChromeState,
             firstRunState,
             paletteState,
+            snippetChipsState,
             savedTextInput,
             callbacks,
         )
@@ -176,6 +183,7 @@ private fun TerminalShellHost(
     shellChromeState: ShellChromeState,
     firstRunState: FirstRunState,
     paletteState: PaletteState,
+    snippetChipsState: SnippetChipsState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
@@ -197,8 +205,8 @@ private fun TerminalShellHost(
         toggleKeys = stringResource(R.string.palette_action_toggle_keys),
         paste = stringResource(R.string.palette_action_paste),
     )
-    val paletteRows = remember(sessionsState.sessions, paletteLabels) {
-        paletteEntries(sessionsState.sessions, emptyList(), paletteLabels)
+    val paletteRows = remember(sessionsState.sessions, snippetChipsState.items, paletteLabels) {
+        paletteEntries(sessionsState.sessions, snippetChipsState.items, paletteLabels)
     }
     LaunchedEffect(paletteRows) { paletteState.updateEntries(paletteRows) }
 
@@ -332,6 +340,9 @@ private fun TerminalShellHost(
                     exit = if (animationsEnabled) shrinkVertically(ChromeSizeOut) + fadeOut(ChromeFadeOut) else ExitTransition.None,
                 ) {
                     ExtraKeysBar(
+                        snippets = snippetChipsState.items,
+                        snippetsRowVisible = snippetChipsState.rowVisible,
+                        onInsertSnippet = callbacks::onInsertText,
                         state = extraKeysState,
                         keysVisible = extraKeysExpanded,
                         initialText = savedTextInput,

@@ -64,6 +64,7 @@ class SettingsPreferencesXmlTest {
                 "terminal_background_opacity",
                 "terminal_margin_adjustment",
                 "interface_transparency",
+                "snippets",
             ),
             leafKeysOf(R.xml.termux_display_preferences).toSet(),
         )
@@ -159,6 +160,7 @@ class SettingsPreferencesXmlTest {
                 "appearance", "terminal_background", "terminal_background_choose_image",
                 "terminal_background_dim", "terminal_background_blur",
                 "terminal_background_opacity", "terminal_margin_adjustment", "interface_transparency",
+                "snippets",
                 "soft_keyboard_enabled",
                 "soft_keyboard_enabled_only_if_no_hardware", "extra_keys_preset",
                 "extra_keys_page2_preset", "extra_keys_preset_note",
