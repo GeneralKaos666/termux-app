@@ -180,6 +180,7 @@ private data class AnsiTarget(val index: Int) : ColorTarget {
 fun AppearanceScreen(
     controller: AppearanceController,
     fontSizeRange: IntRange,
+    previewLines: List<String> = emptyList(),
     onPickFont: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
@@ -200,7 +201,7 @@ fun AppearanceScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        PreviewPane(draft, controller.previewCursorStyle, previewFontFamily(controller.previewFontFile))
+        PreviewPane(draft, controller.previewCursorStyle, previewFontFamily(controller.previewFontFile), previewLines)
 
         Column(
             modifier = Modifier
@@ -323,7 +324,12 @@ private fun previewFontFamily(file: File?): FontFamily = remember(file) {
 
 /** Sample terminal output rendered with the staged colours, cursor and typeface. */
 @Composable
-private fun PreviewPane(appearance: TerminalAppearance, cursorStyle: CursorStyle, fontFamily: FontFamily) {
+private fun PreviewPane(
+    appearance: TerminalAppearance,
+    cursorStyle: CursorStyle,
+    fontFamily: FontFamily,
+    previewLines: List<String>,
+) {
     val colors = appearance.colors
     val density = LocalDensity.current
     // The engine's font size is in physical pixels; convert so the preview matches the terminal.
@@ -334,27 +340,41 @@ private fun PreviewPane(appearance: TerminalAppearance, cursorStyle: CursorStyle
             .background(Color(colors.background))
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        if (previewLines.isEmpty()) {
+            // No session handed us output (the screen was opened outside the terminal): keep the
+            // fixed sample, which also exercises the ANSI accents.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "user@termux ~ $ ls",
+                    color = Color(colors.foreground),
+                    fontFamily = fontFamily,
+                    fontSize = textSize,
+                )
+                Cursor(style = cursorStyle, color = Color(colors.cursor), fontSize = appearance.fontSize)
+            }
             Text(
-                text = "user@termux ~ $ ls",
-                color = Color(colors.foreground),
+                text = "Documents  Downloads  notes.txt",
+                color = Color(colors.ansi[4]),
                 fontFamily = fontFamily,
                 fontSize = textSize,
             )
-            Cursor(style = cursorStyle, color = Color(colors.cursor), fontSize = appearance.fontSize)
+            Text(
+                text = "error: command not found",
+                color = Color(colors.ansi[1]),
+                fontFamily = fontFamily,
+                fontSize = textSize,
+            )
+        } else {
+            previewLines.forEach { line ->
+                Text(
+                    text = line,
+                    color = Color(colors.foreground),
+                    fontFamily = fontFamily,
+                    fontSize = textSize,
+                    maxLines = 1,
+                )
+            }
         }
-        Text(
-            text = "Documents  Downloads  notes.txt",
-            color = Color(colors.ansi[4]),
-            fontFamily = fontFamily,
-            fontSize = textSize,
-        )
-        Text(
-            text = "error: command not found",
-            color = Color(colors.ansi[1]),
-            fontFamily = fontFamily,
-            fontSize = textSize,
-        )
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             colors.ansi.take(ANSI_COLOR_COUNT).forEach { ansi ->
