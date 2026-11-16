@@ -9,6 +9,7 @@ import com.termux.app.domain.sessions.sessionState
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
@@ -30,6 +31,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -200,6 +205,12 @@ fun SessionsBar(
                     .semantics { contentDescription = startSessionLabel },
             )
         } else {
+            val atStart = listState.firstVisibleItemIndex == 0 &&
+                listState.firstVisibleItemScrollOffset == 0
+            val atEnd = !listState.canScrollForward
+            val scrollFraction = if (atStart) 0f else 1f
+            val fadeColor = MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha)
+            val fadeWidth = 16.dp
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -209,7 +220,35 @@ fun SessionsBar(
                     },
             ) {
                 LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .drawWithContent {
+                            drawContent()
+                            val edge = fadeWidth.toPx()
+                            val leadingAlpha = edgeFadeAlpha(scrollFraction, atStart, atEnd, true)
+                            val trailingAlpha = edgeFadeAlpha(scrollFraction, atStart, atEnd, false)
+                            if (leadingAlpha > 0f) {
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        listOf(fadeColor.copy(alpha = fadeColor.alpha * leadingAlpha), Color.Transparent),
+                                        startX = 0f,
+                                        endX = edge,
+                                    ),
+                                    size = Size(edge, size.height),
+                                )
+                            }
+                            if (trailingAlpha > 0f) {
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        listOf(Color.Transparent, fadeColor.copy(alpha = fadeColor.alpha * trailingAlpha)),
+                                        startX = size.width - edge,
+                                        endX = size.width,
+                                    ),
+                                    topLeft = Offset(size.width - edge, 0f),
+                                    size = Size(edge, size.height),
+                                )
+                            }
+                        },
                     state = listState,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -391,6 +430,7 @@ private fun SessionTab(
     modifier: Modifier = Modifier,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val view = LocalView.current
 
     val state = sessionState(item.running, item.exitCode)
     val stateLabel = stringResource(
@@ -434,6 +474,13 @@ private fun SessionTab(
 
     var dragOffsetX by remember(item.id) { mutableStateOf(0f) }
     var isDragging by remember(item.id) { mutableStateOf(false) }
+    val liftSpec = if (animationsEnabled) shellSpringSpec() else snap<Float>()
+    val lift by animateFloatAsState(
+        targetValue = if (isDragging) 1.04f else 1f,
+        animationSpec = liftSpec,
+        label = "sessionTabLift",
+    )
+    val liftShadowPx = with(LocalDensity.current) { 8.dp.toPx() }
     // Residual drag translation after release. The tab is placed in its new slot the moment the
     // order changes, so without this it would snap back to its pre-drag slot before gliding out;
     // instead the finger's offset decays to 0 over the same spring as the placement animation, so
@@ -460,6 +507,11 @@ private fun SessionTab(
             .zIndex(if (isDragging) 1f else 0f)
             .graphicsLayer {
                 translationX = if (isDragging) dragOffsetX else releaseOffsetX
+                scaleX = lift
+                scaleY = lift
+                shadowElevation = if (isDragging) liftShadowPx else 0f
+                shape = RoundedCornerShape(16.dp)
+                clip = false
             }
             .clickable { onSelect(item.id) }
             .semantics {
@@ -492,6 +544,7 @@ private fun SessionTab(
                 .pointerInput(item.id) {
                     detectDragGesturesAfterLongPress(
                         onDragStart = {
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             boundsAtDragStart = currentSnapshotTabBounds()
                             isDragging = true
                             dragOffsetX = 0f
@@ -669,6 +722,25 @@ private fun SessionStateDot(state: SessionState, unseen: Boolean) {
             )
         }
     }
+}
+
+/**
+ * Strength of the scroll-edge fade (0 clear, 1 opaque).
+ *
+ * The fade exists only where content is hidden: an edge sitting at its scroll boundary draws
+ * nothing, and a scroll of a pixel or two is below the ramp threshold, so the bar does not blink a
+ * gradient while the user is just tapping tabs.
+ */
+internal fun edgeFadeAlpha(
+    scrollFraction: Float,
+    atStart: Boolean,
+    atEnd: Boolean,
+    leading: Boolean,
+): Float {
+    if (if (leading) atStart else atEnd) return 0f
+    val fraction = scrollFraction.coerceIn(0f, 1f)
+    if (fraction < 0.02f) return 0f
+    return ((fraction - 0.02f) / 0.1f).coerceIn(0f, 1f)
 }
 
 /** Status-dot color for a session state. */
