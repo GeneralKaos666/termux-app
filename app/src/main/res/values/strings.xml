@@ -413,4 +413,8 @@
     <string name="key_gallery_in_use">In use</string>
     <string name="termux_keyboard_key_layouts_title">Key layouts</string>
     <string name="termux_keyboard_key_layouts_summary">Preview and pick the extra-keys layout</string>
+    <string name="appearance_import">Import</string>
+    <string name="appearance_export">Export</string>
+    <string name="appearance_import_error">That file is not a complete iTerm colour preset.</string>
+    <string name="appearance_export_error">The colour preset could not be written.</string>
 </resources>

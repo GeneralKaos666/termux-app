@@ -7,7 +7,6 @@ import com.termux.app.data.appearance.AppearanceWriteResult
 import com.termux.app.data.appearance.AppearanceStore
 
 import com.termux.app.domain.appearance.ANSI_COLOR_COUNT
-import com.termux.app.domain.appearance.ColorSchemes
 
 import com.termux.app.domain.appearance.CursorBlink
 import com.termux.app.domain.appearance.CursorStyle
@@ -45,6 +44,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -181,6 +181,8 @@ fun AppearanceScreen(
     controller: AppearanceController,
     fontSizeRange: IntRange,
     onPickFont: () -> Unit,
+    onImport: () -> Unit,
+    onExport: () -> Unit,
     onApplied: (AppearanceWriteResult) -> Unit,
     onDiscard: () -> Unit,
 ) {
@@ -207,7 +209,16 @@ fun AppearanceScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             SectionTitle(stringResource(R.string.appearance_section_scheme))
-            PresetRow(selected = draft.colors) { state.setColors(it) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onImport) {
+                    Text(stringResource(R.string.appearance_import))
+                }
+                OutlinedButton(onClick = onExport) {
+                    Text(stringResource(R.string.appearance_export))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            ThemeGallery(selected = draft.colors, onSelect = { state.setColors(it) })
 
             SectionTitle(stringResource(R.string.appearance_section_colors))
             ColorRow(stringResource(R.string.appearance_color_background), draft.colors.background) {
@@ -377,22 +388,6 @@ private fun SectionTitle(text: String) {
     Spacer(Modifier.height(12.dp))
     Text(text = text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
     Spacer(Modifier.height(4.dp))
-}
-
-@Composable
-private fun PresetRow(selected: TerminalColorSet, onSelect: (TerminalColorSet) -> Unit) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        ColorSchemes.presets.forEach { preset ->
-            FilterChip(
-                selected = preset.colors == selected,
-                onClick = { onSelect(preset.colors) },
-                label = { Text(preset.name) },
-            )
-        }
-    }
 }
 
 @Composable

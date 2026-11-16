@@ -3,6 +3,8 @@ package com.termux.app.ui.appearance
 import com.termux.app.data.appearance.AppearanceWriteResult
 
 import com.termux.app.domain.appearance.FontValidator
+import com.termux.app.domain.appearance.exportItermColors
+import com.termux.app.domain.appearance.parseItermColors
 
 import com.termux.app.domain.appearance.FontError
 
@@ -58,6 +60,33 @@ class AppearanceActivity : ComponentActivity() {
         }
     }
 
+    /** Reads an iTerm2 `.itermcolors` file and stages its colours; Apply is still the user's call. */
+    private val importColors = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val xml = runCatching {
+            contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        }.getOrNull()
+        val colors = xml?.let(::parseItermColors)
+        if (colors == null) {
+            Toast.makeText(this, R.string.appearance_import_error, Toast.LENGTH_LONG).show()
+        } else {
+            controller.state.setColors(colors)
+        }
+    }
+
+    /** Writes the staged colours as an iTerm2 `.itermcolors` file. */
+    private val exportColors = registerForActivityResult(ActivityResultContracts.CreateDocument("application/xml")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val written = runCatching {
+            contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
+                writer.write(exportItermColors(controller.state.draft.colors))
+            } ?: error("no output stream")
+        }.isSuccess
+        if (!written) {
+            Toast.makeText(this, R.string.appearance_export_error, Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -76,6 +105,8 @@ class AppearanceActivity : ComponentActivity() {
                     controller = controller,
                     fontSizeRange = preferences.fontSizeRange,
                     onPickFont = { pickFont.launch(FONT_MIME_TYPE) },
+                    onImport = { importColors.launch("*/*") },
+                    onExport = { exportColors.launch(EXPORT_FILE_NAME) },
                     onApplied = ::onAppearanceApplied,
                     onDiscard = { finish() },
                 )
@@ -155,5 +186,6 @@ class AppearanceActivity : ComponentActivity() {
         const val FONT_CANDIDATE_PREFIX = "appearance-font-"
         const val FONT_CANDIDATE_SUFFIX = ".ttf"
         const val FONT_MIME_TYPE = "*/*"
+        const val EXPORT_FILE_NAME = "termux-colors.itermcolors"
     }
 }
