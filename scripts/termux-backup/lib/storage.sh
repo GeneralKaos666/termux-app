@@ -110,7 +110,78 @@ backup_created_at() {
 }
 
 free_space_bytes() {
-    local path=$1 probe=$1
+    local probe=$1
     [ -d "$probe" ] || probe=$(dirname "$probe")
     df -Pk "$probe" 2>/dev/null | awk 'NR == 2 { print $4 * 1024 }'
 }
+
+sums_write() {
+    local dir=$1
+    if compgen -G "$dir/*.tar.*" >/dev/null; then
+        (
+            cd "$dir" || exit 1
+            sha256sum -- *.tar.* >SHA256SUMS.tmp && mv -- SHA256SUMS.tmp SHA256SUMS
+        )
+    else
+        : >"$dir/SHA256SUMS"
+    fi
+}
+
+manifest_write() {
+    local dir=$1 kind=$2 label=$3 compression=$4
+    local arch release created file size first=1 archives="" excludes="" exclude
+    arch=$(uname -m)
+    release=$(getprop ro.build.version.release 2>/dev/null || true)
+    [ -n "$release" ] || release="unknown"
+    created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+    for file in "$dir"/*.tar.*; do
+        [ -f "$file" ] || continue
+        size=$(wc -c <"$file" | tr -d ' ')
+        [ "$first" -eq 1 ] || archives+=", "
+        first=0
+        archives+="\"$(json_escape "${file##*/}")\": $size"
+    done
+
+    first=1
+    while IFS= read -r exclude; do
+        [ -n "$exclude" ] || continue
+        [ "$first" -eq 1 ] || excludes+=", "
+        first=0
+        excludes+="\"$(json_escape "$exclude")\""
+    done < <(excludes_list 0)
+
+    printf '{\n' >"$dir/manifest.json"
+    printf '  "format_version": %s,\n' "$FORMAT_VERSION" >>"$dir/manifest.json"
+    printf '  "tool_version": "%s",\n' "$TOOL_VERSION" >>"$dir/manifest.json"
+    printf '  "created_at": "%s",\n' "$created" >>"$dir/manifest.json"
+    printf '  "kind": "%s",\n' "$(json_escape "$kind")" >>"$dir/manifest.json"
+    printf '  "label": "%s",\n' "$(json_escape "$label")" >>"$dir/manifest.json"
+    printf '  "arch": "%s",\n' "$(json_escape "$arch")" >>"$dir/manifest.json"
+    printf '  "android_release": "%s",\n' "$(json_escape "$release")" >>"$dir/manifest.json"
+    printf '  "compression": "%s",\n' "$(json_escape "$compression")" >>"$dir/manifest.json"
+    printf '  "sources": {"home": "%s", "etc": "%s"},\n' \
+        "$(json_escape "$HOME")" "$(json_escape "$PREFIX")" >>"$dir/manifest.json"
+    printf '  "excludes": [%s],\n' "$excludes" >>"$dir/manifest.json"
+    printf '  "archives": {%s}\n' "$archives" >>"$dir/manifest.json"
+    printf '}\n' >>"$dir/manifest.json"
+}
+
+backup_prune() {
+    local root=$1 keep=$2 excess i
+    local -a names=()
+    [[ $keep =~ ^[0-9]+$ ]] || die 1 "prune: --keep needs a number"
+    [ "$keep" -gt 0 ] || return 0
+    local name
+    while IFS= read -r name; do
+        case $name in
+            termux_backup_*) names+=("$name") ;;
+        esac
+    done < <(backup_list "$root")
+    excess=$((${#names[@]} - keep))
+    [ "$excess" -gt 0 ] || return 0
+    for ((i = 0; i < excess; i++)); do
+        rm -rf -- "${root:?}/${names[i]}"
+    done
+}
+

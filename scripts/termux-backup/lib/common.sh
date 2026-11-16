@@ -1,19 +1,24 @@
 # shellcheck shell=bash
 # Shared constants and helpers. Defines functions only.
 
+# shellcheck disable=SC2034 # consumed by sourced libraries
 TOOL_VERSION="1.0.0"
+# shellcheck disable=SC2034
 FORMAT_VERSION=1
+# shellcheck disable=SC2034
 DEFAULT_ROOT="/sdcard/termux-backups"
 
 color_init() {
     C_RESET=""
     C_RED=""
+    # shellcheck disable=SC2034
     C_GREEN=""
     C_YELLOW=""
     [ -t 2 ] || return 0
     [ -n "${NO_COLOR:-}" ] && return 0
     C_RESET=$'\033[0m'
     C_RED=$'\033[31m'
+    # shellcheck disable=SC2034
     C_GREEN=$'\033[32m'
     C_YELLOW=$'\033[33m'
 }

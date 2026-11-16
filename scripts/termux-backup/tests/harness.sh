@@ -3,9 +3,11 @@
 set -uo pipefail
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+# shellcheck disable=SC2034 # used by sourced test files
 SCRIPT="$REPO_ROOT/scripts/termux-backup/termux-backup"
 ORIGINAL_PATH=$PATH
 REAL_TAR=$(command -v tar)
+export REAL_TAR
 
 setup_sandbox() {
     SANDBOX=$(mktemp -d "${TMPDIR:-/tmp}/termux-backup-test.XXXXXX")

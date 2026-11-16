@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 test_unknown_subcommand_exits_1() {
     setup_sandbox
     assert_exit 1 bash "$SCRIPT" frobnicate

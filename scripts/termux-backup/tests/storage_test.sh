@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 test_list_reports_only_directories_with_sums() {
     setup_sandbox
     mkdir -p "$SANDBOX/backups/termux_backup_20260101_000000"

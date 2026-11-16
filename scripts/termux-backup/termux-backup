@@ -7,6 +7,8 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source "$SCRIPT_DIR/lib/common.sh"
 # shellcheck source=lib/storage.sh
 source "$SCRIPT_DIR/lib/storage.sh"
+# shellcheck source=lib/archive.sh
+source "$SCRIPT_DIR/lib/archive.sh"
 # shellcheck source=lib/report.sh
 source "$SCRIPT_DIR/lib/report.sh"
 
@@ -32,7 +34,6 @@ Run "termux-backup <command> --help" for command options.
 EOF
 }
 
-cmd_backup() { die 1 "not implemented"; }
 cmd_restore() { die 1 "not implemented"; }
 cmd_verify() { die 1 "not implemented"; }
 cmd_delete() { die 1 "not implemented"; }
@@ -71,5 +72,6 @@ if [ "$JSON" -eq 1 ] && [ "$QUIET" -eq 1 ]; then
     die 1 "--json and --quiet cannot be combined"
 fi
 
+rc=0
 trap 'rc=$?; log_run "$sub" "$rc"; exit "$rc"' EXIT
 "cmd_$sub" "$@"
