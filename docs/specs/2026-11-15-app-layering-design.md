@@ -235,11 +235,14 @@ toggle.
 ## 12. Sequencing and commits
 
 1. **Docs** — F5 correction, F6/F7 entries. No code.
-2. **`LayeringTest` + package moves** — the move map in §5, applied with `git mv` plus import
-   updates. Mechanical, behavior-preserving. Lands before 3–5 so the rule gates them.
-3. **F2** — `SessionSnapshot`/`SessionIdAllocator`/`SessionItems` and `WallpaperSource`.
-4. **F4** — the `FloatController` constructor seam.
-5. **F3** — `ServiceNotification`, then `WakeLockController`.
+2. **Package moves** — the move map in §5, applied with `git mv` plus import updates. Mechanical,
+   behavior-preserving.
+3. **F4** — the `FloatController` constructor seam. Runs *before* `LayeringTest` on purpose:
+   `FloatController` is the last `ui` file that reads preferences directly, so landing the seam first
+   lets the rule start with no temporary allowlist.
+4. **`LayeringTest`** — lands strict, then gates everything after it.
+5. **F2** — `SessionSnapshot`/`SessionIdAllocator`/`SessionItems` and `WallpaperSource`.
+6. **F3** — `ServiceNotification`, then `WakeLockController`.
 
 One commit per step, Conventional Commits with this repository's capitalized types, e.g.
 `Changed(app): Extract session mapping from TermuxActivity`.
