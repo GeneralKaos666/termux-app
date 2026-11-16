@@ -56,7 +56,7 @@ class FloatControllerTest {
     @Test
     fun `showNewSession does not create a session without the overlay permission`() {
         val source = FakeSource()
-        val controller = FloatController(context(), source, canDrawOverlays = { false })
+        val controller = FloatController(context(), source, fontSize = 14, canDrawOverlays = { false })
 
         controller.showNewSession()
 
@@ -67,7 +67,7 @@ class FloatControllerTest {
     @Test
     fun `showNewSession creates a session and shows the window when permitted`() {
         val source = FakeSource(newTermuxSession())
-        val controller = FloatController(context(), source, canDrawOverlays = { true })
+        val controller = FloatController(context(), source, fontSize = 14, canDrawOverlays = { true })
 
         controller.showNewSession()
 
@@ -78,7 +78,7 @@ class FloatControllerTest {
     @Test
     fun `onSessionFinished clears the session and hides the window`() {
         val source = FakeSource(newTermuxSession())
-        val controller = FloatController(context(), source, canDrawOverlays = { true })
+        val controller = FloatController(context(), source, fontSize = 14, canDrawOverlays = { true })
         controller.showNewSession()
 
         controller.onSessionFinished()
@@ -90,7 +90,7 @@ class FloatControllerTest {
     @Test
     fun `stop terminates the float session's shell`() {
         val source = FakeSource(newTermuxSession())
-        val controller = FloatController(context(), source, canDrawOverlays = { true })
+        val controller = FloatController(context(), source, fontSize = 14, canDrawOverlays = { true })
         controller.showNewSession()
         val session = requireNotNull(controller.floatSession)
 
@@ -101,7 +101,7 @@ class FloatControllerTest {
 
     @Test
     fun `the float terminal view can take focus so the IME binds to it`() {
-        val controller = FloatController(context(), FakeSource(newTermuxSession()), canDrawOverlays = { true })
+        val controller = FloatController(context(), FakeSource(newTermuxSession()), fontSize = 14, canDrawOverlays = { true })
 
         controller.showNewSession()
 
@@ -114,7 +114,7 @@ class FloatControllerTest {
     @Test
     fun `a second showNewSession reuses the existing session instead of creating another`() {
         val source = FakeSource(newTermuxSession())
-        val controller = FloatController(context(), source, canDrawOverlays = { true })
+        val controller = FloatController(context(), source, fontSize = 14, canDrawOverlays = { true })
         controller.showNewSession()
 
         controller.showNewSession()
@@ -143,7 +143,7 @@ class FloatControllerTest {
     @Test
     fun `showNewSession installs the owners a ComposeView requires before adding it`() {
         val context = context()
-        val controller = FloatController(context, FakeSource(newTermuxSession()), canDrawOverlays = { true })
+        val controller = FloatController(context, FakeSource(newTermuxSession()), fontSize = 14, canDrawOverlays = { true })
 
         controller.showNewSession()
 
@@ -160,7 +160,7 @@ class FloatControllerTest {
 
     @Test
     fun `the float terminal view has a renderer before Compose lays it out`() {
-        val controller = FloatController(context(), FakeSource(newTermuxSession()), canDrawOverlays = { true })
+        val controller = FloatController(context(), FakeSource(newTermuxSession()), fontSize = 14, canDrawOverlays = { true })
 
         controller.showNewSession()
 
@@ -174,7 +174,7 @@ class FloatControllerTest {
     @Test
     fun `hiding the window destroys its lifecycle so the recomposer is released`() {
         val context = context()
-        val controller = FloatController(context, FakeSource(newTermuxSession()), canDrawOverlays = { true })
+        val controller = FloatController(context, FakeSource(newTermuxSession()), fontSize = 14, canDrawOverlays = { true })
         controller.showNewSession()
         val overlay = addedViews(context).single()
         val owner = requireNotNull(overlay.findViewTreeLifecycleOwner())

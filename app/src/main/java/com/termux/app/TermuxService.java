@@ -653,8 +653,11 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
      */
     @NonNull
     public FloatController getFloatController() {
-        if (mFloatController == null)
-            mFloatController = new FloatController(this, this);
+        if (mFloatController == null) {
+            TermuxAppSharedPreferences preferences = TermuxAppSharedPreferences.build(this);
+            int fontSize = preferences != null ? preferences.getFontSize() : FloatController.DEFAULT_FONT_SIZE;
+            mFloatController = new FloatController(this, this, fontSize);
+        }
         return mFloatController;
     }
 

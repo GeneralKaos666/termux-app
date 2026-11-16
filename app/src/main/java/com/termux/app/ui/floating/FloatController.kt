@@ -18,7 +18,6 @@ import android.widget.Toast
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.termux.R
-import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession
 import com.termux.shared.termux.terminal.TermuxTerminalViewClientBase
 import com.termux.shared.view.KeyboardUtils
@@ -65,6 +64,7 @@ class FloatViewClient : TermuxTerminalViewClientBase()
 class FloatController @JvmOverloads constructor(
     private val context: Context,
     private val sessionSource: FloatSessionSource,
+    private val fontSize: Int,
     private val canDrawOverlays: () -> Boolean = {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) true else Settings.canDrawOverlays(context)
     },
@@ -85,7 +85,7 @@ class FloatController @JvmOverloads constructor(
         isFocusableInTouchMode = true
         // The activity path applies the user's font size before the view is attached; without a
         // renderer the first layout throws a NullPointerException out of updateSize().
-        setTextSize(TermuxAppSharedPreferences.build(context)?.fontSize ?: DEFAULT_FONT_SIZE)
+        setTextSize(fontSize)
     }
 
     private val prefs = FloatWindowPrefs.create(context)
@@ -332,7 +332,8 @@ class FloatController @JvmOverloads constructor(
 
     private fun pxToDp(value: Int): Int = (value / context.resources.displayMetrics.density).roundToInt()
 
-    private companion object {
+    companion object {
+        const val DEFAULT_FONT_SIZE = 14
         const val BUBBLE_SIZE_DP = 56
         const val MIN_WIDTH_DP = 200
         const val MIN_HEIGHT_DP = 200
