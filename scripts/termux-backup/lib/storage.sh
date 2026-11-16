@@ -185,3 +185,146 @@ backup_prune() {
     done
 }
 
+
+sums_verify() {
+    local dir=$1
+    [ -f "$dir/SHA256SUMS" ] || return 2
+    ( cd "$dir" && sha256sum -c --strict SHA256SUMS ) >/dev/null 2>&1 || return 2
+    return 0
+}
+
+backup_name_valid() {
+    local name=$1
+    [[ $name =~ ^(termux_backup|safety_pre_restore)_[A-Za-z0-9._-]+$ ]] || return 1
+    [[ $name != *..* ]]
+}
+
+backup_delete() {
+    local root=$1 name=$2 assume_yes=${3:-0}
+    backup_name_valid "$name" || die 1 "invalid backup name: $name"
+    backup_exists "$root" "$name" || die 1 "no such backup: $name"
+    log_info "delete: $root/$name"
+    if [ "$assume_yes" -ne 1 ]; then
+        confirm_word delete "Type delete to remove $name: " || die 1 "delete: aborted"
+    fi
+    rm -rf -- "${root:?}/${name}"
+}
+
+name_parse() {
+    local cmd=$1
+    shift
+    OPT_NAME=""
+    OPT_PATH=""
+    OPT_YES=0
+    OPT_KEEP=""
+    OPT_HELP=0
+    while [ "$#" -gt 0 ]; do
+        case $1 in
+            --name)
+                [ "$#" -ge 2 ] || die 1 "$cmd: --name needs a value"
+                OPT_NAME=$2
+                shift 2
+                ;;
+            --path)
+                [ "$#" -ge 2 ] || die 1 "$cmd: --path needs a value"
+                OPT_PATH=$2
+                shift 2
+                ;;
+            --keep)
+                [ "$#" -ge 2 ] || die 1 "$cmd: --keep needs a value"
+                OPT_KEEP=$2
+                shift 2
+                ;;
+            --yes | -y)
+                OPT_YES=1
+                shift
+                ;;
+            --json | --quiet)
+                shift
+                ;;
+            -h | --help)
+                OPT_HELP=1
+                shift
+                ;;
+            *)
+                die 1 "$cmd: unknown option: $1"
+                ;;
+        esac
+    done
+}
+
+cmd_verify() {
+    local root name
+    name_parse verify "$@"
+    [ "$OPT_HELP" -eq 0 ] || {
+        printf 'Usage: termux-backup verify --name NAME [--path DIR]\n'
+        return 0
+    }
+    [ -n "$OPT_NAME" ] || die 1 "verify: --name is required"
+    root=$(root_resolve "$OPT_PATH")
+    name=$OPT_NAME
+    backup_name_valid "$name" || die 1 "verify: invalid backup name: $name"
+    backup_exists "$root" "$name" || die 1 "verify: no such backup: $name"
+
+    if ! sums_verify "$root/$name"; then
+        if [ "${JSON:-0}" -eq 1 ]; then
+            printf '{"name":"%s","root":"%s","valid":false}\n' \
+                "$(json_escape "$name")" "$(json_escape "$root")"
+        else
+            log_error "termux-backup: checksum mismatch: $name"
+        fi
+        return 2
+    fi
+    if [ "${JSON:-0}" -eq 1 ]; then
+        printf '{"name":"%s","root":"%s","valid":true}\n' \
+            "$(json_escape "$name")" "$(json_escape "$root")"
+    elif [ "${QUIET:-0}" -eq 0 ]; then
+        log_info "OK: $name"
+    fi
+}
+
+cmd_delete() {
+    local root name
+    name_parse delete "$@"
+    [ "$OPT_HELP" -eq 0 ] || {
+        printf 'Usage: termux-backup delete --name NAME [--yes] [--path DIR]\n'
+        return 0
+    }
+    [ -n "$OPT_NAME" ] || die 1 "delete: --name is required"
+    root=$(root_resolve "$OPT_PATH")
+    name=$OPT_NAME
+    backup_delete "$root" "$name" "$OPT_YES"
+    if [ "${JSON:-0}" -eq 1 ]; then
+        printf '{"deleted":"%s","root":"%s"}\n' \
+            "$(json_escape "$name")" "$(json_escape "$root")"
+    elif [ "${QUIET:-0}" -eq 0 ]; then
+        log_info "Deleted $name"
+    fi
+}
+
+cmd_prune() {
+    local root keep before after removed
+    name_parse prune "$@"
+    [ "$OPT_HELP" -eq 0 ] || {
+        printf 'Usage: termux-backup prune [--keep N] [--path DIR]\n'
+        return 0
+    }
+    root=$(root_resolve "$OPT_PATH")
+    keep=$OPT_KEEP
+    if [ -z "$keep" ]; then
+        keep=$(config_get keep 2>/dev/null || true)
+    fi
+    [[ $keep =~ ^[0-9]+$ ]] || keep=5
+
+    before=$(backup_list "$root" | awk '/^termux_backup_/ { n++ } END { print n + 0 }')
+    backup_prune "$root" "$keep"
+    after=$(backup_list "$root" | awk '/^termux_backup_/ { n++ } END { print n + 0 }')
+    removed=$((before - after))
+
+    if [ "${JSON:-0}" -eq 1 ]; then
+        printf '{"root":"%s","removed":%s,"kept":%s,"keep":%s}\n' \
+            "$(json_escape "$root")" "$removed" "$after" "$keep"
+    elif [ "${QUIET:-0}" -eq 0 ]; then
+        log_info "Pruned $removed backup(s), kept $after (limit $keep)"
+    fi
+}

@@ -35,9 +35,6 @@ EOF
 }
 
 cmd_restore() { die 1 "not implemented"; }
-cmd_verify() { die 1 "not implemented"; }
-cmd_delete() { die 1 "not implemented"; }
-cmd_prune() { die 1 "not implemented"; }
 
 JSON=0
 QUIET=0
