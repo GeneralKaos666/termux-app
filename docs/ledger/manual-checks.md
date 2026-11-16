@@ -35,7 +35,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** (all window, IME, permission and lifecycle checks; three defects fixed) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
 | D-13 | IME text round-trip after the `TerminalView` seam split | deferred to the device phase | §14 below |
 | D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
-| D-15 | Shell UI motion (springy chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
+| D-15 | Shell UI motion (tween chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
 | D-16 | Acrylic background (blur, opacity, live-wallpaper fallback colour) | **passed 2026-11-14** on NX769J / API 34 (12 of 12; the live-wallpaper rows needed the `getWallpaperInfo()` fix) | §17 below |
 | D-17 | termux-backup writes and lists on real shared storage | pending | §18 below |
 | D-18 | termux-backup restore on a second device | pending | §18 below |
@@ -408,6 +408,10 @@ bar or underline cursor glides to its new cell. A block cursor still snaps, beca
 lives in the cell itself. All of this is in `:terminal-view` (`CursorFx`, `TerminalRenderer`,
 `TerminalView`); the engine is untouched. **Deferred to the device phase**, per the ledger work order.
 
+Corrected 2026-11-15: the frame loop runs on `Choreographer` frame callbacks (vsync-aligned) and the
+easing is time-based (a 26 ms half-life), so the glide speed no longer depends on the frame cadence.
+With the system "remove animations" setting on, the cursor is static (no fade, no glide).
+
 Run in a live shell session:
 
 - [ ] Blink fade: with the default block cursor and blinking on, the cursor fades down and back up with
@@ -425,25 +429,35 @@ Run in a live shell session:
       `printf '\033[?25h'` brings it back fully opaque.
 - [ ] Fast input: holding an arrow key in `nano`/`cat`-less editing keeps the drawn cursor with the true
       caret with no visible lag or trail.
+- [ ] Glide speed is refresh-rate independent: on a 120 Hz panel a bar/underline glide takes the same
+      wall-clock time as on 60 Hz (it does not finish in fewer frames).
+- [ ] Remove animations, cursor static: with the system "remove animations" setting on, the cursor is
+      steady and fully opaque and a bar/underline cursor snaps to its cell instead of gliding.
+- [ ] Remove animations is live: turn the setting on (or set `ANIMATOR_DURATION_SCALE` to 0) while a
+      session is open — the cursor stops fading and gliding without restarting the app.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
-## 16. D-15 — shell UI motion (springy chrome, animated tabs, float enter)
+## 16. D-15 — shell UI motion (tween chrome, animated tabs, float enter)
 
-The Compose shell now moves: both chrome bars spring open and closed, session tabs slide/fade on add,
+The Compose shell now moves: both chrome bars tween open and closed, session tabs slide/fade on add,
 close and reorder, the active tab's surface fades in and a rounded pill glides between tabs, and the
 float bubble/window grows and fades in on first composition. Everything is in `:app` Compose
 (`ShellHost.kt`, `SessionsBar.kt`, `FloatingWindow.kt`, `FloatingBubble.kt`, `theme/Motion.kt`);
 `TerminalView` and the float `WindowManager` maths are untouched. **Deferred to the device phase**,
 per the ledger work order.
 
+Corrected 2026-11-15: the chrome bars expand/collapse on a tween (no height or alpha overshoot), the
+float overlay enters from 92 % instead of a point, and `shellAnimationsEnabled()` follows the setting
+while the app runs.
+
 Run with at least three sessions and the float session available:
 
-- [ ] Sessions bar spring: collapse it with the chevron and expand it with the floating handle. It
-      grows and shrinks with a slight overshoot, not a linear tween, and the terminal resizes cleanly
-      underneath.
-- [ ] Extra-keys bar spring: hide and show the key grid with its handle. Same motion; no clipped or
-      jumping rows.
+- [ ] Sessions bar tween: collapse it with the chevron and expand it with the floating handle. It
+      grows and shrinks smoothly with no overshoot past its final height, and the terminal resizes
+      cleanly underneath.
+- [ ] Extra-keys bar tween: hide and show the key grid with its handle. Same motion, no overshoot; no
+      clipped or jumping rows.
 - [ ] Tab add/close: open a new tab and close one. The new tab slides/fades in and the closing one
       slides/fades out; the remaining tabs close the gap smoothly.
 - [ ] Tab reorder: long-press a tab and drag it past another. Nothing reorders under the finger; on
@@ -453,13 +467,16 @@ Run with at least three sessions and the float session available:
       pill glides to the newly active tab, including while the row is scrolled; it never trails
       behind a scroll fling. Scroll the active tab out of view: the pill is clipped to the row and
       does not draw over the chevron or the "+" button.
-- [ ] Float enter: collapse the window to the bubble and expand it again. Both grow and fade in
-      instead of popping; the terminal content is sharp once settled.
+- [ ] Float enter: collapse the window to the bubble and expand it again. Both grow from ~92 % and
+      fade in instead of popping; the terminal content is sharp once settled, and the overlay is never
+      a zero-size point on its first frame.
 - [ ] Empty sessions list: with no sessions the bar shows the "start a session" prompt and there is
       no stray pill or animation artifact.
 - [ ] Remove animations: turn on the system "remove animations" setting (or set
       `ANIMATOR_DURATION_SCALE` to 0) and restart the app. Every transition above is instant, with no
       fade, slide or overshoot.
+- [ ] Remove animations is live: turn the setting on while the app runs — every transition above
+      becomes instant without restarting the app.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 

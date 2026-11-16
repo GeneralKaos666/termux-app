@@ -96,12 +96,18 @@ drag-to-reorder, rename and close have all since shipped.
   (`CursorFx.easeTowards`, ~0.35 per frame). A block cursor never eases, since its text inversion is
   baked into the cell. The engine and the public renderer API are unchanged (a new 13-argument
   `render(...)` overload does the effects; the existing overloads delegate with neutral values).
-  Device pass: `manual-checks.md` D-14.
+  `[corrected 2026-11-15]` the blink/ease loop now runs on `Choreographer` frame callbacks with
+  time-based easing (a 26 ms half-life, so the glide speed is the same at any refresh rate), and the
+  cursor is static (no fade, no glide) when the system animator scale is 0. Device pass:
+  `manual-checks.md` D-14.
 - `[shipped 2026-11-14]` shell UI motion in `:app` Compose: both chrome bars spring open and closed
   (`theme/Motion.kt#shellSpringSpec`), session tabs slide/fade on add, close and reorder
   (`Modifier.animateItem`), the active tab's colours fade in and a rounded pill glides between tabs,
   and the float bubble/window grows and fades in on first composition. Everything collapses to
-  instant when `shellAnimationsEnabled()` is false. Device pass: `manual-checks.md` D-15.
+  instant when `shellAnimationsEnabled()` is false. `[corrected 2026-11-15]` the chrome bars
+  expand/collapse on a tween (no height or alpha overshoot), the float overlay enters from 92 %
+  instead of a point, and `shellAnimationsEnabled()` follows the setting while the app runs (a
+  `ContentObserver`). Device pass: `manual-checks.md` D-15.
 - `[shipped 2026-11-14]` acrylic terminal background in `:app`: the wallpaper/custom-image picture
   behind the shell can be blurred (0–25 px; a cached `BlurLayer` with a `RenderEffect` on its
   `RenderNode` on API 31+, a load-time downscale with filtered upscale below it) and lightened
