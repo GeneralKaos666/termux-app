@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -33,7 +34,9 @@ class KeyLayoutGalleryActivity : ComponentActivity() {
         presetStore = ExtraKeysPresetStore(this)
 
         setContent {
-            var selectedId by mutableStateOf(presetStore.current().orEmpty())
+            // Remembered: a bare mutableStateOf inside setContent would be rebuilt from the store on
+            // every recomposition, discarding the pick.
+            var selectedId by remember { mutableStateOf(presetStore.current().orEmpty()) }
 
             TermuxShellTheme {
                 Column(
