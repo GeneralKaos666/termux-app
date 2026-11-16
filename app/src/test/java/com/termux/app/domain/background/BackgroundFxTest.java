@@ -1,4 +1,4 @@
-package com.termux.app.ui.background;
+package com.termux.app.domain.background;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

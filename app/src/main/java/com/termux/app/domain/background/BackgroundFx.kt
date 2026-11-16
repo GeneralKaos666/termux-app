@@ -1,7 +1,7 @@
-package com.termux.app.ui.background
+package com.termux.app.domain.background
 
 /**
- * Pure math behind the acrylic terminal background: no `android.*` types, so it is unit-testable on
+ * Pure math behind the acrylic terminal background: no Android types, so it is unit-testable on
  * any host. The bitmap work itself (blur, downscale, wallpaper sampling) lives in `TermuxActivity`
  * and `ShellHost` and is verified on device.
  */

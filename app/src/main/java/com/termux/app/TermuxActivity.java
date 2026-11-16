@@ -38,7 +38,7 @@ import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
 import com.termux.app.ui.SnackbarState;
 import com.termux.app.ui.ShellChromeState;
-import com.termux.app.ui.background.BackgroundFx;
+import com.termux.app.domain.background.BackgroundFx;
 import com.termux.app.ui.background.TerminalBackgroundState;
 import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
@@ -205,6 +205,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Compose-observable transparency of the shell chrome bars (sessions tab bar, extra-keys bar).
      */
     private ShellChromeState mShellChromeState;
+
+    /**
+     * Source of wallpaper and custom background bitmaps.
+     */
+    private com.termux.app.data.WallpaperSource mWallpaperSource;
 
     /**
      * Whether a background wallpaper decode is currently running on the background thread.
@@ -768,6 +773,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSnackbarState = new SnackbarState();
         mTerminalBackgroundState = new TerminalBackgroundState();
         mShellChromeState = new ShellChromeState();
+        mWallpaperSource = new com.termux.app.data.AndroidWallpaperSource(this);
         // The shell chrome state now exists, so the terminal margins (read in setMargins()) can be
         // pushed into the Compose shell. The earlier setMargins() call in onCreate() only zeroed the
         // layout margins, because this state did not exist yet.
@@ -947,8 +953,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTerminalBackgroundLoading = true;
 
         new Thread(() -> {
-            final Bitmap backgroundBitmap = downscaleForBlur(
-                wallpaperMode ? loadSystemWallpaperBitmap() : loadCustomImageBitmap(), blur);
+            final Bitmap backgroundBitmap = mWallpaperSource.downscaleForBlur(
+                wallpaperMode ? mWallpaperSource.systemWallpaper() : mWallpaperSource.customImage(mPreferences.getTerminalBackgroundImagePath()), blur);
             runOnUiThread(() -> {
                 mTerminalBackgroundLoading = false;
                 if (mTerminalBackgroundState == null) return;
@@ -966,24 +972,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
-     * The API &lt; 31 blur fallback: the bitmap is downscaled here at load time and drawn back up with
-     * filtering, so it reads as a soft blur without a {@code RenderEffect}. A no-op for 0 (the
-     * default), for radii that round to no change, and on API 31+ where the draw applies a real
-     * {@code RenderEffect} and a downscale would only cost sharpness.
-     */
-    @Nullable
-    private static Bitmap downscaleForBlur(@Nullable Bitmap bitmap, float blurRadius) {
-        if (bitmap == null || blurRadius <= 0f) return bitmap;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return bitmap;
-        float divisor = BackgroundFx.blurDownscale(blurRadius);
-        if (divisor <= 1f) return bitmap;
-        int width = Math.max(1, Math.round(bitmap.getWidth() / divisor));
-        int height = Math.max(1, Math.round(bitmap.getHeight() / divisor));
-        if (width == bitmap.getWidth() && height == bitmap.getHeight()) return bitmap;
-        return Bitmap.createScaledBitmap(bitmap, width, height, true);
-    }
-
-    /**
      * Applies the configured interface transparency (0-100) to the Compose shell chrome state, so
      * the sessions tab bar and the extra-keys bar fade over the terminal background.
      */
@@ -991,6 +979,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mShellChromeState == null || mPreferences == null) return;
         mShellChromeState.update(mPreferences.getInterfaceTransparency());
     }
+
 
     /** Whether the system wallpaper is configured as the terminal background. */
     public boolean shouldUseWallpaperTerminalBackground() {
@@ -1000,108 +989,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /** Whether a custom image is configured as the terminal background. */
     public boolean shouldUseCustomImageTerminalBackground() {
         return mPreferences != null && mPreferences.shouldUseCustomImageTerminalBackground();
-    }
-
-    /**
-     * Loads the current system wallpaper as a bitmap downsampled to at most the screen size. A live
-     * wallpaper's animation is never captured, so it always takes the sampled fallback colour; a
-     * static wallpaper is drawn from its frame unless that frame is unusable.
-     */
-    @Nullable
-    @SuppressWarnings("deprecation")
-    private Bitmap loadSystemWallpaperBitmap() {
-        try {
-            WallpaperManager wallpaperManager = WallpaperManager.getInstance(this);
-            boolean liveWallpaper = wallpaperManager.getWallpaperInfo() != null;
-            Drawable wallpaperDrawable = wallpaperManager.getDrawable();
-            boolean usableFrame = wallpaperDrawable != null
-                && wallpaperDrawable.getIntrinsicWidth() > 0
-                && wallpaperDrawable.getIntrinsicHeight() > 0;
-            if (BackgroundFx.useWallpaperFallbackColor(liveWallpaper, usableFrame)) {
-                Logger.logDebug(LOG_TAG, liveWallpaper
-                    ? "Live wallpaper frame not captured, using the fallback colour"
-                    : "No usable wallpaper frame, using the fallback colour");
-                return wallpaperFallbackBitmap(wallpaperManager);
-            }
-            return drawableToScreenBitmap(wallpaperDrawable);
-        } catch (Exception e) {
-            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the system wallpaper", e);
-            return null;
-        }
-    }
-
-    /**
-     * A 1x1 bitmap for the live-wallpaper case, where the animation itself cannot be captured: the
-     * wallpaper's primary colour when the platform can sample one (API 27+), else the terminal
-     * background colour. Some devices hand back a stale static frame through {@code getDrawable()}
-     * for a live wallpaper, so that frame is not drawn; the sampled colour is used instead.
-     */
-    @NonNull
-    private Bitmap wallpaperFallbackBitmap(@NonNull WallpaperManager wallpaperManager) {
-        int terminalBackgroundColor =
-            TerminalColors.COLOR_SCHEME.mDefaultColors[TextStyle.COLOR_INDEX_BACKGROUND];
-        boolean colorsAvailable = false;
-        int primaryColor = terminalBackgroundColor;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            WallpaperColors colors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM);
-            if (colors != null) {
-                colorsAvailable = true;
-                primaryColor = colors.getPrimaryColor().toArgb();
-            }
-        }
-        int color = BackgroundFx.wallpaperFallbackColor(colorsAvailable, primaryColor, terminalBackgroundColor);
-        Logger.logDebug(LOG_TAG, "Live-wallpaper fallback colour: "
-            + (colorsAvailable ? "wallpaper primary" : "terminal background"));
-        return Bitmap.createBitmap(new int[] { color }, 1, 1, Bitmap.Config.ARGB_8888);
-    }
-
-    @Nullable
-    private Bitmap drawableToScreenBitmap(@NonNull Drawable drawable) {
-        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
-        if (displayMetrics.widthPixels <= 0 || displayMetrics.heightPixels <= 0) return null;
-
-        // Only downscale; smaller wallpapers keep their intrinsic size and are cropped by the shell.
-        int srcW = Math.max(drawable.getIntrinsicWidth(), 1);
-        int srcH = Math.max(drawable.getIntrinsicHeight(), 1);
-        float scale = Math.min(1f, Math.min((float) displayMetrics.widthPixels / srcW, (float) displayMetrics.heightPixels / srcH));
-        int dstW = Math.max(1, Math.round(srcW * scale));
-        int dstH = Math.max(1, Math.round(srcH * scale));
-
-        Bitmap bitmap = Bitmap.createBitmap(dstW, dstH, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, dstW, dstH);
-        drawable.draw(canvas);
-        return bitmap;
-    }
-
-    /** Loads the custom background image from the persisted app-private path, downsampled to about the screen size. */
-    @Nullable
-    private Bitmap loadCustomImageBitmap() {
-        String path = mPreferences != null ? mPreferences.getTerminalBackgroundImagePath() : null;
-        if (path == null || path.isEmpty()) return null;
-        try {
-            DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
-            int targetW = displayMetrics.widthPixels;
-            int targetH = displayMetrics.heightPixels;
-
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = true;
-            BitmapFactory.decodeFile(path, options);
-            int srcW = Math.max(options.outWidth, 1);
-            int srcH = Math.max(options.outHeight, 1);
-            int inSampleSize = 1;
-            while ((srcW / inSampleSize) > targetW * 2 || (srcH / inSampleSize) > targetH * 2)
-                inSampleSize *= 2;
-
-            options.inJustDecodeBounds = false;
-            options.inSampleSize = inSampleSize;
-            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-            Bitmap bitmap = BitmapFactory.decodeFile(path, options);
-            return bitmap;
-        } catch (Exception e) {
-            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the custom terminal background image", e);
-            return null;
-        }
     }
 
     public void toggleTerminalToolbar() {

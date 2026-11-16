@@ -8,7 +8,7 @@ import android.graphics.RenderEffect
 import android.graphics.RenderNode
 import android.graphics.Shader
 import android.os.Build
-import com.termux.app.ui.background.BackgroundFx.Crop
+import com.termux.app.domain.background.BackgroundFx.Crop
 import kotlin.math.roundToInt
 
 /**

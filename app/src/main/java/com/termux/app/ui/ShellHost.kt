@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.termux.app.ui.background.BackgroundFx
+import com.termux.app.domain.background.BackgroundFx
 import com.termux.app.ui.background.BlurLayer
 import com.termux.app.ui.background.TerminalBackgroundState
 import com.termux.app.ui.firstrun.FirstRunOverlay
