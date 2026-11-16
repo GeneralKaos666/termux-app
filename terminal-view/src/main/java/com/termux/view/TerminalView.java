@@ -10,15 +10,15 @@ import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.ActionMode;
+import android.view.Choreographer;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
@@ -65,15 +65,13 @@ public final class TerminalView extends View {
 
     private TextSelectionCursorController mTextSelectionCursorController;
 
-    private Handler mTerminalCursorBlinkerHandler;
+    private Choreographer mChoreographer;
     private volatile TerminalCursorBlinkerRunnable mTerminalCursorBlinkerRunnable;
     private int mTerminalCursorBlinkerRate;
     private boolean mCursorInvisibleIgnoreOnce;
     public static final int TERMINAL_CURSOR_BLINK_RATE_MIN = 100;
     public static final int TERMINAL_CURSOR_BLINK_RATE_MAX = 2000;
 
-    /** Frame interval of the cursor animation loop, about 60 frames per second. */
-    private static final long CURSOR_ANIMATION_INTERVAL_MS = 16L;
     /** Half-life of the eased cursor glide: the remaining distance halves every this many milliseconds. */
     private static final float CURSOR_EASING_HALF_LIFE_MS = 26f;
 
@@ -1134,7 +1132,7 @@ public final class TerminalView extends View {
             mDisplayCursorCol = cursorCol;
             return;
         }
-        if ((mDisplayCursorRow != cursorRow || mDisplayCursorCol != cursorCol) && !mCursorEasing) {
+        if (animationsEnabled() && (mDisplayCursorRow != cursorRow || mDisplayCursorCol != cursorCol) && !mCursorEasing) {
             mCursorEasing = true;
             if (!mCursorBlinkRunning) startCursorAnimationFrames();
         }
@@ -1146,6 +1144,18 @@ public final class TerminalView extends View {
             || cursorStyle == TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE;
     }
 
+    /**
+     * Whether system animations are enabled. When they are not (the "remove animations" setting is on),
+     * the cursor stays steady and fully opaque and a bar or underline cursor snaps to its cell instead of
+     * gliding, so no frame loop is started at all.
+     */
+    private boolean animationsEnabled() {
+        return Settings.Global.getFloat(
+            getContext().getContentResolver(),
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f) > 0f;
+    }
+
     /** The cursor halo radius: one eighth of the line spacing, but always at least one pixel. */
     private float cursorGlowRadius() {
         return Math.max(1f, mRenderer.mFontLineSpacing / 8f);
@@ -1153,20 +1163,20 @@ public final class TerminalView extends View {
 
     /** Starts the frame loop that drives the cursor's easing, when blink is disabled and nothing else keeps it up. */
     private void startCursorAnimationFrames() {
-        if (mTerminalCursorBlinkerHandler == null)
-            mTerminalCursorBlinkerHandler = new Handler(Looper.getMainLooper());
+        if (mChoreographer == null)
+            mChoreographer = Choreographer.getInstance();
         TerminalCursorBlinkerRunnable current = mTerminalCursorBlinkerRunnable;
         if (current == null || current.isCancelled() || current.mEmulator != mEmulator) {
             // Cancel the old runnable so a frame already executing cannot re-post itself alongside the new one.
             if (current != null) {
                 current.cancel();
-                mTerminalCursorBlinkerHandler.removeCallbacks(current);
+                mChoreographer.removeFrameCallback(current);
             }
             current = new TerminalCursorBlinkerRunnable(mEmulator, mTerminalCursorBlinkerRate);
             mTerminalCursorBlinkerRunnable = current;
         }
-        mTerminalCursorBlinkerHandler.removeCallbacks(current);
-        mTerminalCursorBlinkerHandler.post(current);
+        mChoreographer.removeFrameCallback(current);
+        mChoreographer.postFrameCallback(current);
     }
 
     /**
@@ -1441,6 +1451,9 @@ public final class TerminalView extends View {
         mCursorBlinkRunning = false;
 
         if (start) {
+            // "Remove animations" is on: keep the cursor steady and fully opaque instead of fading it,
+            // and never start the frame loop.
+            if (!animationsEnabled()) return;
             // If cursor blinker is not enabled or is not valid
             if (mTerminalCursorBlinkerRate < TERMINAL_CURSOR_BLINK_RATE_MIN || mTerminalCursorBlinkerRate > TERMINAL_CURSOR_BLINK_RATE_MAX)
                 return;
@@ -1454,8 +1467,8 @@ public final class TerminalView extends View {
             // Start cursor blinker runnable
             if (TERMINAL_VIEW_KEY_LOGGING_ENABLED)
                 mClient.logVerbose(LOG_TAG, "Starting cursor blinker with the blink rate " + mTerminalCursorBlinkerRate);
-            if (mTerminalCursorBlinkerHandler == null)
-                mTerminalCursorBlinkerHandler = new Handler(Looper.getMainLooper());
+            if (mChoreographer == null)
+                mChoreographer = Choreographer.getInstance();
             mTerminalCursorBlinkerRunnable = new TerminalCursorBlinkerRunnable(mEmulator, mTerminalCursorBlinkerRate);
             mEmulator.setCursorBlinkingEnabled(true);
             // The fade replaces the hard on/off toggle: the blink state stays visible and the envelope owns the alpha.
@@ -1463,7 +1476,7 @@ public final class TerminalView extends View {
             mCursorAlpha = 1f;
             mCursorBlinkRunning = true;
             // Run on the main thread like every later frame, so the animation never touches the view off it.
-            mTerminalCursorBlinkerHandler.post(mTerminalCursorBlinkerRunnable);
+            mChoreographer.postFrameCallback(mTerminalCursorBlinkerRunnable);
         }
     }
 
@@ -1471,14 +1484,14 @@ public final class TerminalView extends View {
      * Cancel the terminal cursor blinker callbacks
      */
     private void stopTerminalCursorBlinker() {
-        if (mTerminalCursorBlinkerHandler != null && mTerminalCursorBlinkerRunnable != null) {
+        if (mChoreographer != null && mTerminalCursorBlinkerRunnable != null) {
             if (TERMINAL_VIEW_KEY_LOGGING_ENABLED)
                 mClient.logVerbose(LOG_TAG, "Stopping cursor blinker");
             // Everything here runs on the UI thread (the emulator is fed by TerminalSession's main-thread
-            // handler), so removeCallbacks alone would suffice today. The flag is kept as defence for a future
-            // off-thread caller: a frame already executing then declines to re-post itself.
+            // handler), so removeFrameCallback alone would suffice today. The flag is kept as defence for a
+            // future off-thread caller: a frame already executing then declines to re-post itself.
             mTerminalCursorBlinkerRunnable.cancel();
-            mTerminalCursorBlinkerHandler.removeCallbacks(mTerminalCursorBlinkerRunnable);
+            mChoreographer.removeFrameCallback(mTerminalCursorBlinkerRunnable);
         }
         // A faded or gliding cursor must be redrawn opaque at its true cell when the animation stops.
         boolean wasAnimating = mCursorAlpha != 1f || mCursorEasing;
@@ -1514,12 +1527,14 @@ public final class TerminalView extends View {
             (int) Math.ceil(right), (int) Math.ceil(bottom));
     }
 
-    private class TerminalCursorBlinkerRunnable implements Runnable {
+    private class TerminalCursorBlinkerRunnable implements Choreographer.FrameCallback {
 
         private volatile TerminalEmulator mEmulator;
         private final int mBlinkRate;
         /** Start of the blink envelope, so the cursor is fully visible on the first frame after starting. */
         private final long mBlinkStartUptimeMs = SystemClock.uptimeMillis();
+        /** Frame time of the previous callback, in nanos; negative until the first frame so its delta is 0. */
+        private long mLastFrameNanos = -1L;
         /**
          * Set by {@link #stopTerminalCursorBlinker()}. The view and this runnable both run on the UI thread
          * today, so this is defence for a future off-thread caller: a frame that is already executing then
@@ -1546,13 +1561,19 @@ public final class TerminalView extends View {
             return mCancelled;
         }
 
-        public void run() {
+        @Override
+        public void doFrame(long frameTimeNanos) {
             try {
                 if (mCancelled) return;
+                // Elapsed time since the previous frame, so the glide speed does not depend on the frame
+                // cadence. The first frame has no previous time and holds still.
+                float dtMs = 0f;
+                if (mLastFrameNanos >= 0L) dtMs = (frameTimeNanos - mLastFrameNanos) / 1_000_000f;
+                mLastFrameNanos = frameTimeNanos;
                 if (mEmulator != null) {
                     // Fade the cursor instead of toggling it on and off, and glide a bar or underline cursor to
                     // the cell it just moved to. Either effect invalidates the cursor's own pixels so this
-                    // runnable paints the next frame, which is what keeps the animation running.
+                    // callback paints the next frame, which is what keeps the animation running.
                     float oldRow = mDisplayCursorRow >= 0f ? mDisplayCursorRow : mEmulator.getCursorRow();
                     float oldCol = mDisplayCursorCol >= 0f ? mDisplayCursorCol : mEmulator.getCursorCol();
                     mCursorAlpha = mCursorBlinkRunning
@@ -1561,8 +1582,8 @@ public final class TerminalView extends View {
                     if (mCursorEasing) {
                         float targetRow = mEmulator.getCursorRow();
                         float targetCol = mEmulator.getCursorCol();
-                        mDisplayCursorRow = CursorFx.easeTowards(mDisplayCursorRow, targetRow, CURSOR_ANIMATION_INTERVAL_MS, CURSOR_EASING_HALF_LIFE_MS);
-                        mDisplayCursorCol = CursorFx.easeTowards(mDisplayCursorCol, targetCol, CURSOR_ANIMATION_INTERVAL_MS, CURSOR_EASING_HALF_LIFE_MS);
+                        mDisplayCursorRow = CursorFx.easeTowards(mDisplayCursorRow, targetRow, dtMs, CURSOR_EASING_HALF_LIFE_MS);
+                        mDisplayCursorCol = CursorFx.easeTowards(mDisplayCursorCol, targetCol, dtMs, CURSOR_EASING_HALF_LIFE_MS);
                         if (Math.abs(mDisplayCursorRow - targetRow) < 0.05f) mDisplayCursorRow = targetRow;
                         if (Math.abs(mDisplayCursorCol - targetCol) < 0.05f) mDisplayCursorCol = targetCol;
                         if (mDisplayCursorRow == targetRow && mDisplayCursorCol == targetCol) mCursorEasing = false;
@@ -1572,9 +1593,9 @@ public final class TerminalView extends View {
                         mDisplayCursorCol >= 0f ? mDisplayCursorCol : mEmulator.getCursorCol());
                 }
             } finally {
-                // Keep the loop alive only while an effect is actually running and this runnable was not cancelled.
-                if (!mCancelled && (mCursorBlinkRunning || mCursorEasing))
-                    mTerminalCursorBlinkerHandler.postDelayed(this, CURSOR_ANIMATION_INTERVAL_MS);
+                // Keep the loop alive only while an effect is actually running and this callback was not cancelled.
+                if (!mCancelled && (mCursorBlinkRunning || mCursorEasing) && mChoreographer != null)
+                    mChoreographer.postFrameCallback(this);
             }
         }
     }
