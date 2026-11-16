@@ -68,6 +68,9 @@ public final class TerminalView extends View {
 
     private TextSelectionCursorController mTextSelectionCursorController;
 
+    /** Colour the text-selection handles are tinted with; 0 keeps their built-in colour. */
+    private int mSelectionHandleTint;
+
     private Choreographer mChoreographer;
     /** Observes the system animator scale so a change while attached stops or resumes the cursor. */
     private ContentObserver mAnimatorScaleObserver;
@@ -547,6 +550,22 @@ public final class TerminalView extends View {
     public void onContextMenuClosed(Menu menu) {
         // Unset the stored text since it shouldn't be used anymore and should be cleared from memory
         unsetStoredSelectedText();
+    }
+
+    /**
+     * Sets the colour the text-selection handles are drawn in, and applies it to handles that
+     * already exist.
+     *
+     * @param color an opaque ARGB colour, or 0 to keep the drawables' built-in colour.
+     */
+    public void setSelectionHandleTint(int color) {
+        mSelectionHandleTint = color;
+        if (mTextSelectionCursorController != null)
+            mTextSelectionCursorController.setHandleTint(color);
+    }
+
+    public int getSelectionHandleTint() {
+        return mSelectionHandleTint;
     }
 
     /**

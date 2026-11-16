@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 
 /**
@@ -83,6 +84,26 @@ private fun animatorScaleEnabled(context: Context): Boolean =
  * always-dark terminal) guarded to API 31+, falling back to the Termux palette. The terminal's own
  * theme (terminal colours, key grid) is untouched.
  */
+/**
+ * The shell's primary colour for [context], resolved outside composition.
+ *
+ * The Java activity needs the same accent the Compose chrome uses (for the text-selection handle
+ * tint), and it cannot call [TermuxShellTheme]. This mirrors the palette choice above, including the
+ * OEM-parsing fallback, so both paths agree.
+ */
+fun shellAccentColor(context: Context): Int {
+    val scheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        try {
+            dynamicDarkColorScheme(context)
+        } catch (t: Throwable) {
+            TermuxFallbackColors
+        }
+    } else {
+        TermuxFallbackColors
+    }
+    return scheme.primary.toArgb()
+}
+
 @Composable
 fun TermuxShellTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current

@@ -22,6 +22,7 @@ import com.termux.shared.termux.interact.TextInputDialogUtils;
 import com.termux.app.TermuxActivity;
 import com.termux.app.data.appearance.AppearancePreferenceKeys;
 import com.termux.app.data.appearance.CursorPreferences;
+import com.termux.app.ui.theme.ThemeKt;
 import com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.app.TermuxService;
@@ -34,6 +35,7 @@ import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.terminal.TextStyle;
 import com.termux.view.TerminalView;
+import com.termux.view.textselection.HandleTint;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -563,6 +565,15 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     public void updateBackgroundColor() {
         if (!mActivity.isVisible()) return;
+        // The selection handles follow the accent, but only while it stays visible on the terminal
+        // background; HandleTint falls back to white/black when the accent would vanish.
+        TerminalSession current = mActivity.getCurrentSession();
+        if (current != null && current.getEmulator() != null && mActivity.getTerminalView() != null) {
+            int terminalBackground =
+                current.getEmulator().mColors.mCurrentColors[TextStyle.COLOR_INDEX_BACKGROUND];
+            mActivity.getTerminalView().setSelectionHandleTint(
+                HandleTint.handleTint(terminalBackground, ThemeKt.shellAccentColor(mActivity)));
+        }
         if (mActivity.shouldUseWallpaperTerminalBackground() || mActivity.shouldUseCustomImageTerminalBackground()) {
             // The decor background is the wallpaper/image, not the terminal palette, so it must not be
             // repainted. Still repaint the terminal view: a palette-only change (OSC 4/10/11/12) neither

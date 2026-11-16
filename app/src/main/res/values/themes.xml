@@ -10,6 +10,18 @@
     <style name="Theme.TermuxApp.DayNight.NoActionBar" parent="Theme.BaseActivity.DayNight.NoActionBar"/>
 
 
+    <!-- Floating text-selection toolbar: the shell's surfaceVariant background and light content,
+         so Copy/Paste/Select all read as part of the app rather than the platform. -->
+    <style name="TermuxSelectionToolbar">
+        <item name="android:background">@color/termux_selection_toolbar_background</item>
+        <item name="android:titleTextStyle">@style/TermuxSelectionToolbar.Title</item>
+    </style>
+
+    <style name="TermuxSelectionToolbar.Title">
+        <item name="android:textColor">@color/termux_selection_toolbar_text</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
     <!-- TermuxActivity DayNight NoActionBar theme. -->
     <style name="Theme.TermuxActivity.DayNight.NoActionBar" parent="Theme.TermuxApp.DayNight.NoActionBar">
         <!-- Primary brand color. -->
@@ -21,6 +33,10 @@
         <!-- Avoid action mode toolbar pushing down terminal content when
              selecting text on pre-6.0 (non-floating toolbar). -->
         <item name="android:windowActionModeOverlay">true</item>
+
+        <!-- The copy/paste toolbar is part of the shell, so it uses the shell's surface and text
+             colours instead of the platform's default action mode styling. -->
+        <item name="android:actionModeStyle">@style/TermuxSelectionToolbar</item>
 
         <item name="android:windowTranslucentStatus">true</item>
         <item name="android:windowTranslucentNavigation">true</item>
