@@ -146,6 +146,23 @@ Usage: termux-backup restore (--name NAME | --latest) [options]
 EOF
 }
 
+restore_extract() {
+    local dir=$1 archive
+    for archive in "$dir"/usr_etc.tar.*; do
+        [ -f "$archive" ] || continue
+        tar -x -f "$archive" -C "$PREFIX" --no-same-owner --no-overwrite-dir || return 1
+    done
+    for archive in "$dir"/home.tar.*; do
+        [ -f "$archive" ] || continue
+        tar -x -f "$archive" -C "$HOME" --no-same-owner --no-overwrite-dir || return 1
+    done
+}
+
+# Replaced by the real installer in the packages task.
+packages_install() {
+    return 0
+}
+
 cmd_restore() {
     local root name dir archive
     restore_parse "$@"
@@ -177,5 +194,40 @@ cmd_restore() {
 
     restore_preflight "$dir" "$OPT_FORCE"
 
-    die 2 "restore: extraction not implemented"
+    local safety=""
+    if [ "$OPT_NO_SAFETY" -eq 0 ]; then
+        local compression
+        compression=$(manifest_field "$dir/manifest.json" compression 2>/dev/null || true)
+        [ -n "$compression" ] || compression=gz
+        safety=$(safety_create "$root" "$compression") ||
+            die 2 "restore: could not create safety archive; nothing was restored"
+        if [ "${QUIET:-0}" -eq 0 ] && [ "${JSON:-0}" -eq 0 ]; then
+            log_info "Safety archive: $safety"
+        fi
+    fi
+
+    if [ "$OPT_YES" -ne 1 ]; then
+        confirm_word restore "Type restore to overwrite $HOME and $PREFIX/etc: " ||
+            die 1 "restore: aborted"
+    fi
+
+    if ! restore_extract "$dir"; then
+        if [ -n "$safety" ]; then
+            die 2 "restore: extraction failed; safety archive: $safety"
+        fi
+        die 2 "restore: extraction failed"
+    fi
+
+    local installed=0
+    if [ "$OPT_NO_PACKAGES" -eq 0 ]; then
+        installed=$(packages_install "$dir" || echo 0)
+    fi
+
+    if [ "${JSON:-0}" -eq 1 ]; then
+        printf '{"name":"%s","root":"%s","safety":"%s","packages_installed":%s}\n' \
+            "$(json_escape "$name")" "$(json_escape "$root")" \
+            "$(json_escape "$safety")" "$installed"
+    elif [ "${QUIET:-0}" -eq 0 ]; then
+        log_info "Restored $name"
+    fi
 }

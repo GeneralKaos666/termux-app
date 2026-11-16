@@ -122,20 +122,15 @@ Usage: termux-backup backup [options]
 EOF
 }
 
-backup_create_body() {
-    set -euo pipefail
-    local tmp=$1 root=$2 label=$3 compression=$4 secrets=$5 no_home=$6 no_config=$7
-    local excludes="$tmp/excludes" dir_name rel archive
+backup_build_dir() {
+    local tmp=$1 dir_name=$2 root=$3 kind=$4 label=$5 compression=$6
+    local secrets=$7 no_home=$8 no_config=$9
+    local excludes="$tmp/excludes" rel archive
 
-    mkdir -p "$tmp"
+    mkdir -p "$tmp" || return 1
     trap 'rm -rf -- "$tmp"' EXIT
 
     excludes_list "$secrets" >"$excludes" || return 1
-    if [ -n "$label" ]; then
-        dir_name=$(dir_name_backup "$label")
-    else
-        dir_name=$(dir_name_backup)
-    fi
 
     case $root in
         "$HOME"/*)
@@ -160,8 +155,29 @@ backup_create_body() {
     mv -- "$tmp" "$root/$dir_name" || return 1
     trap - EXIT
     sums_write "$root/$dir_name" || return 1
-    manifest_write "$root/$dir_name" backup "$label" "$compression" || return 1
+    manifest_write "$root/$dir_name" "$kind" "$label" "$compression" || return 1
+}
+
+backup_create_body() {
+    set -euo pipefail
+    local tmp=$1 root=$2 label=$3 compression=$4 secrets=$5 no_home=$6 no_config=$7
+    local dir_name
+    if [ -n "$label" ]; then
+        dir_name=$(dir_name_backup "$label")
+    else
+        dir_name=$(dir_name_backup)
+    fi
+    backup_build_dir "$tmp" "$dir_name" "$root" backup "$label" "$compression" \
+        "$secrets" "$no_home" "$no_config" || return 1
     printf '%s' "$dir_name"
+}
+
+safety_create() {
+    local root=$1 compression=${2:-gz} name
+    [ -w "$root" ] || return 1
+    name=$(dir_name_safety)
+    backup_build_dir "$root/.tmp.$$" "$name" "$root" safety "pre-restore" "$compression" 0 0 0 || return 1
+    printf '%s' "$name"
 }
 
 cmd_backup() {
