@@ -19,6 +19,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.termux.R;
+import com.termux.app.data.notifications.ServiceNotification;
+import com.termux.app.data.wakelock.WakeLockController;
+import com.termux.app.domain.notifications.ServiceNotificationPolicyKt;
 import com.termux.app.event.SystemEventReceiver;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalSessionServiceClient;
@@ -100,15 +103,15 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
      */
     private TermuxShellManager mShellManager;
 
-    /** The wake lock and wifi lock are always acquired and released together. */
-    private PowerManager.WakeLock mWakeLock;
-    private WifiManager.WifiLock mWifiLock;
+    private final WakeLockController mWakeLockController = new WakeLockController(this, () -> { updateNotification(); return kotlin.Unit.INSTANCE; });
 
     /** If the user has executed the {@link TERMUX_SERVICE#ACTION_STOP_SERVICE} intent. */
     boolean mWantsToStop = false;
 
     /** Lazily built orchestrator for the in-app floating terminal overlay and its session. */
     private FloatController mFloatController;
+
+    private final ServiceNotification mServiceNotification = new ServiceNotification(this);
 
     private static final String LOG_TAG = "TermuxService";
 
@@ -332,57 +335,13 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
 
     /** Process action to acquire Power and Wi-Fi WakeLocks. */
-    @SuppressLint({"WakelockTimeout", "BatteryLife"})
     private void actionAcquireWakeLock() {
-        if (mWakeLock != null) {
-            Logger.logDebug(LOG_TAG, "Ignoring acquiring WakeLocks since they are already held");
-            return;
-        }
-
-        Logger.logDebug(LOG_TAG, "Acquiring WakeLocks");
-
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TermuxConstants.TERMUX_APP_NAME.toLowerCase() + ":service-wakelock");
-        mWakeLock.acquire();
-
-        // http://tools.android.com/tech-docs/lint-in-studio-2-3#TOC-WifiManager-Leak
-        WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        mWifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, TermuxConstants.TERMUX_APP_NAME.toLowerCase());
-        mWifiLock.acquire();
-
-        if (!PermissionUtils.checkIfBatteryOptimizationsDisabled(this)) {
-            PermissionUtils.requestDisableBatteryOptimizations(this);
-        }
-
-        updateNotification();
-
-        Logger.logDebug(LOG_TAG, "WakeLocks acquired successfully");
-
+        mWakeLockController.acquire();
     }
 
     /** Process action to release Power and Wi-Fi WakeLocks. */
     private void actionReleaseWakeLock(boolean updateNotification) {
-        if (mWakeLock == null && mWifiLock == null) {
-            Logger.logDebug(LOG_TAG, "Ignoring releasing WakeLocks since none are already held");
-            return;
-        }
-
-        Logger.logDebug(LOG_TAG, "Releasing WakeLocks");
-
-        if (mWakeLock != null) {
-            mWakeLock.release();
-            mWakeLock = null;
-        }
-
-        if (mWifiLock != null) {
-            mWifiLock.release();
-            mWifiLock = null;
-        }
-
-        if (updateNotification)
-            updateNotification();
-
-        Logger.logDebug(LOG_TAG, "WakeLocks released successfully");
+        mWakeLockController.release(updateNotification);
     }
 
     /** Process {@link TERMUX_SERVICE#ACTION_SERVICE_EXECUTE} intent to execute a shell command in
@@ -869,88 +828,30 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
 
     private Notification buildNotification() {
-        Resources res = getResources();
-
-        // Set pending intent to be launched when notification is clicked
-        Intent notificationIntent = TermuxActivity.newInstance(this);
-        PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
-
-
-        // Set notification text
-        int sessionCount = getTermuxSessionsSize();
-        int taskCount = mShellManager.mTermuxTasks.size();
-        String notificationText = sessionCount + " session" + (sessionCount == 1 ? "" : "s");
-        if (taskCount > 0) {
-            notificationText += ", " + taskCount + " task" + (taskCount == 1 ? "" : "s");
-        }
-
-        final boolean wakeLockHeld = mWakeLock != null;
-        if (wakeLockHeld) notificationText += " (wake lock held)";
-
-
-        // Set notification priority
-        // If holding a wake or wifi lock consider the notification of high priority since it's using power,
-        // otherwise use a low priority
-        int priority = (wakeLockHeld) ? Notification.PRIORITY_HIGH : Notification.PRIORITY_LOW;
-
-
-        // Build the notification
-        Notification.Builder builder =  NotificationUtils.geNotificationBuilder(this,
-            TermuxConstants.TERMUX_APP_NOTIFICATION_CHANNEL_ID, priority,
-            TermuxConstants.TERMUX_APP_NAME, notificationText, null,
-            contentIntent, null, NotificationUtils.NOTIFICATION_MODE_SILENT);
-        if (builder == null)  return null;
-
-        // No need to show a timestamp:
-        builder.setShowWhen(false);
-
-        // Set notification icon
-        builder.setSmallIcon(R.drawable.ic_service_notification);
-
-        // Set background color for small notification icon
-        builder.setColor(0xFF607D8B);
-
-        // TermuxSessions are always ongoing
-        builder.setOngoing(true);
-
-
-        // Set Exit button action
-        Intent exitIntent = new Intent(this, TermuxService.class).setAction(TERMUX_SERVICE.ACTION_STOP_SERVICE);
-        builder.addAction(android.R.drawable.ic_delete, res.getString(R.string.notification_action_exit), PendingIntent.getService(this, 0, exitIntent, 0));
-
-
-        // Set Wakelock button actions
-        String newWakeAction = wakeLockHeld ? TERMUX_SERVICE.ACTION_WAKE_UNLOCK : TERMUX_SERVICE.ACTION_WAKE_LOCK;
-        Intent toggleWakeLockIntent = new Intent(this, TermuxService.class).setAction(newWakeAction);
-        String actionTitle = res.getString(wakeLockHeld ? R.string.notification_action_wake_unlock : R.string.notification_action_wake_lock);
-        int actionIcon = wakeLockHeld ? android.R.drawable.ic_lock_idle_lock : android.R.drawable.ic_lock_lock;
-        builder.addAction(actionIcon, actionTitle, PendingIntent.getService(this, 0, toggleWakeLockIntent, 0));
-
-
-        // Set Float button action to toggle the in-app floating terminal
-        Intent toggleFloatIntent = new Intent(this, TermuxService.class).setAction(ACTION_TOGGLE_FLOAT);
-        builder.addAction(android.R.drawable.ic_menu_view, res.getString(R.string.notification_action_float),
-            PendingIntent.getService(this, 0, toggleFloatIntent, 0));
-
-
-        return builder.build();
+        return mServiceNotification.build(
+            getTermuxSessionsSize(),
+            mShellManager.mTermuxTasks.size(),
+            mWakeLockController.isHeld()
+        );
     }
 
     private void setupNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-
-        NotificationUtils.setupNotificationChannel(this, TermuxConstants.TERMUX_APP_NOTIFICATION_CHANNEL_ID,
-            TermuxConstants.TERMUX_APP_NOTIFICATION_CHANNEL_NAME, NotificationManager.IMPORTANCE_LOW);
+        mServiceNotification.setupChannel();
     }
 
     /** Update the shown foreground service notification after making any changes that affect it. */
     private synchronized void updateNotification() {
-        if (mWakeLock == null && mShellManager.mTermuxSessions.isEmpty() && mShellManager.mTermuxTasks.isEmpty()
-                && !isFloatSessionRunning()) {
+        if (ServiceNotificationPolicyKt.shouldStopService(
+            mWakeLockController.isHeld(),
+            getTermuxSessionsSize(),
+            mShellManager.mTermuxTasks.size(),
+            isFloatSessionRunning()
+        )) {
             // Exit if we are updating after the user disabled all locks with no sessions, tasks or float running.
             requestStopService();
         } else {
-            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(TermuxConstants.TERMUX_APP_NOTIFICATION_ID, buildNotification());
+            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))
+                .notify(TermuxConstants.TERMUX_APP_NOTIFICATION_ID, buildNotification());
         }
     }
 
