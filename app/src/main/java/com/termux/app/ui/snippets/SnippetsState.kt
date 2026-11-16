@@ -10,9 +10,14 @@ import com.termux.app.domain.snippets.Snippet
  * Editable snippet list for [SnippetsScreen].
  *
  * Edits stay in memory until [save], so a mis-tap does not rewrite the store; the screen's Apply
- * action calls [save] and finishes. Rows added here have no id yet; [save] assigns them.
+ * action calls [save] and finishes. Rows added here get a local [DRAFT_ID_PREFIX] id, because the
+ * screen edits and deletes by id: two new rows sharing an id would edit or delete each other.
+ * [save] strips the draft ids and lets the store number the rows it keeps.
  */
 class SnippetsState(private val store: SnippetStore) {
+
+    /** Next draft number; never reused, so a removed row's id cannot come back. */
+    private var nextDraftId = 1
 
     var items: List<Snippet> by mutableStateOf(store.load())
         private set
@@ -22,13 +27,15 @@ class SnippetsState(private val store: SnippetStore) {
         val trimmedLabel = label.trim()
         val trimmedCommand = command.trim()
         if (trimmedLabel.isEmpty() || trimmedCommand.isEmpty()) return
-        items = items + Snippet(id = "", label = trimmedLabel, command = trimmedCommand)
+        items = items + Snippet(id = newDraftId(), label = trimmedLabel, command = trimmedCommand)
     }
 
     /** Appends an empty row for the add button; [save] drops it again if it is left blank. */
     fun addBlank() {
-        items = items + Snippet(id = "", label = "", command = "")
+        items = items + Snippet(id = newDraftId(), label = "", command = "")
     }
+
+    private fun newDraftId(): String = DRAFT_ID_PREFIX + nextDraftId++
 
     fun update(id: String, label: String, command: String) {
         items = items.map { snippet ->
@@ -51,8 +58,14 @@ class SnippetsState(private val store: SnippetStore) {
 
     /** Normalizes and persists the list, returning what was written. */
     fun save(): List<Snippet> {
-        val saved = store.save(items)
+        // A draft id is local to this editor; the store owns the ids of saved rows.
+        val saved = store.save(items.map { snippet ->
+            if (snippet.id.startsWith(DRAFT_ID_PREFIX)) snippet.copy(id = "") else snippet
+        })
         items = saved
         return saved
     }
 }
+
+/** Marks the id of a row that exists only in the editor. */
+private const val DRAFT_ID_PREFIX = "draft-"
