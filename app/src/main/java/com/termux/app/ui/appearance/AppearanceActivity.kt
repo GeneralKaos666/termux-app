@@ -90,6 +90,7 @@ class AppearanceActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val previewLines = intent.getStringArrayListExtra(EXTRA_PREVIEW_LINES).orEmpty()
         preferences = AndroidAppearancePreferences(this)
         controller = AppearanceController(
             AppearanceStore(
@@ -104,6 +105,7 @@ class AppearanceActivity : ComponentActivity() {
                 AppearanceScreen(
                     controller = controller,
                     fontSizeRange = preferences.fontSizeRange,
+                    previewLines = previewLines,
                     onPickFont = { pickFont.launch(FONT_MIME_TYPE) },
                     onImport = { importColors.launch("*/*") },
                     onExport = { exportColors.launch(EXPORT_FILE_NAME) },
@@ -182,7 +184,10 @@ class AppearanceActivity : ComponentActivity() {
         FontError.COPY_FAILED -> R.string.appearance_font_error_copy_failed
     }
 
-    private companion object {
+    companion object {
+        /** The active terminal's last lines, passed by the terminal so the preview shows real output. */
+        const val EXTRA_PREVIEW_LINES = "com.termux.app.extra.PREVIEW_LINES"
+
         const val FONT_CANDIDATE_PREFIX = "appearance-font-"
         const val FONT_CANDIDATE_SUFFIX = ".ttf"
         const val FONT_MIME_TYPE = "*/*"

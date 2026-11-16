@@ -37,6 +37,7 @@ import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
+import com.termux.app.domain.appearance.PreviewSnapshotKt;
 import com.termux.app.domain.palette.PaletteAction;
 import com.termux.app.ui.ShellHostCallbacks;
 import com.termux.app.ui.ShellHostKt;
@@ -360,8 +361,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     if (payload != null) selectSessionById(Integer.parseInt(payload));
                     break;
                 case OPEN_APPEARANCE:
-                    ActivityUtils.startActivity(TermuxActivity.this,
-                        new Intent(TermuxActivity.this, AppearanceActivity.class));
+                    launchAppearanceScreen();
                     break;
                 case OPEN_SETTINGS:
                     ActivityUtils.startActivity(TermuxActivity.this,
@@ -1336,7 +1336,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void launchAppearanceScreen() {
-        ActivityUtils.startActivity(this, new Intent(this, AppearanceActivity.class));
+        Intent intent = new Intent(this, AppearanceActivity.class);
+        // Hand the current output to the preview so a scheme is judged against real text rather
+        // than a fixed sample; without a session the screen keeps its sample.
+        TerminalSession session = getCurrentSession();
+        if (session != null && session.getEmulator() != null) {
+            List<String> lines = PreviewSnapshotKt.buildPreviewLines(
+                session.getEmulator().getScreen().getTranscriptText());
+            intent.putStringArrayListExtra(AppearanceActivity.EXTRA_PREVIEW_LINES, new ArrayList<>(lines));
+        }
+        ActivityUtils.startActivity(this, intent);
     }
     private void toggleKeepScreenOn() {
         if (mTerminalView.getKeepScreenOn()) {
