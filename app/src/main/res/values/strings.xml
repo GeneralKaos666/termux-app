@@ -406,4 +406,11 @@
     <string name="first_run_next_steps">After the install, try:</string>
     <string name="termux_display_snippets_title">Snippets</string>
     <string name="termux_display_snippets_summary">Save commands and insert them from the key bar</string>
+    <string name="title_activity_key_layouts">Key layouts</string>
+    <string name="key_gallery_title">Key layouts</string>
+    <string name="key_gallery_body">Pick the extra-keys layout that fits how you type. A custom extra-keys property in termux.properties still wins.</string>
+    <string name="key_gallery_use">Use</string>
+    <string name="key_gallery_in_use">In use</string>
+    <string name="termux_keyboard_key_layouts_title">Key layouts</string>
+    <string name="termux_keyboard_key_layouts_summary">Preview and pick the extra-keys layout</string>
 </resources>

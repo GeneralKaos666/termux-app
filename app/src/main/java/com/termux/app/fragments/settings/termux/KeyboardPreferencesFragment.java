@@ -1,10 +1,12 @@
 package com.termux.app.fragments.settings.termux;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.annotation.Keep;
 import androidx.preference.ListPreference;
+import androidx.preference.Preference;
 import androidx.preference.PreferenceDataStore;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceManager;
@@ -39,6 +41,14 @@ public class KeyboardPreferencesFragment extends PreferenceFragmentCompat {
                 "compact",
                 "vim",
                 "emacs",
+            });
+        }
+
+        Preference keyLayouts = findPreference("key_layouts");
+        if (keyLayouts != null) {
+            keyLayouts.setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(getContext(), com.termux.app.ui.keys.KeyLayoutGalleryActivity.class));
+                return true;
             });
         }
 
