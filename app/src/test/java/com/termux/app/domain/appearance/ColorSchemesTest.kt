@@ -37,6 +37,10 @@ class ColorSchemesTest {
                 "Solarized Light",
                 "Gruvbox Dark",
                 "One Dark",
+                "Tokyo Night",
+                "Catppuccin Mocha",
+                "Gruvbox Light",
+                "Rosé Pine",
             ),
             ColorSchemes.presets.map { it.name },
         )
