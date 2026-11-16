@@ -1,13 +1,21 @@
 package com.termux.app.ui.theme
 
+import android.content.Context
+import android.database.ContentObserver
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
@@ -38,19 +46,37 @@ internal val TermuxFallbackColors: ColorScheme = darkColorScheme(
 /**
  * True when system animations are enabled (i.e. the "remove animations" setting is off and the
  * animator duration scale is non-zero). Shell motion should be instant when this is false.
+ *
+ * The value follows the setting while the app runs: a [ContentObserver] on the animator scale
+ * re-reads it, so toggling "remove animations" flips every Compose spec without a restart.
  */
 @Composable
 fun shellAnimationsEnabled(): Boolean {
     val context = LocalContext.current
-    return remember {
-        val scale = Settings.Global.getFloat(
-            context.contentResolver,
-            Settings.Global.ANIMATOR_DURATION_SCALE,
-            1f,
+    var enabled by remember { mutableStateOf(animatorScaleEnabled(context)) }
+    DisposableEffect(context) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                enabled = animatorScaleEnabled(context)
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE),
+            false,
+            observer,
         )
-        scale > 0f
+        onDispose { context.contentResolver.unregisterContentObserver(observer) }
     }
+    return enabled
 }
+
+/** Reads the system animator duration scale; `0` means "remove animations" is on. */
+private fun animatorScaleEnabled(context: Context): Boolean =
+    Settings.Global.getFloat(
+        context.contentResolver,
+        Settings.Global.ANIMATOR_DURATION_SCALE,
+        1f,
+    ) > 0f
 
 /**
  * The shell theme: Material You dynamic color (dark variant, so the shell stays dark next to the
