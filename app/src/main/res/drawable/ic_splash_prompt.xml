@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A small ">_" terminal prompt, drawn in white for the intro splash and the window background. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M14,16 L22,24 L14,32 L16.8,34.8 L27.6,24 L16.8,13.2 Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M28,31 L38,31 L38,34 L28,34 Z" />
+</vector>
