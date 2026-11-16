@@ -215,6 +215,7 @@ fun SessionsBar(
                             onMove = onMove,
                             onTabBoundsChanged = { id, bounds -> tabBounds[id] = bounds },
                             snapshotTabBounds = snapshotTabBounds,
+                            animationsEnabled = animationsEnabled,
                             onDragStateChanged = { dragging ->
                                 draggingSessionId = if (dragging) {
                                     item.id
@@ -225,10 +226,13 @@ fun SessionsBar(
                                 }
                             },
                             modifier = if (animationsEnabled && item.id != draggingSessionId) {
+                                // A tween, not the shell spring: a fading tab must not carry a
+                                // clamped alpha overshoot (the spring goes above 1). Placement keeps
+                                // the spring so a reorder still reads as one motion language.
                                 Modifier.animateItem(
-                                    fadeInSpec = shellSpringSpec(),
+                                    fadeInSpec = tween(durationMillis = 150),
                                     placementSpec = shellSpringSpec(),
-                                    fadeOutSpec = shellSpringSpec(),
+                                    fadeOutSpec = tween(durationMillis = 120),
                                 )
                             } else {
                                 Modifier
@@ -371,6 +375,7 @@ private fun SessionTab(
     onMove: (Int, Int) -> Unit,
     onTabBoundsChanged: (Int, TabBounds) -> Unit,
     snapshotTabBounds: () -> List<TabBounds>,
+    animationsEnabled: Boolean,
     onDragStateChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -387,7 +392,6 @@ private fun SessionTab(
 
     // Colours fade between tabs instead of snapping. A tween, not the shell spring: a bouncy spec
     // would overshoot the blend past the target colour and flash brighter than either end state.
-    val animationsEnabled = shellAnimationsEnabled()
     val colorSpec = if (animationsEnabled) tween<Color>(durationMillis = 200) else snap<Color>()
     val containerColor by animateColorAsState(
         targetValue = if (item.active) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
