@@ -3,8 +3,15 @@ package com.termux.shared.termux.extrakeys;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -182,6 +189,12 @@ public final class ExtraKeysView extends GridLayout {
     /** Defines whether text for the extra keys button should be all capitalized automatically. */
     protected boolean mButtonTextAllCaps = true;
 
+    /**
+     * Whether the keycap depth (rounded pressed inset) and the popup chevron are drawn. The
+     * `keycap-visuals` property will feed this once it is read; the default keeps them on.
+     */
+    protected boolean mKeycapVisuals = true;
+
 
     /**
      * Defines the duration in milliseconds before a press turns into a long press. The default
@@ -336,6 +349,11 @@ public final class ExtraKeysView extends GridLayout {
         mButtonTextAllCaps = buttonTextAllCaps;
     }
 
+    /** Turn the keycap depth and popup chevron on or off (the `keycap-visuals` property). */
+    public void setKeycapVisuals(boolean keycapVisuals) {
+        mKeycapVisuals = keycapVisuals;
+    }
+
 
     /** Get {@link #mLongPressTimeout}. */
     public int getLongPressTimeout() {
@@ -423,6 +441,14 @@ public final class ExtraKeysView extends GridLayout {
                 button.setAllCaps(mButtonTextAllCaps);
                 button.setPadding(0, 0, 0, 0);
 
+                if (mKeycapVisuals && ExtraKeysAffordance.showsPopupChevron(buttonInfo)) {
+                    // A compound drawable, not a canvas overlay: the key is a MaterialButton and
+                    // still needs its stock ripple background and text baseline.
+                    button.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                        null, null, new PopupChevronDrawable(mButtonTextColor, Math.round(dpToPx(6))), null);
+                    button.setCompoundDrawablePadding(Math.round(dpToPx(1)));
+                }
+
                 // Capture the MaterialButton's stock background and its theme background tint before
                 // any gesture can replace them. The stock background is a RippleDrawable whose
                 // backgroundTint is fully transparent in the normal state, so a pressed color painted
@@ -452,7 +478,7 @@ public final class ExtraKeysView extends GridLayout {
                             // Paint the pressed background with a plain ColorDrawable. The stock
                             // background tint is transparent in the normal state, so it must be
                             // cleared or it would tint the pressed color away entirely.
-                            view.setBackground(new ColorDrawable(mButtonActiveBackgroundColor));
+                            view.setBackground(pressedBackground());
                             view.setBackgroundTintList(null);
                             // Start long press scheduled executors which will be stopped in next MotionEvent
                             startScheduledExecutors(view, buttonInfo, button);
@@ -468,7 +494,7 @@ public final class ExtraKeysView extends GridLayout {
                                     showPopup(view, buttonInfo.getPopup());
                                 }
                                 if (mPopupWindow != null && event.getY() > 0) {
-                                    view.setBackground(new ColorDrawable(mButtonActiveBackgroundColor));
+                                    view.setBackground(pressedBackground());
                                     view.setBackgroundTintList(null);
                                     dismissPopup();
                                 }
@@ -707,6 +733,88 @@ public final class ExtraKeysView extends GridLayout {
             state.setIsActive(false);
 
         return true;
+    }
+
+    /**
+     * The pressed key background: the active colour as a rounded rect inset by a hairline darker
+     * edge, so a press reads as a keycap going down rather than a flat colour swap.
+     */
+    private GradientDrawable pressedBackground() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.RECTANGLE);
+        drawable.setColor(mButtonActiveBackgroundColor);
+        float radius = dpToPx(4);
+        drawable.setCornerRadius(radius);
+        if (mKeycapVisuals) {
+            int edge = Math.max(1, Math.round(dpToPx(1)));
+            drawable.setStroke(edge, darken(mButtonActiveBackgroundColor, 0.72f));
+        }
+        return drawable;
+    }
+
+    private float dpToPx(float dp) {
+        return dp * getResources().getDisplayMetrics().density;
+    }
+
+    private static int darken(int color, float factor) {
+        return Color.argb(
+            Color.alpha(color),
+            Math.round(Color.red(color) * factor),
+            Math.round(Color.green(color) * factor),
+            Math.round(Color.blue(color) * factor));
+    }
+
+    /** A small chevron in the key's end corner, marking a key that opens a popup on swipe up. */
+    private static final class PopupChevronDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final int sizePx;
+
+        PopupChevronDrawable(int color, int sizePx) {
+            paint.setColor(color);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            this.sizePx = Math.max(1, sizePx);
+            setBounds(0, 0, this.sizePx, this.sizePx);
+        }
+
+        @Override
+        public void draw(@NonNull Canvas canvas) {
+            Rect bounds = getBounds();
+            float w = bounds.width();
+            float h = bounds.height();
+            paint.setStrokeWidth(Math.max(1f, w / 6f));
+            float left = bounds.exactCenterX() - w / 4f;
+            float right = bounds.exactCenterX() + w / 4f;
+            float top = bounds.exactCenterY() - h / 6f;
+            float bottom = bounds.exactCenterY() + h / 6f;
+            canvas.drawLine(left, top, bounds.exactCenterX(), bottom, paint);
+            canvas.drawLine(bounds.exactCenterX(), bottom, right, top, paint);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(@Nullable ColorFilter colorFilter) {
+            paint.setColorFilter(colorFilter);
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
+
+        @Override
+        public int getIntrinsicWidth() {
+            return sizePx;
+        }
+
+        @Override
+        public int getIntrinsicHeight() {
+            return sizePx;
+        }
     }
 
     public MaterialButton createSpecialButton(String buttonKey, boolean needUpdate) {
