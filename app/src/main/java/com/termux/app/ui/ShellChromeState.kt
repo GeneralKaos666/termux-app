@@ -36,6 +36,17 @@ class ShellChromeState {
     var terminalMarginVerticalDp by mutableStateOf(0)
         private set
 
+    /**
+     * Whether the cold-start intro is still on screen. Set by the activity only when there is no
+     * saved instance state, so a rotation or restore does not replay it.
+     */
+    var splashVisible by mutableStateOf(false)
+
+    /** The intro finished (or was skipped); the shell shows the terminal from now on. */
+    fun dismissSplash() {
+        splashVisible = false
+    }
+
     fun updateTerminalMargins(horizontalDp: Int, verticalDp: Int) {
         terminalMarginHorizontalDp = horizontalDp.coerceAtLeast(0)
         terminalMarginVerticalDp = verticalDp.coerceAtLeast(0)

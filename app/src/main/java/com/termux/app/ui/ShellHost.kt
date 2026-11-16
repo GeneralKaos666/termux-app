@@ -57,6 +57,7 @@ import com.termux.app.ui.keys.ExtraKeysState
 import com.termux.app.ui.palette.CommandPalette
 import com.termux.app.ui.snippets.SnippetChipsState
 import com.termux.app.ui.snippets.SnippetChipsRow
+import com.termux.app.ui.splash.IntroSplash
 import com.termux.app.ui.palette.PaletteState
 import com.termux.app.ui.sessions.SessionsBar
 import com.termux.app.ui.sessions.SessionsRestoreHandle
@@ -381,6 +382,11 @@ private fun TerminalShellHost(
                     onInstall = callbacks::onFirstRunInstall,
                 )
             }
+
+            IntroSplash(
+                visible = shellChromeState.splashVisible,
+                onDone = shellChromeState::dismissSplash,
+            )
 
             CommandPalette(
                 state = paletteState,
