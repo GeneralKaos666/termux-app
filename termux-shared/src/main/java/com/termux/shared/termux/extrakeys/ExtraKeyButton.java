@@ -112,6 +112,18 @@ public class ExtraKeyButton {
         this.popup = popup;
     }
 
+    /**
+     * Initialize a plain {@link ExtraKeyButton} from a key and its optional popup, matching the
+     * shape used by tests and by code that builds keys without a JSON config. The display text is
+     * the key itself.
+     */
+    public ExtraKeyButton(@NonNull String key, @Nullable ExtraKeyButton popup) {
+        this.key = key;
+        this.macro = false;
+        this.display = key;
+        this.popup = popup;
+    }
+
     public String getStringFromJson(@NonNull JSONObject config, @NonNull String key) {
         try {
             return config.getString(key);
