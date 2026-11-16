@@ -1,5 +1,9 @@
 package com.termux.app.ui.keys
 
+import com.termux.app.domain.keys.ExtraKey
+import com.termux.app.domain.keys.KeySet
+import com.termux.app.domain.keys.KeySetPresets
+
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants
 
 /**

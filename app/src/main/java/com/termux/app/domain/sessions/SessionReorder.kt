@@ -1,4 +1,4 @@
-package com.termux.app.ui.sessions
+package com.termux.app.domain.sessions
 
 /**
  * Horizontal bounds of one tab in the sessions bar, in pixels, taken from a single layout pass.

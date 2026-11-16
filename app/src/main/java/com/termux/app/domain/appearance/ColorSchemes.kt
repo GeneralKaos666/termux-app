@@ -1,4 +1,4 @@
-package com.termux.app.ui.appearance
+package com.termux.app.domain.appearance
 
 /** A named bundle of the 18 colors the appearance screen manages. */
 data class ColorSchemePreset(val name: String, val colors: TerminalColorSet)

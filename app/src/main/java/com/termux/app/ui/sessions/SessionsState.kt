@@ -3,6 +3,7 @@ package com.termux.app.ui.sessions
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.termux.app.domain.sessions.SessionItem
 
 /**
  * Compose-observable snapshot of the sessions shown in the sessions bar.

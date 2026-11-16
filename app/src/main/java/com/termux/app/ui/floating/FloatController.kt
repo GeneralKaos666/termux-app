@@ -1,5 +1,7 @@
 package com.termux.app.ui.floating
 
+import com.termux.app.domain.floating.FloatWindowGeometry
+
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat

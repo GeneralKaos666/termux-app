@@ -1,4 +1,4 @@
-package com.termux.app.ui.sessions
+package com.termux.app.domain.sessions
 
 /**
  * Immutable projection of a single terminal session for the top sessions bar.

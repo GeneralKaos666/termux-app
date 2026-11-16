@@ -11,7 +11,7 @@ import com.termux.app.activities.SettingsActivity;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalViewClient;
 import com.termux.app.ui.keys.ExtraKeysPage2Presets;
-import com.termux.app.ui.keys.KeySetPresets;
+import com.termux.app.domain.keys.KeySetPresets;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.extrakeys.ExtraKeysConstants;
 import com.termux.shared.termux.extrakeys.ExtraKeysInfo;

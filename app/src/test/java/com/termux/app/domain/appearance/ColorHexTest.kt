@@ -1,4 +1,4 @@
-package com.termux.app.ui.appearance
+package com.termux.app.domain.appearance
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

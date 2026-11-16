@@ -1,5 +1,8 @@
 package com.termux.app.ui.keys
 
+import com.termux.app.domain.keys.KeySet
+import com.termux.app.domain.keys.KeySetPresets
+
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

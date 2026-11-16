@@ -2,6 +2,7 @@ package com.termux.app.ui.appearance
 
 import android.content.Context
 import com.termux.terminal.TerminalEmulator
+import com.termux.app.domain.appearance.CursorStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

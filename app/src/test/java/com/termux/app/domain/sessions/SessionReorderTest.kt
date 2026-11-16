@@ -1,4 +1,4 @@
-package com.termux.app.ui.sessions
+package com.termux.app.domain.sessions
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

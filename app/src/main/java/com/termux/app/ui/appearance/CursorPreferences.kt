@@ -1,5 +1,7 @@
 package com.termux.app.ui.appearance
 
+import com.termux.app.domain.appearance.CursorStyle
+
 import android.content.Context
 import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties
 

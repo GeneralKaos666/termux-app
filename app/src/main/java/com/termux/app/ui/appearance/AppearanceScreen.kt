@@ -1,5 +1,17 @@
 package com.termux.app.ui.appearance
 
+import com.termux.app.domain.appearance.ANSI_COLOR_COUNT
+import com.termux.app.domain.appearance.ColorSchemes
+
+import com.termux.app.domain.appearance.CursorBlink
+import com.termux.app.domain.appearance.CursorStyle
+import com.termux.app.domain.appearance.INDEXED_COLOR_COUNT
+import com.termux.app.domain.appearance.TerminalAppearance
+import com.termux.app.domain.appearance.TerminalColorSet
+import com.termux.app.domain.appearance.colorLabel
+import com.termux.app.domain.appearance.colorToHex
+import com.termux.app.domain.appearance.parseColor
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

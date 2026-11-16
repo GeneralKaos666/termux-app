@@ -1,5 +1,12 @@
 package com.termux.app.ui.sessions
 
+import com.termux.app.domain.sessions.SessionItem
+import com.termux.app.domain.sessions.SessionState
+import com.termux.app.domain.sessions.TabBounds
+import com.termux.app.domain.sessions.dropIndex
+import com.termux.app.domain.sessions.moveItemInPlace
+import com.termux.app.domain.sessions.sessionState
+
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animate

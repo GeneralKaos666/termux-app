@@ -1,5 +1,8 @@
 package com.termux.app.ui.appearance
 
+import com.termux.app.domain.appearance.colorToHex
+import com.termux.app.domain.appearance.parseColor
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures

@@ -1,4 +1,4 @@
-package com.termux.app.ui.keys
+package com.termux.app.domain.keys
 
 /**
  * Pure, Android-free description of a single extra key.

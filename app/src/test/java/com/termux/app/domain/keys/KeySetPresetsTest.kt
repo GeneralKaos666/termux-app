@@ -1,4 +1,4 @@
-package com.termux.app.ui.keys
+package com.termux.app.domain.keys
 
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants
 import org.junit.Assert.assertEquals

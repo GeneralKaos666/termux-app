@@ -1,5 +1,10 @@
 package com.termux.app.ui.appearance
 
+import com.termux.app.domain.appearance.CursorStyle
+import com.termux.app.domain.appearance.TerminalAppearance
+import com.termux.app.domain.appearance.TerminalColorSet
+import com.termux.app.domain.appearance.ColorSchemes
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull

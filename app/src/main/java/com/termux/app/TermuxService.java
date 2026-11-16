@@ -1021,7 +1021,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     /** Moves the session at [fromIndex] to [toIndex], clamping indices to the list bounds. */
     public synchronized void moveTermuxSession(int fromIndex, int toIndex) {
-        com.termux.app.ui.sessions.SessionReorderKt.moveItemInPlace(mShellManager.mTermuxSessions, fromIndex, toIndex);
+        com.termux.app.domain.sessions.SessionReorderKt.moveItemInPlace(mShellManager.mTermuxSessions, fromIndex, toIndex);
     }
 
     public synchronized AppShell getTermuxTaskForShellName(String name) {
