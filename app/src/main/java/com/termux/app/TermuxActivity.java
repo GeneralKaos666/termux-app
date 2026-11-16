@@ -46,6 +46,7 @@ import com.termux.app.ui.ShellChromeState;
 import com.termux.app.domain.background.BackgroundFx;
 import com.termux.app.ui.background.TerminalBackgroundState;
 import com.termux.app.ui.firstrun.BootstrapStage;
+import com.termux.app.ui.palette.PaletteShortcutKt;
 import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
 import com.termux.app.ui.palette.PaletteState;
@@ -249,7 +250,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     private FirstRunState mFirstRunState;
 
-    /** State of the command palette overlay; owned here so Ctrl+K can open it from a key event. */
+    /** State of the command palette overlay; owned here so its shortcut can open it from a key event. */
     private PaletteState mPaletteState;
 
     /** Quick-insert chips above the extra-keys grid, reloaded when the snippet editor closes. */
@@ -1204,14 +1205,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        // Ctrl+K opens the palette before the terminal sees it as a control character. Handled here
-        // rather than per-view so it works whether the terminal or the extra-keys bar has focus.
+        // Ctrl+Shift+K opens the palette. Plain Ctrl+K and Ctrl+Alt+K are left to the shell, where
+        // they reach readline as kill-line. Handled here rather than per-view so it works whether
+        // the terminal or the extra-keys bar has focus.
         if (mPaletteState != null
             && event.getAction() == KeyEvent.ACTION_DOWN
-            && event.getKeyCode() == KeyEvent.KEYCODE_K
-            && event.isCtrlPressed()
-            && !event.isAltPressed()) {
-            // A second Ctrl+K while the palette is up must not reopen it: open() resets the query,
+            && PaletteShortcutKt.isPaletteShortcut(event.getKeyCode(), event.isCtrlPressed(),
+                event.isShiftPressed(), event.isAltPressed())) {
+            // A second press while the palette is up must not reopen it: open() resets the query,
             // so the user's filter would be wiped by a stray keypress.
             if (!mPaletteState.getVisible()) mPaletteState.open();
             return true;

@@ -592,9 +592,10 @@ search. Everything below is device-only: it is either feel, animation or a platf
       it is selected, and the halo clears on selection.
 - [ ] **Starter chips.** With no sessions, the empty bar offers the starter chips. Tapping one starts
       a session and inserts the command without running it.
-- [ ] **Palette keyboard navigation.** Open the palette with Ctrl+K. Arrow keys move the selection,
-      Enter runs the highlighted row, Back closes it. With a hardware keyboard attached the focus
-      must stay in the query field while typing.
+- [ ] **Palette keyboard navigation.** Open the palette with Ctrl+Shift+K. Arrow keys move the
+      selection, Enter runs the highlighted row, Back closes it. With a hardware keyboard attached
+      the focus must stay in the query field while typing. Plain Ctrl+K and Ctrl+Alt+K must still
+      reach the shell as kill-line.
 - [ ] **Drag lift feel.** Long-press a tab and drag. The tab lifts under the finger, the drop index
       follows the finger, and the reorder lands where it was dropped.
 - [ ] **First-run animation on a cold start.** Clear app data, cold-start, and watch the intro splash
