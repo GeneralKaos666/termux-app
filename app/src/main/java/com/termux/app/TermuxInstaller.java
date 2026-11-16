@@ -87,6 +87,13 @@ final class TermuxInstaller {
     /** Receives the install stages; called from the install thread, so marshal to the main thread. */
     interface BootstrapProgressListener {
         void onStage(BootstrapStage stage);
+
+        /**
+         * Called when the install ends without a usable prefix, so a caller showing progress can
+         * leave that state. A failure is reported on the main thread; the default is a no-op for
+         * callers that do not show progress.
+         */
+        default void onFailure() { }
     }
 
     /** A listener that ignores every stage, used by callers that do not show progress. */
@@ -119,6 +126,7 @@ final class TermuxInstaller {
             MessageDialogUtils.exitAppWithErrorMessage(activity,
                 activity.getString(R.string.bootstrap_error_title),
                 bootstrapErrorMessage);
+            listener.onFailure();
             return;
         }
 
@@ -136,6 +144,7 @@ final class TermuxInstaller {
             MessageDialogUtils.showMessage(activity,
                 activity.getString(R.string.bootstrap_error_title),
                 bootstrapErrorMessage, null);
+            listener.onFailure();
             return;
         }
 
@@ -288,7 +297,11 @@ final class TermuxInstaller {
                         } catch (RuntimeException e) {
                             // Activity already dismissed - ignore.
                         }
-                        if (success && done != null) done.run();
+                        if (success) {
+                            if (done != null) done.run();
+                        } else {
+                            listener.onFailure();
+                        }
                     });
                 }
             }

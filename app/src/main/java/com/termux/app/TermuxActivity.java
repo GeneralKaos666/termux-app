@@ -45,6 +45,7 @@ import com.termux.app.ui.SnackbarState;
 import com.termux.app.ui.ShellChromeState;
 import com.termux.app.domain.background.BackgroundFx;
 import com.termux.app.ui.background.TerminalBackgroundState;
+import com.termux.app.ui.firstrun.BootstrapStage;
 import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
 import com.termux.app.ui.palette.PaletteState;
@@ -798,9 +799,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /** Starts the bootstrap install from the first-run overlay; the first session appears when done. */
     public void startFirstRunBootstrapInstall() {
         if (mFirstRunState != null) mFirstRunState.beginInstall();
-        TermuxInstaller.setupBootstrapIfNeeded(this, stage -> runOnUiThread(() -> {
-            if (mFirstRunState != null) mFirstRunState.setStage(stage);
-        }), this::addSessionAfterBootstrap);
+        TermuxInstaller.setupBootstrapIfNeeded(this, new TermuxInstaller.BootstrapProgressListener() {
+            @Override
+            public void onStage(BootstrapStage stage) {
+                runOnUiThread(() -> {
+                    if (mFirstRunState != null) mFirstRunState.setStage(stage);
+                });
+            }
+
+            @Override
+            public void onFailure() {
+                // Without this the overlay would keep showing progress after the installer gave up.
+                runOnUiThread(() -> {
+                    if (mFirstRunState != null) mFirstRunState.installFailed();
+                });
+            }
+        }, this::addSessionAfterBootstrap);
     }
 
     @Override
@@ -1197,7 +1211,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             && event.getKeyCode() == KeyEvent.KEYCODE_K
             && event.isCtrlPressed()
             && !event.isAltPressed()) {
-            mPaletteState.open();
+            // A second Ctrl+K while the palette is up must not reopen it: open() resets the query,
+            // so the user's filter would be wiped by a stray keypress.
+            if (!mPaletteState.getVisible()) mPaletteState.open();
             return true;
         }
         return super.dispatchKeyEvent(event);
