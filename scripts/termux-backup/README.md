@@ -62,10 +62,13 @@ termux-backup backup --no-home --no-config # package list only
 
 A backup directory contains `home.tar.*`, `usr_etc.tar.*`, `packages.txt`, `manifest.json` and
 `SHA256SUMS`. `SHA256SUMS` is authoritative; `manifest.json` records the tool version, creation time,
-label, architecture, Android release and compression.
+label, architecture, Android release and compression. A backup without a usable `SHA256SUMS` is
+reported as unusable and is never restored or pruned.
 
 The archive is built in `$root/.tmp.<pid>` and moved into place only when every step succeeded, so an
-interrupted or failed backup never appears in `list`.
+interrupted or failed backup never appears in `list`. On success the summary line reports the backup
+name, its total size and the number of recorded packages. `--keep` only accepts a non-negative
+number; anything else exits 1 before a backup is written.
 
 Default excludes: `.cache`, `.npm`, `node_modules`, `.gradle`, `.android`, `.thumbnails`, `DCIM`,
 `Movies`, `Music`, `.local/share/Trash`, `.local/lib`, `.java`, `.m2`, `.ivy2`, `go/pkg`,
@@ -83,9 +86,10 @@ termux-backup restore --latest --no-packages     # files only
 termux-backup restore --latest --force           # ignore an architecture mismatch
 ```
 
-Before touching anything, `restore` runs every check and refuses on the first failure:
+Before touching anything, `restore` runs every check and refuses on the first failure. An unknown
+`--name` exits 1 and lists the backups that do exist.
 
-1. `SHA256SUMS` must match (exit 2 otherwise).
+1. `SHA256SUMS` must match (exit 2 otherwise; a missing or empty one is reported as unusable).
 2. Every archive entry must be relative — no `/`, no `..` (exit 2 otherwise).
 3. `manifest.json`, when readable, must say `format_version: 1` and the same architecture unless
    `--force` is given. An unreadable or missing manifest warns and skips those two checks.

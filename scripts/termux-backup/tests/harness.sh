@@ -10,6 +10,8 @@ REAL_TAR=$(command -v tar)
 export REAL_TAR
 REAL_DATE=$(command -v date)
 export REAL_DATE
+REAL_SHA256SUM=$(command -v sha256sum)
+export REAL_SHA256SUM
 
 setup_sandbox() {
     SANDBOX=$(mktemp -d "${TMPDIR:-/tmp}/termux-backup-test.XXXXXX")
@@ -23,7 +25,7 @@ setup_sandbox() {
     export FIXTURE_INSTALLED=$'bash\n'
     export PKG_EXIT_CODE=0
     export DPKG_QUERY_EXIT=0
-    unset TAR_FAIL DATE_FIXTURE || true
+    unset TAR_FAIL DATE_FIXTURE SHA256SUM_FAIL || true
     write_shims
 }
 
@@ -59,6 +61,14 @@ EOF
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$SANDBOX/pkg.log"
 exit "${PKG_EXIT_CODE:-0}"
+EOF
+    cat > "$SANDBOX/shims/sha256sum" <<'EOF'
+#!/usr/bin/env bash
+if [ "${SHA256SUM_FAIL:-0}" = 1 ]; then
+    echo "sha256sum: simulated failure" >&2
+    exit 1
+fi
+exec "$REAL_SHA256SUM" "$@"
 EOF
     cat > "$SANDBOX/shims/tar" <<'EOF'
 #!/usr/bin/env bash

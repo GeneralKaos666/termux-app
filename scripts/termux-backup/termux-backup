@@ -23,6 +23,8 @@ source "$SCRIPT_DIR/lib/report.sh"
 # shellcheck source=lib/restore.sh
 source "$SCRIPT_DIR/lib/restore.sh"
 
+color_init
+
 usage() {
     cat <<'EOF'
 Usage: termux-backup <command> [options]

@@ -306,3 +306,34 @@ test_restore_prompt_lists_name_size_and_targets() {
     assert_contains "$HOME" "$err" "home target"
     teardown_sandbox
 }
+
+test_unknown_restore_name_lists_available_names() {
+    setup_sandbox
+    assert_success bash "$SCRIPT" backup
+    local name err
+    name=$(basename "$(find "$SANDBOX/backups" -maxdepth 1 -name 'termux_backup_*' -type d)")
+    local status=0
+    err=$(bash "$SCRIPT" restore --name termux_backup_19990101_000000 --yes 2>&1 >/dev/null) || status=$?
+    assert_eq 1 "$status" "exit"
+    assert_contains "$name" "$err" "available names"
+    teardown_sandbox
+}
+
+test_pipe_restore_writes_no_safety_archive() {
+    setup_sandbox
+    assert_success bash "$SCRIPT" backup
+    assert_exit 1 bash "$SCRIPT" restore --latest --no-packages </dev/null
+    assert_eq 0 "$(find "$SANDBOX/backups" -maxdepth 1 -name 'safety_pre_restore_*' | wc -l)" "safety"
+    teardown_sandbox
+}
+
+test_restore_errors_use_the_tool_prefix() {
+    setup_sandbox
+    assert_success bash "$SCRIPT" backup
+    local dir err
+    dir=$(find "$SANDBOX/backups" -maxdepth 1 -name 'termux_backup_*' -type d)
+    sed -i 's/"arch": *"[^"]*"/"arch": "definitely-not-this-arch"/' "$dir/manifest.json"
+    err=$(bash "$SCRIPT" restore --name "$(basename "$dir")" --yes 2>&1 >/dev/null) || true
+    assert_contains "termux-backup: restore: backup arch" "$err" "prefixed error"
+    teardown_sandbox
+}

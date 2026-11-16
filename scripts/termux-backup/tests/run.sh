@@ -15,7 +15,8 @@ done
 
 count=0
 failed=0
-while IFS= read -r name; do
+mapfile -t test_names < <(declare -F | awk '{print $3}' | grep '^test_' || true)
+for name in "${test_names[@]}"; do
     [ -n "$name" ] || continue
     count=$((count + 1))
     if ( set -euo pipefail; "$name" ) >/dev/null 2>&1; then
@@ -24,7 +25,7 @@ while IFS= read -r name; do
         printf '%s: FAIL\n' "$name"
         failed=$((failed + 1))
     fi
-done < <(declare -F | awk '{print $3}' | grep '^test_' || true)
+done
 
 if [ "$failed" -ne 0 ]; then
     printf '%s cases, %s failed\n' "$count" "$failed"

@@ -140,3 +140,18 @@ test_prune_with_root_containing_spaces() {
     assert_file "$SANDBOX/my backups/termux_backup_20260102_000000/SHA256SUMS"
     teardown_sandbox
 }
+
+test_prune_rejects_a_non_numeric_keep() {
+    setup_sandbox
+    assert_exit 1 bash "$SCRIPT" prune --keep 3x
+    teardown_sandbox
+}
+
+test_verify_says_when_sums_are_missing() {
+    setup_sandbox
+    mkdir -p "$SANDBOX/backups/termux_backup_20260101_000000"
+    local err
+    err=$(bash "$SCRIPT" verify --name termux_backup_20260101_000000 2>&1 >/dev/null) || true
+    assert_contains "SHA256SUMS" "$err" "missing sums named"
+    teardown_sandbox
+}

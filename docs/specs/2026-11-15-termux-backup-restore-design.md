@@ -166,10 +166,11 @@ Flow:
    outside the archive root (exit 2).
 4. Preflight: `format_version` supported, architecture match (mismatch stops unless `--force`),
    free space at least twice the archive size, `$HOME` and `$PREFIX/etc` writable.
-5. Safety archive unless `--no-safety`, written as `safety_pre_restore_<ts>` with the same excludes,
+5. Unless `--yes`, print the backup name, archive size, package delta and both target paths, then
+   require the literal word `restore` on stdin. A non-tty or declined prompt aborts here, before the
+   safety archive is written.
+6. Safety archive unless `--no-safety`, written as `safety_pre_restore_<ts>` with the same excludes,
    sums and manifest (`"kind": "safety"`). It is never pruned automatically.
-6. Unless `--yes`, print the backup name, archive size, package delta and both target paths, then
-   require the literal word `restore` on stdin.
 7. Extract `usr_etc.tar.gz` to `$PREFIX`, then `home.tar.gz` to `$HOME`. Merge only: nothing is
    deleted, existing files are overwritten.
 8. Reinstall missing packages (§8), then write `~/.config/termux-backup/last-restore.log`.

@@ -30,7 +30,7 @@ restore_preflight() {
     local manifest fv arch size free failed=0
 
     if [ ! -d "$dir" ]; then
-        log_error "restore: no such backup directory: $dir"
+        log_error "termux-backup: restore: no such backup directory: $dir"
         return 2
     fi
 
@@ -38,35 +38,35 @@ restore_preflight() {
     if [ -f "$manifest" ]; then
         fv=$(manifest_number "$manifest" format_version)
         if [ -n "$fv" ] && [ "$fv" != "$FORMAT_VERSION" ]; then
-            log_error "restore: unsupported format_version $fv (expected $FORMAT_VERSION)"
+            log_error "termux-backup: restore: unsupported format_version $fv (expected $FORMAT_VERSION)"
             failed=1
         fi
         arch=$(manifest_field "$manifest" arch)
         if [ -z "$arch" ]; then
-            log_warn "warning: manifest has no arch field; skipping architecture check"
+            log_warn "termux-backup: warning: manifest has no arch field; skipping architecture check"
         elif [ "$force" -ne 1 ] && [ "$arch" != "$(uname -m)" ]; then
-            log_error "restore: backup arch $arch does not match $(uname -m); pass --force to override"
+            log_error "termux-backup: restore: backup arch $arch does not match $(uname -m); pass --force to override"
             failed=1
         fi
     else
-        log_warn "warning: no manifest.json; skipping format and architecture checks"
+        log_warn "termux-backup: warning: no manifest.json; skipping format and architecture checks"
     fi
 
     size=$(backup_size_bytes "$dir")
     free=$(free_space_bytes "$HOME" || true)
     if [ -z "$free" ]; then
-        log_warn "warning: cannot determine free space for $HOME; skipping space check"
+        log_warn "termux-backup: warning: cannot determine free space for $HOME; skipping space check"
     elif [ "$free" -lt $((size * 2)) ]; then
-        log_error "restore: not enough free space in $HOME (need $((size * 2)) bytes, have $free)"
+        log_error "termux-backup: restore: not enough free space in $HOME (need $((size * 2)) bytes, have $free)"
         failed=1
     fi
 
     [ -w "$HOME" ] || {
-        log_error "restore: $HOME is not writable"
+        log_error "termux-backup: restore: $HOME is not writable"
         failed=1
     }
     [ -d "$PREFIX/etc" ] && [ ! -w "$PREFIX/etc" ] && {
-        log_error "restore: $PREFIX/etc is not writable"
+        log_error "termux-backup: restore: $PREFIX/etc is not writable"
         failed=1
     }
 
@@ -170,7 +170,7 @@ packages_install() {
     local dir=$1 name missing
     local -a names=()
     if ! missing=$(packages_missing "$dir"); then
-        printf 'cannot read the installed package list (dpkg-query failed)\n' >&2
+        printf 'termux-backup: restore: cannot read the installed package list (dpkg-query failed)\n' >&2
         return 3
     fi
     while IFS= read -r name; do
@@ -213,9 +213,19 @@ cmd_restore() {
         backup_name_valid "$name" || die 1 "restore: invalid backup name: $name"
     fi
     dir="$root/$name"
-    backup_exists "$root" "$name" || die 1 "restore: no such backup: $name"
+    if ! backup_exists "$root" "$name"; then
+        log_error "termux-backup: restore: no such backup: $name"
+        local available
+        available=$(backup_list "$root" | awk '/^termux_backup_/')
+        if [ -n "$available" ]; then
+            printf 'Available backups in %s:\n%s\n' "$root" "$available" >&2
+        else
+            printf 'No backups found in %s\n' "$root" >&2
+        fi
+        exit 1
+    fi
 
-    sums_verify "$dir" || die 2 "restore: checksum verification failed for $name"
+    sums_verify "$dir" || die 2 "restore: $(sums_problem "$dir")"
 
     for archive in "$dir"/*.tar.*; do
         [ -f "$archive" ] || continue
@@ -223,18 +233,6 @@ cmd_restore() {
     done
 
     restore_preflight "$dir" "$OPT_FORCE"
-
-    local safety=""
-    if [ "$OPT_NO_SAFETY" -eq 0 ]; then
-        local compression
-        compression=$(manifest_field "$dir/manifest.json" compression 2>/dev/null || true)
-        [ -n "$compression" ] || compression=gz
-        safety=$(safety_create "$root" "$compression") ||
-            die 2 "restore: could not create safety archive; nothing was restored"
-        if [ "${QUIET:-0}" -eq 0 ] && [ "${JSON:-0}" -eq 0 ]; then
-            log_info "Safety archive: $safety"
-        fi
-    fi
 
     if [ "$OPT_YES" -ne 1 ]; then
         local size delta
@@ -246,6 +244,18 @@ cmd_restore() {
         log_info "Restore into:        $HOME and $PREFIX/etc"
         confirm_word restore "Type restore to overwrite $HOME and $PREFIX/etc: " ||
             die 1 "restore: aborted"
+    fi
+
+    local safety=""
+    if [ "$OPT_NO_SAFETY" -eq 0 ]; then
+        local compression
+        compression=$(manifest_field "$dir/manifest.json" compression 2>/dev/null || true)
+        [ -n "$compression" ] || compression=gz
+        safety=$(safety_create "$root" "$compression") ||
+            die 2 "restore: could not create safety archive; nothing was restored"
+        if [ "${QUIET:-0}" -eq 0 ] && [ "${JSON:-0}" -eq 0 ]; then
+            log_info "Safety archive: $safety"
+        fi
     fi
 
     if ! restore_extract "$dir"; then
@@ -260,7 +270,7 @@ cmd_restore() {
         if ! missing_names=$(packages_missing "$dir"); then
             status=3
             status_word=packages-failed
-            log_warn "warning: cannot read the installed package list (dpkg-query failed); packages were not reinstalled"
+            log_warn "termux-backup: warning: cannot read the installed package list (dpkg-query failed); packages were not reinstalled"
         else
             requested=$(printf '%s\n' "$missing_names" | awk 'NF { n++ } END { print n + 0 }')
             installed=$requested
@@ -269,7 +279,7 @@ cmd_restore() {
                 status_word=packages-failed
                 failed=$(printf '%s\n' "$failed_names" | awk 'NF { n++ } END { print n + 0 }')
                 installed=$((requested - failed))
-                log_warn "warning: $failed package(s) could not be installed: $(printf '%s' "$failed_names" | tr '\n' ' ')"
+                log_warn "termux-backup: warning: $failed package(s) could not be installed: $(printf '%s' "$failed_names" | tr '\n' ' ')"
             fi
         fi
     fi

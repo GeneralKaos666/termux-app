@@ -226,6 +226,15 @@ sums_verify() {
     return 0
 }
 
+sums_problem() {
+    local dir=$1
+    if [ ! -s "$dir/SHA256SUMS" ]; then
+        printf 'no usable SHA256SUMS: %s' "${dir##*/}"
+    else
+        printf 'checksum mismatch: %s' "${dir##*/}"
+    fi
+}
+
 backup_name_valid() {
     local name=$1
     [[ $name =~ ^(termux_backup|safety_pre_restore)_[A-Za-z0-9._-]+$ ]] || return 1
@@ -304,7 +313,7 @@ cmd_verify() {
             printf '{"name":"%s","root":"%s","valid":false}\n' \
                 "$(json_escape "$name")" "$(json_escape "$root")"
         else
-            log_error "termux-backup: checksum mismatch: $name"
+            log_error "termux-backup: $(sums_problem "$root/$name")"
         fi
         return 2
     fi
@@ -344,6 +353,9 @@ cmd_prune() {
     }
     root=$(root_resolve "$OPT_PATH")
     keep=$OPT_KEEP
+    if [ -n "$keep" ] && [[ ! $keep =~ ^[0-9]+$ ]]; then
+        die 1 "prune: --keep needs a non-negative number: $keep"
+    fi
     if [ -z "$keep" ]; then
         keep=$(config_get keep 2>/dev/null || true)
     fi

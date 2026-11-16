@@ -36,13 +36,13 @@ SECRET_EXCLUDES=(
 )
 
 excludes_list() {
-    local secrets=${1:-0} pattern extras=""
+    local secrets=${1:-0} pattern
+    local -a extras=()
     for pattern in "${DEFAULT_EXCLUDES[@]}"; do
         printf '%s\n' "$pattern"
     done
-    extras=$(config_get extra_excludes 2>/dev/null || true)
-    if [ -n "$extras" ]; then
-        for pattern in $extras; do
+    if read -r -a extras <<<"$(config_get extra_excludes 2>/dev/null || true)"; then
+        for pattern in "${extras[@]}"; do
             [ -n "$pattern" ] && printf '%s\n' "$pattern"
         done
     fi
@@ -160,8 +160,14 @@ backup_build_dir() {
     rm -f -- "$excludes"
     mv -- "$tmp" "$root/$dir_name" || return 1
     trap - EXIT
-    sums_write "$root/$dir_name" || return 1
-    manifest_write "$root/$dir_name" "$kind" "$label" "$compression" || return 1
+    sums_write "$root/$dir_name" || {
+        rm -rf -- "${root:?}/${dir_name:?}"
+        return 1
+    }
+    manifest_write "$root/$dir_name" "$kind" "$label" "$compression" || {
+        rm -rf -- "${root:?}/${dir_name:?}"
+        return 1
+    }
 }
 
 backup_create_body() {
@@ -246,6 +252,9 @@ cmd_backup() {
         gz | bz2 | xz) ;;
         *) die 1 "backup: unsupported compression: $compression" ;;
     esac
+    if [ -n "$keep" ] && [[ ! $keep =~ ^[0-9]+$ ]]; then
+        die 1 "backup: --keep needs a non-negative number: $keep"
+    fi
     if [ -z "$keep" ]; then
         keep=$(config_get keep 2>/dev/null || true)
     fi
@@ -260,7 +269,7 @@ cmd_backup() {
     fi
     case $root in
         /sdcard* | /storage/*)
-            log_warn "warning: backups on shared storage are readable by other apps"
+            log_warn "termux-backup: warning: backups on shared storage are readable by other apps"
             ;;
     esac
     tmp="$root/.tmp.$$"
@@ -281,7 +290,7 @@ cmd_backup() {
         printf '{"name":"%s","root":"%s","size":%s,"packages":%s}\n' \
             "$(json_escape "$name")" "$(json_escape "$root")" "$size" "$(packages_count "$root/$name")"
     elif [ "${QUIET:-0}" -eq 0 ]; then
-        log_info "Created $name ($(human_size "$size"))"
+        log_info "Created $name ($(human_size "$size"), $(packages_count "$root/$name") packages)"
     fi
 }
 

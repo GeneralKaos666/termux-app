@@ -141,3 +141,51 @@ test_root_with_trailing_slash_inside_home_is_not_archived() {
     assert_not_contains "backups/" "$listing" "self archive"
     teardown_sandbox
 }
+
+test_backup_summary_reports_package_count() {
+    setup_sandbox
+    local out
+    out=$(bash "$SCRIPT" backup 2>&1 >/dev/null)
+    assert_contains "packages" "$out" "package count"
+    teardown_sandbox
+}
+
+test_symlinked_config_directory_is_stored_as_a_link() {
+    setup_sandbox
+    mkdir -p "$SANDBOX/real-termux"
+    echo secret >"$SANDBOX/real-termux/history"
+    ln -s "$SANDBOX/real-termux" "$HOME/.termux"
+    assert_success bash "$SCRIPT" backup
+    local listing
+    listing=$(tar -tzf "$(find "$SANDBOX/backups" -name home.tar.gz)")
+    assert_contains "./.termux" "$listing" "link entry"
+    assert_not_contains "real-termux/history" "$listing" "dereferenced"
+    teardown_sandbox
+}
+
+test_invalid_keep_is_a_usage_error() {
+    setup_sandbox
+    assert_exit 1 bash "$SCRIPT" backup --keep 3x
+    assert_eq 0 "$(find "$SANDBOX/backups" -maxdepth 1 -name 'termux_backup_*' | wc -l)" "no backup"
+    teardown_sandbox
+}
+
+test_extra_excludes_are_literal_patterns() {
+    setup_sandbox
+    mkdir -p "$XDG_CONFIG_HOME/termux-backup"
+    printf 'extra_excludes=*.log\n' >"$XDG_CONFIG_HOME/termux-backup/config.conf"
+    echo noise >"$SANDBOX/work/x.log"
+    load_libs
+    local out
+    out=$(cd "$SANDBOX/work" && excludes_list 0)
+    assert_contains "*.log" "$out" "literal pattern"
+    assert_not_contains "x.log" "$out" "glob expanded"
+    teardown_sandbox
+}
+
+test_failed_checksum_write_leaves_no_backup() {
+    setup_sandbox
+    SHA256SUM_FAIL=1 bash "$SCRIPT" backup || true
+    assert_eq 0 "$(find "$SANDBOX/backups" -maxdepth 1 -name 'termux_backup_*' | wc -l)" "leftover"
+    teardown_sandbox
+}
