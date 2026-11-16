@@ -125,16 +125,22 @@ EOF
 backup_build_dir() {
     local tmp=$1 dir_name=$2 root=$3 kind=$4 label=$5 compression=$6
     local secrets=$7 no_home=$8 no_config=$9
-    local excludes="$tmp/excludes" rel archive
+    local excludes="$tmp/excludes" rel archive canon_home canon_root
+
+    canon_home=$(path_canon "$HOME")
+    canon_root=$(path_canon "$root")
+    [ "$canon_root" != "$canon_home" ] || return 1
+
+    dir_name=$(dir_name_unique "$root" "$dir_name")
 
     mkdir -p "$tmp" || return 1
     trap 'rm -rf -- "$tmp"' EXIT
 
     excludes_list "$secrets" >"$excludes" || return 1
 
-    case $root in
-        "$HOME"/*)
-            rel=${root#"$HOME"/}
+    case $canon_root in
+        "$canon_home"/*)
+            rel=${canon_root#"$canon_home"/}
             if [ -n "$rel" ]; then
                 printf '%s\n%s/*\n' "$rel" "$rel" >>"$excludes"
             fi
@@ -248,6 +254,10 @@ cmd_backup() {
     local root tmp name
     root=$(root_resolve "$path")
     root_prepare "$root"
+    root=$(path_canon "$root")
+    if [ "$root" = "$(path_canon "$HOME")" ]; then
+        die 1 "backup: the backup root cannot be \$HOME itself; use a subdirectory or another filesystem"
+    fi
     case $root in
         /sdcard* | /storage/*)
             log_warn "warning: backups on shared storage are readable by other apps"

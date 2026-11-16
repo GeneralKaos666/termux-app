@@ -19,18 +19,35 @@ config_get() {
     return 1
 }
 
+path_canon() {
+    local p=$1
+    if [ -d "$p" ]; then
+        ( cd -P "$p" 2>/dev/null && pwd ) || printf '%s' "$p"
+    else
+        printf '%s' "$p"
+    fi
+}
+
+path_trim_slashes() {
+    local p=$1
+    while [ "${#p}" -gt 1 ] && [ "${p%/}" != "$p" ]; do
+        p=${p%/}
+    done
+    printf '%s' "$p"
+}
+
 root_resolve() {
     local cli=${1:-} cfg=""
     if [ -n "$cli" ]; then
-        printf '%s' "$cli"
+        path_trim_slashes "$cli"
         return 0
     fi
     if [ -n "${TERMUX_BACKUP_ROOT:-}" ]; then
-        printf '%s' "$TERMUX_BACKUP_ROOT"
+        path_trim_slashes "$TERMUX_BACKUP_ROOT"
         return 0
     fi
     if cfg=$(config_get root) && [ -n "$cfg" ]; then
-        printf '%s' "$cfg"
+        path_trim_slashes "$cfg"
         return 0
     fi
     printf '%s' "$DEFAULT_ROOT"
@@ -50,6 +67,15 @@ dir_name_backup() {
     else
         printf 'termux_backup_%s' "$stamp"
     fi
+}
+
+dir_name_unique() {
+    local root=$1 name=$2 candidate=$2 n=2
+    while [ -e "$root/$candidate" ]; do
+        candidate="$name-$n"
+        n=$((n + 1))
+    done
+    printf '%s' "$candidate"
 }
 
 dir_name_safety() {
@@ -189,6 +215,13 @@ backup_prune() {
 sums_verify() {
     local dir=$1
     [ -f "$dir/SHA256SUMS" ] || return 2
+    if [ ! -s "$dir/SHA256SUMS" ]; then
+        # No checksums recorded: valid only when the backup carries no archives.
+        if compgen -G "$dir/*.tar.*" >/dev/null; then
+            return 2
+        fi
+        return 0
+    fi
     ( cd "$dir" && sha256sum -c --strict SHA256SUMS ) >/dev/null 2>&1 || return 2
     return 0
 }

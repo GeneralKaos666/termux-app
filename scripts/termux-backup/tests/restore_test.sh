@@ -269,3 +269,40 @@ test_restore_log_records_package_failure() {
         "$(cat "$XDG_CONFIG_HOME/termux-backup/last-restore.log")" "status"
     teardown_sandbox
 }
+
+test_dpkg_query_failure_is_not_treated_as_empty() {
+    setup_sandbox
+    printf 'bash\ncurl\n' >"$SANDBOX/packages.txt"
+    load_libs
+    local rc=0
+    ( DPKG_QUERY_EXIT=1 packages_missing "$SANDBOX" ) >/dev/null 2>&1 || rc=$?
+    assert_eq 3 "$rc" "dpkg failure status"
+    teardown_sandbox
+}
+
+test_restore_with_dpkg_failure_restores_files_and_exits_3() {
+    setup_sandbox
+    echo before >"$HOME/file.txt"
+    assert_success bash "$SCRIPT" backup
+    echo changed >"$HOME/file.txt"
+    local status=0 err
+    err=$(DPKG_QUERY_EXIT=1 bash "$SCRIPT" restore --latest --yes 2>&1 >/dev/null) || status=$?
+    assert_eq 3 "$status" "exit"
+    assert_eq "before" "$(cat "$HOME/file.txt")" "files restored"
+    assert_contains "package" "$err" "warning"
+    assert_no_file "$SANDBOX/pkg.log"
+    teardown_sandbox
+}
+
+test_restore_prompt_lists_name_size_and_targets() {
+    setup_sandbox
+    assert_success bash "$SCRIPT" backup
+    local name err
+    name=$(basename "$(find "$SANDBOX/backups" -maxdepth 1 -name 'termux_backup_*' -type d)")
+    err=$(bash "$SCRIPT" restore --latest --no-packages </dev/null 2>&1 >/dev/null) || true
+    assert_contains "$name" "$err" "backup name"
+    assert_contains "Archive size" "$err" "archive size"
+    assert_contains "Packages to install" "$err" "package delta"
+    assert_contains "$HOME" "$err" "home target"
+    teardown_sandbox
+}

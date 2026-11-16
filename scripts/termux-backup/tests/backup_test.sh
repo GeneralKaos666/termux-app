@@ -112,3 +112,32 @@ test_label_is_appended_and_validated() {
     assert_exit 1 bash "$SCRIPT" backup --label 'bad/label'
     teardown_sandbox
 }
+
+test_second_backup_in_the_same_second_gets_its_own_directory() {
+    setup_sandbox
+    export DATE_FIXTURE=20260101_000000
+    assert_success bash "$SCRIPT" backup --label dup
+    assert_success bash "$SCRIPT" backup --label dup
+    assert_eq 2 "$(find "$SANDBOX/backups" -maxdepth 1 -name 'termux_backup_*' -type d | wc -l)" "two backups"
+    assert_file "$SANDBOX/backups/termux_backup_20260101_000000-dup/SHA256SUMS"
+    assert_file "$SANDBOX/backups/termux_backup_20260101_000000-dup-2/SHA256SUMS"
+    assert_eq 2 "$(bash "$SCRIPT" list --json | grep -o '"name"' | wc -l)" "listed"
+    teardown_sandbox
+}
+
+test_root_equal_to_home_is_refused() {
+    setup_sandbox
+    assert_exit 1 bash "$SCRIPT" backup --path "$HOME"
+    assert_no_file "$HOME/SHA256SUMS"
+    teardown_sandbox
+}
+
+test_root_with_trailing_slash_inside_home_is_not_archived() {
+    setup_sandbox
+    export TERMUX_BACKUP_ROOT="$HOME/backups/"
+    assert_success bash "$SCRIPT" backup
+    local listing
+    listing=$(tar -tzf "$(find "$HOME/backups" -name home.tar.gz)")
+    assert_not_contains "backups/" "$listing" "self archive"
+    teardown_sandbox
+}

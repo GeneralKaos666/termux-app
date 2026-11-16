@@ -97,3 +97,46 @@ test_prune_keeps_newest_and_never_safety() {
     assert_file "$SANDBOX/backups/safety_pre_restore_20260104_000000/SHA256SUMS"
     teardown_sandbox
 }
+
+test_packages_only_backup_can_be_verified() {
+    setup_sandbox
+    assert_success bash "$SCRIPT" backup --no-home --no-config
+    local name
+    name=$(basename "$(find "$SANDBOX/backups" -maxdepth 1 -name 'termux_backup_*' -type d)")
+    assert_success bash "$SCRIPT" verify --name "$name"
+    teardown_sandbox
+}
+
+test_verify_with_root_containing_spaces() {
+    setup_sandbox
+    export TERMUX_BACKUP_ROOT="$SANDBOX/my backups"
+    assert_success bash "$SCRIPT" backup
+    local name
+    name=$(basename "$(find "$SANDBOX/my backups" -maxdepth 1 -name 'termux_backup_*' -type d)")
+    assert_success bash "$SCRIPT" verify --name "$name"
+    teardown_sandbox
+}
+
+test_delete_with_root_containing_spaces() {
+    setup_sandbox
+    export TERMUX_BACKUP_ROOT="$SANDBOX/my backups"
+    assert_success bash "$SCRIPT" backup
+    local name
+    name=$(basename "$(find "$SANDBOX/my backups" -maxdepth 1 -name 'termux_backup_*' -type d)")
+    assert_success bash "$SCRIPT" delete --name "$name" --yes
+    assert_no_file "$SANDBOX/my backups/$name"
+    teardown_sandbox
+}
+
+test_prune_with_root_containing_spaces() {
+    setup_sandbox
+    export TERMUX_BACKUP_ROOT="$SANDBOX/my backups"
+    for ts in 20260101_000000 20260102_000000; do
+        mkdir -p "$SANDBOX/my backups/termux_backup_$ts"
+        touch "$SANDBOX/my backups/termux_backup_$ts/SHA256SUMS"
+    done
+    assert_success bash "$SCRIPT" prune --keep 1
+    assert_no_file "$SANDBOX/my backups/termux_backup_20260101_000000"
+    assert_file "$SANDBOX/my backups/termux_backup_20260102_000000/SHA256SUMS"
+    teardown_sandbox
+}

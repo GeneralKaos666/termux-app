@@ -159,18 +159,23 @@ restore_extract() {
 }
 
 packages_missing() {
-    local dir=$1
+    local dir=$1 installed
     [ -f "$dir/packages.txt" ] || return 0
+    installed=$(dpkg-query -W -f='${Package}\n' 2>/dev/null) || return 3
     comm -23 <(LC_ALL=C sort -u "$dir/packages.txt") \
-        <(dpkg-query -W -f='${Package}\n' 2>/dev/null | LC_ALL=C sort -u)
+        <(printf '%s\n' "$installed" | LC_ALL=C sort -u)
 }
 
 packages_install() {
-    local dir=$1 name
+    local dir=$1 name missing
     local -a names=()
+    if ! missing=$(packages_missing "$dir"); then
+        printf 'cannot read the installed package list (dpkg-query failed)\n' >&2
+        return 3
+    fi
     while IFS= read -r name; do
         [ -n "$name" ] && names+=("$name")
-    done < <(packages_missing "$dir")
+    done <<<"$missing"
     [ "${#names[@]}" -gt 0 ] || return 0
     if pkg install -y "${names[@]}" >/dev/null 2>&1; then
         return 0
@@ -232,6 +237,13 @@ cmd_restore() {
     fi
 
     if [ "$OPT_YES" -ne 1 ]; then
+        local size delta
+        size=$(human_size "$(backup_size_bytes "$dir")")
+        delta=$(packages_missing "$dir" 2>/dev/null | awk 'NF { n++ } END { print n + 0 }') || delta=0
+        log_info "Backup:              $name"
+        log_info "Archive size:        $size"
+        log_info "Packages to install: $delta"
+        log_info "Restore into:        $HOME and $PREFIX/etc"
         confirm_word restore "Type restore to overwrite $HOME and $PREFIX/etc: " ||
             die 1 "restore: aborted"
     fi
@@ -243,16 +255,22 @@ cmd_restore() {
         die 2 "restore: extraction failed"
     fi
 
-    local installed=0 failed=0 requested=0 status=0 status_word=ok failed_names=""
+    local installed=0 failed=0 requested=0 status=0 status_word=ok failed_names="" missing_names=""
     if [ "$OPT_NO_PACKAGES" -eq 0 ]; then
-        requested=$(packages_missing "$dir" | awk 'NF { n++ } END { print n + 0 }')
-        installed=$requested
-        if ! failed_names=$(packages_install "$dir" 2>&1 >/dev/null); then
+        if ! missing_names=$(packages_missing "$dir"); then
             status=3
             status_word=packages-failed
-            failed=$(printf '%s\n' "$failed_names" | awk 'NF { n++ } END { print n + 0 }')
-            installed=$((requested - failed))
-            log_warn "warning: $failed package(s) could not be installed: $(printf '%s' "$failed_names" | tr '\n' ' ')"
+            log_warn "warning: cannot read the installed package list (dpkg-query failed); packages were not reinstalled"
+        else
+            requested=$(printf '%s\n' "$missing_names" | awk 'NF { n++ } END { print n + 0 }')
+            installed=$requested
+            if ! failed_names=$(packages_install "$dir" 2>&1 >/dev/null); then
+                status=3
+                status_word=packages-failed
+                failed=$(printf '%s\n' "$failed_names" | awk 'NF { n++ } END { print n + 0 }')
+                installed=$((requested - failed))
+                log_warn "warning: $failed package(s) could not be installed: $(printf '%s' "$failed_names" | tr '\n' ' ')"
+            fi
         fi
     fi
 

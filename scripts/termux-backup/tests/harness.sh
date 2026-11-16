@@ -8,6 +8,8 @@ SCRIPT="$REPO_ROOT/scripts/termux-backup/termux-backup"
 ORIGINAL_PATH=$PATH
 REAL_TAR=$(command -v tar)
 export REAL_TAR
+REAL_DATE=$(command -v date)
+export REAL_DATE
 
 setup_sandbox() {
     SANDBOX=$(mktemp -d "${TMPDIR:-/tmp}/termux-backup-test.XXXXXX")
@@ -20,7 +22,8 @@ setup_sandbox() {
     export FIXTURE_PACKAGES=$'bash\t\tinstall\ncurl\t\tinstall\n'
     export FIXTURE_INSTALLED=$'bash\n'
     export PKG_EXIT_CODE=0
-    unset TAR_FAIL || true
+    export DPKG_QUERY_EXIT=0
+    unset TAR_FAIL DATE_FIXTURE || true
     write_shims
 }
 
@@ -34,7 +37,23 @@ printf '%s' "$FIXTURE_PACKAGES"
 EOF
     cat > "$SANDBOX/shims/dpkg-query" <<'EOF'
 #!/usr/bin/env bash
+[ "${DPKG_QUERY_EXIT:-0}" = 0 ] || {
+    echo "dpkg-query: unable to access the dpkg database" >&2
+    exit "${DPKG_QUERY_EXIT}"
+}
 printf '%s' "$FIXTURE_INSTALLED"
+EOF
+    cat > "$SANDBOX/shims/date" <<'EOF'
+#!/usr/bin/env bash
+if [ -n "${DATE_FIXTURE:-}" ]; then
+    for arg in "$@"; do
+        if [ "$arg" = "+%Y%m%d_%H%M%S" ]; then
+            printf '%s\n' "$DATE_FIXTURE"
+            exit 0
+        fi
+    done
+fi
+exec "$REAL_DATE" "$@"
 EOF
     cat > "$SANDBOX/shims/pkg" <<'EOF'
 #!/usr/bin/env bash
