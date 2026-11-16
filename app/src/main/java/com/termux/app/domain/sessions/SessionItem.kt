@@ -14,6 +14,9 @@ package com.termux.app.domain.sessions
  * @property running Whether the session process is still running.
  * @property exitCode Exit code of the session process; only meaningful when [running] is false.
  * @property active Whether this session is currently attached to the terminal view.
+ * @property subtitle Optional second line: working directory and foreground command, already
+ *   shortened for the tab. Null means the tab shows its title alone.
+ * @property unseenOutput True when the session produced output while it was not the active tab.
  */
 data class SessionItem(
     val id: Int,
@@ -21,6 +24,8 @@ data class SessionItem(
     val running: Boolean,
     val exitCode: Int,
     val active: Boolean,
+    val subtitle: String? = null,
+    val unseenOutput: Boolean = false,
 )
 
 /** Coarse state of a session, used to pick the tab's status dot color. */
