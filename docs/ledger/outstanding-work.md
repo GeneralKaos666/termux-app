@@ -413,9 +413,12 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
     octet-stream fallbacks are covered.
   - `[limitation]` the remaining `:app` classes (`TermuxService`,
     `TermuxTerminalSessionActivityClient`, `TermuxInstaller`, `RunCommandService`, Compose screens):
-    inspected 2026-10-27 — these are Intent/Service/Activity/Compose glue that delegate to
-    `:termux-shared` (`IntentUtils`/`DataUtils`/`FileUtils`/`TermuxFileUtils`), so there is no
-    JVM-testable pure logic; Compose screens need Compose test infra. Not a JVM unit-test target.
+    inspected 2026-10-27 — most of these are Intent/Service/Activity/Compose glue that delegates to
+    `:termux-shared` (`IntentUtils`/`DataUtils`/`FileUtils`/`TermuxFileUtils`). **Corrected
+    2026-11-15:** the "no JVM-testable pure logic" claim was wrong. Four pieces are pure and are now
+    tracked in the app-layering work (`docs/specs/2026-11-15-app-layering-design.md`):
+    `TermuxActivity.refreshSessionsBar` stable-id allocation, `TermuxActivity.downscaleForBlur`,
+    `TermuxService.processShellCreateMode`, and `TermuxActivity.moveSessionById` index maths.
 - `[done 2026-10-25]` commented-out assertions in live test files: removed the stale ones that
   referenced removed APIs (`getLine(0)`, `line.mText`) across `TerminalRowTest`, `TerminalTest`
   and `ScrollRegionTest`; restored the two that still held (`TerminalRowTest` unassigned-code-point
@@ -482,6 +485,20 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
     infrastructure to the module before attempting them. The same applies to the `eventSource` gate
     around `KeyCodePoints.normalizeExternalKeyboard` and to the shift-then-control combination, which
     spans `ImeTextEncoder` and `inputCodePoint`: both are only reachable through a real `TerminalView`.
+- `[deferred]` two settings stacks: the legacy Java `PreferenceFragment` screens under
+  `app/src/main/java/com/termux/app/fragments/settings/` (13 files) and the Compose appearance
+  screen under `ui/appearance/`. Both write preferences, so the settings surface has two owners.
+  Consolidation is its own spec cycle; the direction is recorded in
+  `docs/plans/2026-10-16-settings-ia.md`. Excluded from the 2026-11-15 app-layering work.
+- `[non-goal]` `:termux-shared` depends on `:terminal-view`, and 7 files in `:termux-shared` import
+  terminal internals. Inverted relative to a clean layering, but `:termux-shared` is published to
+  JitPack and consumed by the plugin apps, so the dependency cannot be removed without breaking
+  them. Accepted 2026-11-15.
+- `[open]` app layering: `docs/specs/2026-11-15-app-layering-design.md` and
+  `docs/plans/2026-11-15-app-layering.md`. Layer packages inside `:app` (`domain`/`data`/`ui`)
+  enforced by `LayeringTest`, plus the extraction of session mapping and wallpaper loading from
+  `TermuxActivity` and the notification and wake-lock split of `TermuxService`. No new Gradle
+  module. Plugin-facing surfaces frozen and checked mechanically.
 
 ---
 
