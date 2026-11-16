@@ -7,7 +7,7 @@ import androidx.compose.runtime.setValue
 /**
  * Compose-observable state of the bottom extra-keys bar.
  *
- * Owned by the Java [com.termux.app.TermuxActivity], which mutates it as preferences and the
+ * Owned by the Java [TermuxActivity], which mutates it as preferences and the
  * active key set change; Compose recomposes on assignment. The property setters are intentionally
  * public so Java can assign them directly.
  */
@@ -33,7 +33,7 @@ class ExtraKeysState {
     /**
      * Whether the "type a line and send" field is showing, i.e. the pager is on [PAGE_WRITING].
      * Derived from [page] so the Java-facing contract in
-     * [com.termux.app.TermuxActivity] (get/setTextInputVisible) keeps working while Compose drives
+     * [TermuxActivity] (get/setTextInputVisible) keeps working while Compose drives
      * the pager directly on swipes.
      */
     var textInputVisible: Boolean

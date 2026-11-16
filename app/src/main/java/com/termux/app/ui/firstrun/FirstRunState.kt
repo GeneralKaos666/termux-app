@@ -6,7 +6,7 @@ import androidx.compose.runtime.setValue
 
 /**
  * Compose-observable first-run onboarding state, mutated from the Java
- * [com.termux.app.TermuxActivity] like the other shell states. The property setters are
+ * [TermuxActivity] like the other shell states. The property setters are
  * intentionally public so Java can assign them directly.
  *
  * The overlay is shown by Compose when [visible] is true *and* the sessions bar is still empty, so

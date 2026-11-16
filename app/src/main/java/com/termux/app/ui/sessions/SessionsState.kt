@@ -8,7 +8,7 @@ import com.termux.app.domain.sessions.SessionItem
 /**
  * Compose-observable snapshot of the sessions shown in the sessions bar.
  *
- * Owned by the Java [com.termux.app.TermuxActivity], which rebuilds and assigns [sessions] whenever
+ * Owned by the Java [TermuxActivity], which rebuilds and assigns [sessions] whenever
  * the service session list changes (see `TermuxActivity.refreshSessionsBar()`). The property
  * setter is intentionally public so Java can assign it directly; Compose recomposes on assignment.
  */

@@ -114,7 +114,7 @@ interface ShellHostCallbacks {
  * [terminalView] (a [com.termux.view.TerminalView]) which is embedded through [AndroidView], and the
  * extra-keys bar below it.
  *
- * This is called from the Java [com.termux.app.TermuxActivity]; composables and
+ * This is called from the Java [TermuxActivity]; composables and
  * [ComposeView.setContent] cannot be invoked from Java directly, hence this non-composable entry
  * point.
  *

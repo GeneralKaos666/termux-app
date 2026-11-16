@@ -21,7 +21,7 @@ import kotlin.math.roundToInt
  * `drawRenderNode` per frame.
  *
  * On API 31+ the blur is a `RenderEffect` on the node. Below that the effect is not available, so
- * the picture is drawn directly with a filtered upscale: [com.termux.app.TermuxActivity] already
+ * the picture is drawn directly with a filtered upscale: [TermuxActivity] already
  * downscaled it at load time by [BackgroundFx.blurDownscale], which is the fallback blur.
  */
 class BlurLayer {

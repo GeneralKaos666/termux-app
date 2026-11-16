@@ -27,7 +27,7 @@ import kotlin.math.roundToInt
 
 /**
  * Narrow seam through which [FloatController] creates its dedicated floating session, so the
- * controller can be unit tested without a concrete [com.termux.app.TermuxService]. Implemented by
+ * controller can be unit tested without a concrete [TermuxService]. Implemented by
  * `TermuxService` (whose existing `createFloatSession` already matches this shape).
  */
 interface FloatSessionSource {
