@@ -1359,6 +1359,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
+     * Shows the visual bell: the sessions bar lights up for a moment and a snackbar names the
+     * event. The snackbar itself is throttled by {@link SnackbarState#showBell(String)}, so a
+     * program ringing on every prompt cannot bury the terminal.
+     */
+    public void showBellFlash() {
+        if (mShellChromeState != null) mShellChromeState.flashBell();
+        if (mSnackbarState != null) mSnackbarState.showBell(getString(R.string.msg_bell));
+    }
+
+    /**
      * Opens [url] directly, or shows the link action sheet when the user asked to confirm first.
      * Called from the terminal view client for both a tapped URL and a link click.
      */

@@ -113,6 +113,7 @@ fun SessionsBar(
     backgroundAlpha: Float = 1f,
     unseen: Set<Int> = emptySet(),
     starterCommands: List<StarterCommand> = emptyList(),
+    bellFlash: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
@@ -177,7 +178,15 @@ fun SessionsBar(
         modifier = modifier
             .fillMaxWidth()
             // Only the bar's own background fades; tab labels, chips and indicators stay opaque.
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha))
+            // A visual bell briefly tints that background instead, so the flash reads as the
+            // chrome lighting up rather than as another tab.
+            .background(
+                if (bellFlash) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = BELL_FLASH_ALPHA * backgroundAlpha)
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha)
+                },
+            )
             // The extra 2dp of vertical padding grows the bar itself, not the chips, which keep
             // their own 32dp minimum and stay vertically centred in the taller strip.
             .padding(horizontal = 4.dp, vertical = 4.dp),
@@ -426,6 +435,7 @@ fun SessionsBar(
 internal fun SessionsRestoreHandle(
     onExpand: () -> Unit,
     backgroundAlpha: Float = 1f,
+    bellFlash: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
@@ -437,7 +447,11 @@ internal fun SessionsRestoreHandle(
         },
         modifier = modifier
             .background(
-                MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha),
+                if (bellFlash) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = BELL_FLASH_ALPHA * backgroundAlpha)
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha)
+                },
                 CircleShape,
             )
             .semantics { contentDescription = expandLabel },
@@ -794,6 +808,9 @@ private fun sessionStateColor(state: SessionState): Color = when (state) {
     SessionState.EXITED_SUCCESS -> Color(0xFF9E9E9E)
     SessionState.EXITED_ERROR -> Color(0xFFE53935)
 }
+
+/** How strongly the visual bell tints the chrome. */
+private const val BELL_FLASH_ALPHA = 0.45f
 
 @Preview(name = "Sessions bar with sessions", showBackground = true, widthDp = 360)
 @Composable

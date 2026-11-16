@@ -238,6 +238,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             case TermuxPropertyConstants.IVALUE_BELL_BEHAVIOUR_IGNORE:
                 // Ignore the bell character.
                 break;
+            case TermuxPropertyConstants.IVALUE_BELL_BEHAVIOUR_VISUAL:
+                mActivity.showBellFlash();
+                break;
         }
     }
 

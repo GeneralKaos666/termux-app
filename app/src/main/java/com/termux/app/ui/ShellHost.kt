@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -307,6 +308,7 @@ private fun TerminalShellHost(
                             backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
                             unseen = sessionsState.unseen,
                             starterCommands = sessionsState.starterCommands,
+                            bellFlash = shellChromeState.bellFlash,
                         )
                     }
                 }
@@ -372,6 +374,7 @@ private fun TerminalShellHost(
                 SessionsRestoreHandle(
                     onExpand = { sessionsBarExpanded = true },
                     backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
+                    bellFlash = shellChromeState.bellFlash,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(4.dp),
@@ -415,6 +418,14 @@ private fun TerminalShellHost(
                 onDismiss = linkActionState::dismiss,
             )
         }
+    }
+
+    // The visual bell lights the chrome for a moment; a bell arriving during the flash bumps the
+    // sequence, restarting the timer instead of being lost.
+    LaunchedEffect(shellChromeState.bellSequence) {
+        if (shellChromeState.bellSequence <= 0) return@LaunchedEffect
+        delay(ShellChromeState.BELL_FLASH_MILLIS)
+        shellChromeState.clearBellFlash()
     }
 
     LaunchedEffect(snackbarState.sequence) {
