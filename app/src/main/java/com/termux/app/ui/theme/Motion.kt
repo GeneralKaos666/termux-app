@@ -36,13 +36,19 @@ fun floatEnterProgress(): Float {
     return progress.value
 }
 
+/** The smallest scale the float overlay reaches on its first frame — it grows from 92 %, not a point. */
+private const val FloatEnterMinScale = 0.92f
+
 /**
- * [floatEnterProgress] as a scale and an alpha for a `graphicsLayer`. The scale keeps the spring's
- * overshoot (that is the pop); the alpha is clamped, since a bouncy spring goes above 1 and only the
- * platform's clamping would hide it.
+ * [floatEnterProgress] as a scale and an alpha for a `graphicsLayer`. The scale starts at
+ * [FloatEnterMinScale] (92 %) and grows to 100 %, so the overlay grows into place instead of
+ * appearing from a point; the spring overshoot still carries it just past 100 % (that is the pop).
+ * The alpha is clamped, since a bouncy spring goes above 1 and only the platform's clamping would
+ * hide it.
  */
 @Composable
 fun floatEnterScaleAndAlpha(): Pair<Float, Float> {
     val progress = floatEnterProgress()
-    return progress to progress.coerceIn(0f, 1f)
+    val scale = FloatEnterMinScale + (1f - FloatEnterMinScale) * progress
+    return scale to progress.coerceIn(0f, 1f)
 }
