@@ -100,7 +100,7 @@ class AndroidWallpaperSource @JvmOverloads constructor(
             com.termux.terminal.TerminalColors.COLOR_SCHEME.mDefaultColors[com.termux.terminal.TextStyle.COLOR_INDEX_BACKGROUND]
         var colorsAvailable = false
         var primaryColor = terminalBackgroundColor
-        if (sdkInt >= Build.VERSION_CODES.O_MR1) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             val colors: WallpaperColors? = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
             if (colors != null) {
                 colorsAvailable = true
