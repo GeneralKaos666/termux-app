@@ -11,6 +11,8 @@ source "$SCRIPT_DIR/lib/storage.sh"
 source "$SCRIPT_DIR/lib/archive.sh"
 # shellcheck source=lib/report.sh
 source "$SCRIPT_DIR/lib/report.sh"
+# shellcheck source=lib/restore.sh
+source "$SCRIPT_DIR/lib/restore.sh"
 
 usage() {
     cat <<'EOF'
@@ -34,7 +36,6 @@ Run "termux-backup <command> --help" for command options.
 EOF
 }
 
-cmd_restore() { die 1 "not implemented"; }
 
 JSON=0
 QUIET=0

@@ -59,3 +59,15 @@ assert_contains() { [[ "$2" == *"$1"* ]] || fail "$3: missing [$1]"; }
 assert_not_contains() { [[ "$2" != *"$1"* ]] || fail "$3: unexpected [$1]"; }
 assert_file() { [ -f "$1" ] || fail "missing file: $1"; }
 assert_no_file() { [ ! -e "$1" ] || fail "unexpected file: $1"; }
+
+load_libs() {
+    # shellcheck source=../lib/common.sh
+    source "$SCRIPT_DIR/lib/common.sh"
+    # shellcheck source=../lib/storage.sh
+    source "$SCRIPT_DIR/lib/storage.sh"
+    # shellcheck source=../lib/archive.sh
+    source "$SCRIPT_DIR/lib/archive.sh"
+    # shellcheck source=../lib/restore.sh
+    source "$SCRIPT_DIR/lib/restore.sh"
+    color_init
+}

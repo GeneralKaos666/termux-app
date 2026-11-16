@@ -258,3 +258,17 @@ cmd_backup() {
         log_info "Created $name ($(human_size "$size"))"
     fi
 }
+
+archive_scan() {
+    local archive=$1 listing entry
+    [ -f "$archive" ] || return 2
+    listing=$(tar -tf "$archive" 2>/dev/null) || return 2
+    while IFS= read -r entry; do
+        [ -n "$entry" ] || continue
+        entry=${entry#./}
+        case $entry in
+            /* | .. | ../* | */.. | */../*) return 2 ;;
+        esac
+    done <<<"$listing"
+    return 0
+}
