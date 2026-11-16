@@ -158,9 +158,34 @@ restore_extract() {
     done
 }
 
-# Replaced by the real installer in the packages task.
+packages_missing() {
+    local dir=$1
+    [ -f "$dir/packages.txt" ] || return 0
+    comm -23 <(LC_ALL=C sort -u "$dir/packages.txt") \
+        <(dpkg-query -W -f='${Package}\n' 2>/dev/null | LC_ALL=C sort -u)
+}
+
 packages_install() {
-    return 0
+    local dir=$1 name
+    local -a names=()
+    while IFS= read -r name; do
+        [ -n "$name" ] && names+=("$name")
+    done < <(packages_missing "$dir")
+    [ "${#names[@]}" -gt 0 ] || return 0
+    if pkg install -y "${names[@]}" >/dev/null 2>&1; then
+        return 0
+    fi
+    printf '%s\n' "${names[@]}" >&2
+    return 3
+}
+
+restore_log_write() {
+    local dir=$1 name=$2 status=$3 installed=$4 failed=$5 log
+    log="${XDG_CONFIG_HOME:-$HOME/.config}/termux-backup/last-restore.log"
+    mkdir -p "$(dirname "$log")" 2>/dev/null || return 0
+    printf '%s backup=%s status=%s installed=%s failed=%s source=%s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$name" "$status" "$installed" "$failed" "$dir" \
+        >>"$log" 2>/dev/null || true
 }
 
 cmd_restore() {
@@ -218,16 +243,27 @@ cmd_restore() {
         die 2 "restore: extraction failed"
     fi
 
-    local installed=0
+    local installed=0 failed=0 requested=0 status=0 status_word=ok failed_names=""
     if [ "$OPT_NO_PACKAGES" -eq 0 ]; then
-        installed=$(packages_install "$dir" || echo 0)
+        requested=$(packages_missing "$dir" | awk 'NF { n++ } END { print n + 0 }')
+        installed=$requested
+        if ! failed_names=$(packages_install "$dir" 2>&1 >/dev/null); then
+            status=3
+            status_word=packages-failed
+            failed=$(printf '%s\n' "$failed_names" | awk 'NF { n++ } END { print n + 0 }')
+            installed=$((requested - failed))
+            log_warn "warning: $failed package(s) could not be installed: $(printf '%s' "$failed_names" | tr '\n' ' ')"
+        fi
     fi
 
+    restore_log_write "$dir" "$name" "$status_word" "$installed" "$failed"
+
     if [ "${JSON:-0}" -eq 1 ]; then
-        printf '{"name":"%s","root":"%s","safety":"%s","packages_installed":%s}\n' \
+        printf '{"name":"%s","root":"%s","safety":"%s","packages_installed":%s,"packages_failed":%s}\n' \
             "$(json_escape "$name")" "$(json_escape "$root")" \
-            "$(json_escape "$safety")" "$installed"
+            "$(json_escape "$safety")" "$installed" "$failed"
     elif [ "${QUIET:-0}" -eq 0 ]; then
         log_info "Restored $name"
     fi
+    return "$status"
 }

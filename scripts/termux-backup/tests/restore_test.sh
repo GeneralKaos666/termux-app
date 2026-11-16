@@ -201,3 +201,71 @@ test_restore_json_reports_names() {
     assert_contains '"safety":"safety_pre_restore_' "$out" "safety"
     teardown_sandbox
 }
+
+test_only_missing_packages_are_installed() {
+    setup_sandbox
+    printf 'bash\ncurl\n' >"$SANDBOX/packages.txt"
+    load_libs
+    assert_eq "curl" "$(FIXTURE_INSTALLED=bash packages_missing "$SANDBOX")" "delta"
+    teardown_sandbox
+}
+
+test_package_install_calls_pkg_with_missing_names() {
+    setup_sandbox
+    printf 'bash\ncurl\n' >"$SANDBOX/packages.txt"
+    load_libs
+    FIXTURE_INSTALLED=bash packages_install "$SANDBOX"
+    assert_eq "install -y curl" "$(cat "$SANDBOX/pkg.log")" "pkg args"
+    teardown_sandbox
+}
+
+test_package_failure_returns_3_with_names() {
+    setup_sandbox
+    printf 'bash\ncurl\n' >"$SANDBOX/packages.txt"
+    load_libs
+    local err
+    err=$(FIXTURE_INSTALLED=bash PKG_EXIT_CODE=1 packages_install "$SANDBOX" 2>&1 >/dev/null) || true
+    assert_exit 3 env FIXTURE_INSTALLED=bash PKG_EXIT_CODE=1 "$BASH" -c \
+        "source '$SCRIPT_DIR/lib/common.sh'; source '$SCRIPT_DIR/lib/archive.sh'; source '$SCRIPT_DIR/lib/storage.sh'; source '$SCRIPT_DIR/lib/restore.sh'; packages_install '$SANDBOX'"
+    assert_contains "curl" "$err" "remaining names"
+    teardown_sandbox
+}
+
+test_package_failure_exits_3_and_files_stay() {
+    setup_sandbox
+    echo before >"$HOME/file.txt"
+    assert_success bash "$SCRIPT" backup
+    echo changed >"$HOME/file.txt"
+    local status=0
+    PKG_EXIT_CODE=1 bash "$SCRIPT" restore --latest --yes || status=$?
+    assert_eq 3 "$status" "exit"
+    assert_eq "before" "$(cat "$HOME/file.txt")" "files restored"
+    assert_file "$SANDBOX/pkg.log"
+    teardown_sandbox
+}
+
+test_no_packages_flag_skips_pkg() {
+    setup_sandbox
+    assert_success bash "$SCRIPT" backup
+    assert_success bash "$SCRIPT" restore --latest --yes --no-packages
+    assert_no_file "$SANDBOX/pkg.log"
+    teardown_sandbox
+}
+
+test_restore_log_is_written() {
+    setup_sandbox
+    assert_success bash "$SCRIPT" backup
+    assert_success bash "$SCRIPT" restore --latest --yes --no-packages
+    assert_file "$XDG_CONFIG_HOME/termux-backup/last-restore.log"
+    assert_contains "status=ok" "$(cat "$XDG_CONFIG_HOME/termux-backup/last-restore.log")" "status"
+    teardown_sandbox
+}
+
+test_restore_log_records_package_failure() {
+    setup_sandbox
+    assert_success bash "$SCRIPT" backup
+    PKG_EXIT_CODE=1 bash "$SCRIPT" restore --latest --yes || true
+    assert_contains "status=packages-failed" \
+        "$(cat "$XDG_CONFIG_HOME/termux-backup/last-restore.log")" "status"
+    teardown_sandbox
+}

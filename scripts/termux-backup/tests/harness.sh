@@ -11,6 +11,7 @@ export REAL_TAR
 
 setup_sandbox() {
     SANDBOX=$(mktemp -d "${TMPDIR:-/tmp}/termux-backup-test.XXXXXX")
+    export SANDBOX
     mkdir -p "$SANDBOX"/{home,prefix/etc,backups,shims,config,work}
     export HOME="$SANDBOX/home" PREFIX="$SANDBOX/prefix"
     export TERMUX_BACKUP_ROOT="$SANDBOX/backups"
