@@ -384,4 +384,7 @@
     <string name="action_move_session_right">Move right</string>
     <string name="action_session_menu">Session actions</string>
 
+    <string name="starter_command_pkg_upgrade">Update packages</string>
+    <string name="starter_command_pkg_install_neofetch">Install neofetch</string>
+    <string name="starter_command_ls">List files</string>
 </resources>

@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.termux.app.domain.sessions.SessionItem
+import com.termux.app.domain.sessions.StarterCommand
 
 /**
  * Compose-observable snapshot of the sessions shown in the sessions bar.
@@ -20,6 +21,9 @@ class SessionsState {
      * [sessions] so an output callback can update one badge without rebuilding every tab.
      */
     var unseen: Set<Int> by mutableStateOf(emptySet())
+
+    /** Start-here chips for the empty bar; empty once a session exists or before bootstrap. */
+    var starterCommands: List<StarterCommand> by mutableStateOf(emptyList())
 
     /** Marks [id] as having unseen output; the caller skips the call when the mark exists. */
     fun markUnseen(id: Int) {

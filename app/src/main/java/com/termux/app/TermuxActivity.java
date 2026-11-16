@@ -16,7 +16,9 @@ import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
@@ -49,6 +51,7 @@ import com.termux.app.domain.sessions.SessionItem;
 import com.termux.app.domain.sessions.SessionItemsKt;
 import com.termux.app.domain.sessions.SessionOutputTracker;
 import com.termux.app.domain.sessions.SessionSnapshot;
+import com.termux.app.domain.sessions.StarterCommandsKt;
 import com.termux.app.ui.sessions.SessionsState;
 import com.termux.app.ui.appearance.AppearanceActivity;
 import com.termux.app.data.appearance.AppearanceStyling;
@@ -91,6 +94,7 @@ import androidx.compose.ui.platform.ComposeView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -296,6 +300,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         public void onNewFloatSession() {
             TermuxService service = getTermuxService();
             if (service != null) service.getFloatController().showNewSession();
+        }
+
+        @Override
+        public void onStarterCommand(String command) {
+            if (mTermuxTerminalSessionActivityClient == null) return;
+            mTermuxTerminalSessionActivityClient.addNewSession(false, null);
+            final TerminalSession session = getCurrentSession();
+            if (session == null) return;
+            // The shell process is created asynchronously; write once it is running, and only if
+            // the user has not switched away in the meantime.
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                if (getCurrentSession() == session && session.isRunning()) {
+                    session.write(command + "\r");
+                }
+            }, 300);
         }
 
         @Override
@@ -815,6 +834,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         mSessionsById.clear();
         if (sessions == null) {
+            mSessionsState.setStarterCommands(
+                StarterCommandsKt.starterChips(true, TermuxInstaller.isBootstrapInstalled()));
             mSessionsState.setSessions(new ArrayList<>());
             return;
         }
@@ -849,6 +870,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (subtitle != null) contexts.put(stableId, subtitle);
         }
 
+        mSessionsState.setStarterCommands(snapshots.isEmpty()
+            ? StarterCommandsKt.starterChips(true, TermuxInstaller.isBootstrapInstalled())
+            : Collections.emptyList());
         mSessionsState.setUnseen(mSessionOutputTracker.unseen());
         mSessionsState.setSessions(SessionItemsKt.sessionItems(
             snapshots, ids, activeIndex, contexts, mSessionOutputTracker.unseen()));

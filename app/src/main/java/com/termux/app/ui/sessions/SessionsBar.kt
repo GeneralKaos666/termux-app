@@ -2,6 +2,7 @@ package com.termux.app.ui.sessions
 
 import com.termux.app.domain.sessions.SessionItem
 import com.termux.app.domain.sessions.SessionState
+import com.termux.app.domain.sessions.StarterCommand
 import com.termux.app.domain.sessions.TabBounds
 import com.termux.app.domain.sessions.dropIndex
 import com.termux.app.domain.sessions.moveItemInPlace
@@ -106,8 +107,10 @@ fun SessionsBar(
     onNewSession: () -> Unit,
     onNewFloatSession: () -> Unit,
     onCollapse: () -> Unit,
+    onStarterCommand: (String) -> Unit = {},
     backgroundAlpha: Float = 1f,
     unseen: Set<Int> = emptySet(),
+    starterCommands: List<StarterCommand> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
@@ -194,16 +197,41 @@ fun SessionsBar(
         )
 
         if (sessions.isEmpty()) {
-            // A clickable Text rather than a TextButton: the button's 48dp minimum interactive
-            // size would keep the empty bar taller than the populated one.
-            Text(
-                text = stringResource(R.string.action_start_session),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clickable(onClick = onNewSession)
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                    .semantics { contentDescription = startSessionLabel },
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = "$",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                if (starterCommands.isEmpty()) {
+                    // A clickable Text rather than a TextButton: the button's 48dp minimum
+                    // interactive size would keep the empty bar taller than the populated one.
+                    Text(
+                        text = stringResource(R.string.action_start_session),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clickable(onClick = onNewSession)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                            .semantics { contentDescription = startSessionLabel },
+                    )
+                } else {
+                    starterCommands.forEach { starter ->
+                        Text(
+                            text = starterLabel(starter.command),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .clickable { onStarterCommand(starter.command) }
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
         } else {
             val atStart = listState.firstVisibleItemIndex == 0 &&
                 listState.firstVisibleItemScrollOffset == 0
@@ -741,6 +769,15 @@ internal fun edgeFadeAlpha(
     val fraction = scrollFraction.coerceIn(0f, 1f)
     if (fraction < 0.02f) return 0f
     return ((fraction - 0.02f) / 0.1f).coerceIn(0f, 1f)
+}
+
+/** Display label for a starter command; the command itself is what gets inserted. */
+@Composable
+private fun starterLabel(command: String): String = when (command) {
+    "pkg upgrade" -> stringResource(R.string.starter_command_pkg_upgrade)
+    "pkg install neofetch" -> stringResource(R.string.starter_command_pkg_install_neofetch)
+    "ls" -> stringResource(R.string.starter_command_ls)
+    else -> command
 }
 
 /** Status-dot color for a session state. */
