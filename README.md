@@ -74,6 +74,14 @@ Run `pkg install <package>` to add tools, `pkg update` to upgrade. The
 repositories and fixes for `repository is under maintenance or down` errors. General help
 sits on the [Termux wiki](https://wiki.termux.dev/).
 
+## Backup and restore
+
+`scripts/termux-backup` backs up `$HOME`, `$PREFIX/etc` and the installed package list, and restores
+them on the same device or a new one. It writes a verified, checksummed archive, snapshots the
+current environment before every restore, and reinstalls missing packages afterwards. See
+[`scripts/termux-backup/README.md`](scripts/termux-backup/README.md) for install, commands and the
+new-device walkthrough.
+
 ## Android 12 and above
 
 Android kills background and CPU-hungry processes aggressively, so a shell can die with

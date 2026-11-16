@@ -723,6 +723,25 @@ blanket `invalidate()`, so a palette-only change still repaints but a no-op colo
 re-applying the same 256-colour palette every prompt) does not. The counter behaviour is unit-tested
 in `TerminalColorsTest`.
 
+### 5.5 termux-backup phase 2 (in-app UI) — `[needs spec]`
+
+Phase 1 of the environment backup/restore tool ships as a script only (`scripts/termux-backup`, spec
+`docs/specs/2026-11-15-termux-backup-restore-design.md`, plan
+`docs/plans/2026-11-15-termux-backup-restore.md`). Phase 2 is a Settings screen that drives the same
+CLI through `TermuxService`, renders progress from its `--json` output, and provisions the script from
+`assets/` into `$PREFIX/lib` on first run. It needs its own spec before any code.
+
+Deferred on purpose in phase 1, each a separate decision later:
+
+- **GitHub / Google Drive backends** — remote storage needs credentials, retention rules and a sync
+  story; local-only until then.
+- **Scheduling** — no timer, no `termux-job-scheduler` wiring, no boot hook.
+- **Encryption** — archives with credentials are only as safe as the storage root; `--exclude-secrets`
+  is the only mitigation today.
+- **SAF import/export** — sharing a backup through the Storage Access Framework belongs to phase 2.
+
+Device checks for phase 1 live in `manual-checks.md` D-17 to D-20.
+
 ---
 
 ## 6. Decisions and non-goals

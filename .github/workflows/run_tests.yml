@@ -41,3 +41,13 @@ jobs:
     - name: Run lint
       run: |
         ./gradlew lint
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v6
+    - name: Lint shell scripts
+      run: shellcheck -S warning scripts/termux-backup/termux-backup scripts/termux-backup/lib/*.sh scripts/termux-backup/tests/*.sh
+    - name: Run termux-backup tests
+      run: bash scripts/termux-backup/tests/run.sh

@@ -37,6 +37,10 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
 | D-15 | Shell UI motion (springy chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
 | D-16 | Acrylic background (blur, opacity, live-wallpaper fallback colour) | **passed 2026-11-14** on NX769J / API 34 (12 of 12; the live-wallpaper rows needed the `getWallpaperInfo()` fix) | §17 below |
+| D-17 | termux-backup writes and lists on real shared storage | pending | §18 below |
+| D-18 | termux-backup restore on a second device | pending | §18 below |
+| D-19 | termux-backup safety-archive round-trip | pending | §18 below |
+| D-20 | termux-backup behavior with storage permission revoked | pending | §18 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -504,5 +508,32 @@ Run with a busy static wallpaper and with a custom image:
       values are still set and still applied.
 - [x] Rotation: rotate with a blurred picture showing. No crash, no stretched crop, and the blur does
       not become sharper or softer across the rotation.
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 18. D-17 to D-20 — termux-backup on a real device
+
+Phase 1 ships a script only (`scripts/termux-backup`, spec
+`docs/specs/2026-11-15-termux-backup-restore-design.md`). Everything below was proved in `mktemp`
+sandboxes with shimmed `dpkg`/`pkg`/`tar`; none of it has run against real shared storage, a real
+package manager or a second device yet.
+
+- [ ] **D-17 — real `/sdcard` writes.** After `termux-setup-storage`, run
+      `termux-backup status` (expect `storage_access: true`, `writable: true`) and
+      `termux-backup backup --label device-check`. Expect a `termux_backup_*-device-check` directory
+      under `/sdcard/termux-backups`, `list` showing it with a non-zero size, and `verify --name ...`
+      exiting 0. Note the wall-clock time: a multi-hundred-MB archive on shared storage is slow.
+- [ ] **D-18 — second-device restore.** Copy that directory to a second Termux install that has run
+      `pkg update` once. `verify`, then `restore --name ... --force --yes`. Expect `$HOME` files and
+      `.termux/termux.properties` to be back, missing packages installed, exit 0, and one line in
+      `~/.config/termux-backup/last-restore.log`.
+- [ ] **D-19 — safety round-trip.** On the second device, edit a dotfile, run
+      `restore --name ... --yes --no-packages`, confirm the file reverted, then
+      `restore --name safety_pre_restore_<ts> --yes --no-packages` and confirm the edit is back.
+      `prune --keep 1` must leave the safety archive in place.
+- [ ] **D-20 — revoked permission.** Revoke storage permission (Android settings → Termux →
+      Permissions, or `pm revoke com.termux android.permission.WRITE_EXTERNAL_STORAGE`), then run
+      `status` and `backup`. Expect `storage_access: false` in `status` and exit 2 from `backup` with
+      the failing root named, not a hang or a partial backup in `list`.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
