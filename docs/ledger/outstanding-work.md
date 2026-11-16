@@ -119,6 +119,16 @@ drag-to-reorder, rename and close have all since shipped.
   colour. Live wallpapers are detected with `WallpaperManager.getWallpaperInfo()` because some
   devices return a stale static frame through `getDrawable()` instead of none, which would freeze the
   previous wallpaper behind the terminal.
+- `[deferred]` float enter does not react to "remove animations" mid-flight. `Motion.kt`'s
+  `LaunchedEffect` is keyed on `progress` alone, so turning the setting off during the overlay's
+  ~300 ms enter lets that one pop finish instead of snapping. Raised as Finding 2 by the
+  2026-11-15 motion-craft review and left unfixed: the effect is one-shot and self-terminating, so
+  nothing keeps animating afterwards. Next step: key the effect on `animationsEnabled` and set
+  `progress` to `1f` when it turns false.
+- `[deferred]` the 2026-11-15 motion-craft spec still carries a "not yet approved / needs sign-off"
+  status line although the three §9 reversals were confirmed and the work shipped
+  (`docs/specs/2026-11-15-motion-craft-design.md`, head of file). Raised as Finding 3 by the same
+  review. Next step: correct the status line to record the approval date.
 
 ---
 
