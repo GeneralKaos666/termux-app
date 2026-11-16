@@ -87,9 +87,56 @@ object ColorSchemes {
         ),
     )
 
+    val TOKYO_NIGHT = preset(
+        name = "Tokyo Night",
+        foreground = "#a9b1d6",
+        background = "#1a1b26",
+        cursor = "#c0caf5",
+        ansi = listOf(
+            "#15161e", "#f7768e", "#9ece6a", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", "#a9b1d6",
+            "#414868", "#f7768e", "#9ece6a", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", "#c0caf5",
+        ),
+    )
+
+    val CATPPUCCIN_MOCHA = preset(
+        name = "Catppuccin Mocha",
+        foreground = "#cdd6f4",
+        background = "#1e1e2e",
+        cursor = "#f5e0dc",
+        ansi = listOf(
+            "#45475a", "#f38ba8", "#a6e3a1", "#f9e2af", "#89b4fa", "#f5c2e7", "#94e2d5", "#bac2de",
+            "#585b70", "#f38ba8", "#a6e3a1", "#f9e2af", "#89b4fa", "#f5c2e7", "#94e2d5", "#a6adc8",
+        ),
+    )
+
+    val GRUVBOX_LIGHT = preset(
+        name = "Gruvbox Light",
+        foreground = "#3c3836",
+        background = "#fbf1c7",
+        cursor = "#3c3836",
+        ansi = listOf(
+            "#fbf1c7", "#cc241d", "#98971a", "#d79921", "#458588", "#b16286", "#689d6a", "#7c6f64",
+            "#928374", "#9d0006", "#79740e", "#b57614", "#076678", "#8f3f71", "#427b58", "#3c3836",
+        ),
+    )
+
+    val ROSE_PINE = preset(
+        name = "Rosé Pine",
+        foreground = "#e0def4",
+        background = "#191724",
+        cursor = "#e0def4",
+        ansi = listOf(
+            "#26233a", "#eb6f92", "#31748f", "#f6c177", "#9ccfd8", "#c4a7e7", "#ebbcba", "#e0def4",
+            "#6e6a86", "#eb6f92", "#31748f", "#f6c177", "#9ccfd8", "#c4a7e7", "#ebbcba", "#e0def4",
+        ),
+    )
+
     /** Every preset, in the order the screen shows them. */
     val presets: List<ColorSchemePreset> =
-        listOf(TERMUX_DEFAULT, NORD, DRACULA, SOLARIZED_DARK, SOLARIZED_LIGHT, GRUVBOX_DARK, ONE_DARK)
+        listOf(
+            TERMUX_DEFAULT, NORD, DRACULA, SOLARIZED_DARK, SOLARIZED_LIGHT, GRUVBOX_DARK, ONE_DARK,
+            TOKYO_NIGHT, CATPPUCCIN_MOCHA, GRUVBOX_LIGHT, ROSE_PINE,
+        )
 
     /** Looks a preset up by its display name, or `null` when it is not a bundled scheme. */
     fun byName(name: String): ColorSchemePreset? = presets.firstOrNull { it.name == name }
@@ -120,7 +167,7 @@ object ColorSchemes {
      * 0/95/135/175/215/255, then the 24-step grayscale ramp (8..238). Matches the values in the
      * engine's `TerminalColorScheme` so a fresh extended palette round-trips unchanged.
      */
-    private fun defaultExtendedPalette(): List<Int> {
+    internal fun defaultExtendedPalette(): List<Int> {
         val levels = intArrayOf(0, 95, 135, 175, 215, 255)
         val cube = buildList(216) {
             for (red in levels) for (green in levels) for (blue in levels) {
