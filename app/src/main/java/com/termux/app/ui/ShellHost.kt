@@ -253,6 +253,7 @@ private fun TerminalShellHost(
                             onNewFloatSession = callbacks::onNewFloatSession,
                             onCollapse = { sessionsBarExpanded = false },
                             backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
+                            unseen = sessionsState.unseen,
                         )
                     }
                 }

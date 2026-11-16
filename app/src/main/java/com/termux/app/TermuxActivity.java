@@ -42,9 +42,12 @@ import com.termux.app.domain.background.BackgroundFx;
 import com.termux.app.ui.background.TerminalBackgroundState;
 import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
+import com.termux.app.domain.sessions.ForegroundProcessKt;
+import com.termux.app.domain.sessions.SessionContextKt;
 import com.termux.app.domain.sessions.SessionIdAllocator;
 import com.termux.app.domain.sessions.SessionItem;
 import com.termux.app.domain.sessions.SessionItemsKt;
+import com.termux.app.domain.sessions.SessionOutputTracker;
 import com.termux.app.domain.sessions.SessionSnapshot;
 import com.termux.app.ui.sessions.SessionsState;
 import com.termux.app.ui.appearance.AppearanceActivity;
@@ -55,6 +58,7 @@ import com.termux.shared.activity.media.AppCompatActivityUtils;
 import com.termux.shared.data.IntentUtils;
 import com.termux.shared.android.PermissionUtils;
 import com.termux.shared.data.DataUtils;
+import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY;
 import com.termux.app.activities.HelpActivity;
 import com.termux.app.activities.SettingsActivity;
@@ -185,6 +189,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Ids are never reused within an activity lifetime.
      */
     private final SessionIdAllocator mSessionIds = new SessionIdAllocator();
+
+    /** Stable-id marks for sessions that produced output while they were not the active tab. */
+    private final SessionOutputTracker mSessionOutputTracker = new SessionOutputTracker();
 
     /**
      * Reverse map from the stable session id back to its session, rebuilt on every refresh.
@@ -814,6 +821,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         final List<SessionSnapshot> snapshots = new ArrayList<>();
         final List<Integer> ids = new ArrayList<>();
+        final Map<Integer, String> contexts = new HashMap<>();
         int activeIndex = -1;
 
         for (int i = 0; i < sessions.size(); i++) {
@@ -829,12 +837,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 terminalSession.isRunning(),
                 terminalSession.getExitStatus()));
             ids.add(stableId);
-            if (terminalSession == currentSession) {
+            boolean isActive = terminalSession == currentSession;
+            if (isActive) {
                 activeIndex = snapshots.size() - 1;
             }
+
+            String subtitle = SessionContextKt.tabSubtitle(
+                terminalSession.getCwd(),
+                TermuxConstants.TERMUX_HOME_DIR_PATH,
+                isActive ? ForegroundProcessKt.readForegroundCommand(terminalSession.getPid()) : null);
+            if (subtitle != null) contexts.put(stableId, subtitle);
         }
 
-        mSessionsState.setSessions(SessionItemsKt.sessionItems(snapshots, ids, activeIndex));
+        mSessionsState.setUnseen(mSessionOutputTracker.unseen());
+        mSessionsState.setSessions(SessionItemsKt.sessionItems(
+            snapshots, ids, activeIndex, contexts, mSessionOutputTracker.unseen()));
     }
 
     /** Returns the session with the given stable bar id, or {@code null} if it was closed. */
@@ -843,7 +860,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return mSessionsById.get(id);
     }
 
+    /**
+     * Records output from [session] for the sessions bar. Skipped for the active tab, and for an id
+     * that is already marked, so a chatty background session costs one state write, not one per
+     * chunk.
+     */
+    public void recordSessionOutput(TerminalSession session) {
+        if (mSessionsState == null || session == getCurrentSession()) return;
+        int id = mSessionIds.idFor(session);
+        if (mSessionOutputTracker.hasUnseen(id)) return;
+        mSessionOutputTracker.recordOutput(id, false);
+        mSessionsState.markUnseen(id);
+    }
+
     private void selectSessionById(int id) {
+        mSessionOutputTracker.clear(id);
+        if (mSessionsState != null) mSessionsState.markSelected(id);
         if (mTermuxTerminalSessionActivityClient == null) return;
         TermuxSession termuxSession = getTermuxSessionById(id);
         if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
@@ -869,6 +901,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void closeSessionById(int id) {
+        mSessionOutputTracker.remove(id);
         if (mTermuxTerminalSessionActivityClient == null) return;
         TermuxSession termuxSession = getTermuxSessionById(id);
         if (termuxSession == null || termuxSession.getTerminalSession() == null) return;
