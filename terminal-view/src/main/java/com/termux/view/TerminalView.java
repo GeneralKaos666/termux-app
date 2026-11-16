@@ -74,8 +74,8 @@ public final class TerminalView extends View {
 
     /** Frame interval of the cursor animation loop, about 60 frames per second. */
     private static final long CURSOR_ANIMATION_INTERVAL_MS = 16L;
-    /** Fraction of the remaining distance an eased cursor covers per frame. */
-    private static final float CURSOR_EASING_FACTOR = 0.35f;
+    /** Half-life of the eased cursor glide: the remaining distance halves every this many milliseconds. */
+    private static final float CURSOR_EASING_HALF_LIFE_MS = 26f;
 
     /** Cursor opacity of the current frame, from the fade-blink envelope. */
     private volatile float mCursorAlpha = 1f;
@@ -1561,8 +1561,8 @@ public final class TerminalView extends View {
                     if (mCursorEasing) {
                         float targetRow = mEmulator.getCursorRow();
                         float targetCol = mEmulator.getCursorCol();
-                        mDisplayCursorRow = CursorFx.easeTowards(mDisplayCursorRow, targetRow, CURSOR_EASING_FACTOR);
-                        mDisplayCursorCol = CursorFx.easeTowards(mDisplayCursorCol, targetCol, CURSOR_EASING_FACTOR);
+                        mDisplayCursorRow = CursorFx.easeTowards(mDisplayCursorRow, targetRow, CURSOR_ANIMATION_INTERVAL_MS, CURSOR_EASING_HALF_LIFE_MS);
+                        mDisplayCursorCol = CursorFx.easeTowards(mDisplayCursorCol, targetCol, CURSOR_ANIMATION_INTERVAL_MS, CURSOR_EASING_HALF_LIFE_MS);
                         if (Math.abs(mDisplayCursorRow - targetRow) < 0.05f) mDisplayCursorRow = targetRow;
                         if (Math.abs(mDisplayCursorCol - targetCol) < 0.05f) mDisplayCursorCol = targetCol;
                         if (mDisplayCursorRow == targetRow && mDisplayCursorCol == targetCol) mCursorEasing = false;

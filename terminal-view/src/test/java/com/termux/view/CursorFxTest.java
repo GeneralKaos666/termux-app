@@ -1,6 +1,7 @@
 package com.termux.view;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -38,20 +39,37 @@ public class CursorFxTest {
     }
 
     @Test
-    public void easeTowardsMovesProportionally() {
-        assertEquals(5f, CursorFx.easeTowards(0f, 10f, 0.5f), 0.0001f);
-        assertEquals(10f, CursorFx.easeTowards(0f, 10f, 1f), 0.0001f);
-        assertEquals(0f, CursorFx.easeTowards(0f, 10f, 0f), 0.0001f);
+    public void easeTowardsHoldsStillWithoutTime() {
+        assertEquals(3f, CursorFx.easeTowards(3f, 10f, 0f, 26f), 0.0001f);
     }
 
     @Test
-    public void easeTowardsClampsFactor() {
-        assertEquals(10f, CursorFx.easeTowards(0f, 10f, 2f), 0.0001f);
-        assertEquals(0f, CursorFx.easeTowards(0f, 10f, -1f), 0.0001f);
+    public void easeTowardsSnapsWithZeroHalfLife() {
+        assertEquals(10f, CursorFx.easeTowards(0f, 10f, 16f, 0f), 0.0001f);
+    }
+
+    @Test
+    public void easeTowardsHalvesDistanceOverOneHalfLife() {
+        assertEquals(5f, CursorFx.easeTowards(0f, 10f, 26f, 26f), 0.0001f);
+    }
+
+    @Test
+    public void easeTowardsCoversThreeQuartersOverTwoHalfLives() {
+        assertEquals(7.5f, CursorFx.easeTowards(0f, 10f, 52f, 26f), 0.0001f);
+    }
+
+    @Test
+    public void easeTowardsIsMonotonicInTime() {
+        assertTrue(CursorFx.easeTowards(0f, 10f, 40f, 26f) > CursorFx.easeTowards(0f, 10f, 16f, 26f));
+    }
+
+    @Test
+    public void easeTowardsNeverOvershoots() {
+        assertEquals(10f, CursorFx.easeTowards(0f, 10f, 100000f, 26f), 0.01f);
     }
 
     @Test
     public void easeTowardsConvergesFromAbove() {
-        assertEquals(7.5f, CursorFx.easeTowards(10f, 0f, 0.25f), 0.0001f);
+        assertEquals(5f, CursorFx.easeTowards(10f, 0f, 26f, 26f), 0.0001f);
     }
 }

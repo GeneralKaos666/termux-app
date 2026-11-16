@@ -25,12 +25,15 @@ final class CursorFx {
     }
 
     /**
-     * One exponential-smoothing step from {@code current} towards {@code target}: {@code factor} is the
-     * fraction of the remaining distance covered (clamped to {@code [0,1]}), {@code 1} snaps and {@code 0}
-     * holds still.
+     * One time-based exponential-smoothing step from {@code current} towards {@code target}: the
+     * remaining distance halves every {@code halfLifeMs}, so the glide speed depends on elapsed time,
+     * not on callback cadence. A non-positive {@code dtMs} means no time has passed, so the value
+     * holds; a non-positive {@code halfLifeMs} is degenerate and snaps to {@code target}.
      */
-    static float easeTowards(float current, float target, float factor) {
-        float clamped = Math.max(0f, Math.min(1f, factor));
-        return current + (target - current) * clamped;
+    static float easeTowards(float current, float target, float dtMs, float halfLifeMs) {
+        if (dtMs <= 0f) return current;
+        if (halfLifeMs <= 0f) return target;
+        float factor = 1f - (float) Math.pow(0.5, dtMs / halfLifeMs);
+        return current + (target - current) * factor;
     }
 }
