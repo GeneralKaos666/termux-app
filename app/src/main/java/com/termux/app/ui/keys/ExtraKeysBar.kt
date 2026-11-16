@@ -12,6 +12,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,7 +46,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.R
+import com.termux.app.domain.snippets.Snippet
 import com.termux.app.ui.ShellHostCallbacks
+import com.termux.app.ui.snippets.SnippetChipsRow
 import com.termux.shared.termux.extrakeys.ExtraKeysView
 import com.termux.shared.view.KeyboardUtils
 
@@ -92,6 +95,9 @@ internal fun extraKeysPageHeight(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ExtraKeysBar(
+    snippets: List<Snippet> = emptyList(),
+    snippetsRowVisible: Boolean = false,
+    onInsertSnippet: (String) -> Unit = {},
     state: ExtraKeysState,
     keysVisible: Boolean,
     initialText: String?,
@@ -183,14 +189,18 @@ fun ExtraKeysBar(
     )
 
     val backLabel = stringResource(R.string.action_back_to_keys)
+    val showSnippets = snippetsRowVisible && snippets.isNotEmpty()
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             // Only the bar's own background fades (the pager and the floating chevron live under
             // it); the icon and key tints stay opaque for readability.
             .background(MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha)),
     ) {
+        if (showSnippets) {
+            SnippetChipsRow(items = snippets, onInsert = onInsertSnippet)
+        }
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = keysVisible,

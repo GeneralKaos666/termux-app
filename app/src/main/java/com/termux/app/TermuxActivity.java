@@ -55,7 +55,11 @@ import com.termux.app.domain.sessions.SessionItemsKt;
 import com.termux.app.domain.sessions.SessionOutputTracker;
 import com.termux.app.domain.sessions.SessionSnapshot;
 import com.termux.app.domain.sessions.StarterCommandsKt;
+import com.termux.app.data.snippets.SnippetStore;
+import com.termux.app.data.ui.AndroidUiPreferences;
+import com.termux.app.data.ui.UiPreferenceKeys;
 import com.termux.app.ui.sessions.SessionsState;
+import com.termux.app.ui.snippets.SnippetChipsState;
 import com.termux.app.ui.appearance.AppearanceActivity;
 import com.termux.app.data.appearance.AppearanceStyling;
 import com.termux.shared.activities.ReportActivity;
@@ -244,6 +248,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /** State of the command palette overlay; owned here so Ctrl+K can open it from a key event. */
     private PaletteState mPaletteState;
 
+    /** Quick-insert chips above the extra-keys grid, reloaded when the snippet editor closes. */
+    private SnippetChipsState mSnippetChipsState;
+    private AndroidUiPreferences mUiPreferences;
+    private SnippetStore mSnippetStore;
+
     /**
      * Whether the first session to be created after the bootstrap install should be a failsafe session.
      */
@@ -321,6 +330,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     session.write(command + "\r");
                 }
             }, 300);
+        }
+
+        @Override
+        public void onInsertText(String text) {
+            TerminalSession session = getCurrentSession();
+            // Insert only: the user decides when to run it.
+            if (session != null) session.write(text);
         }
 
         @Override
@@ -605,6 +621,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Pick up an interface-transparency change made in Settings.
         syncInterfaceTransparency();
 
+        // Pick up snippets saved in the snippet editor.
+        refreshSnippetChips();
+
         // Apply an extra-keys preset change made in Settings, for either key grid. A custom
         // extra-keys / extra-keys-page2 property in the properties file keeps winning over presets
         // (see TermuxTerminalExtraKeys.setExtraKeys()).
@@ -858,6 +877,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         syncInterfaceTransparency();
         mFirstRunState = new FirstRunState();
         mPaletteState = new PaletteState();
+        mUiPreferences = new AndroidUiPreferences(this);
+        mSnippetStore = new SnippetStore(mUiPreferences);
+        mSnippetChipsState = new SnippetChipsState();
+        refreshSnippetChips();
 
         String savedTextInput = null;
         if (savedInstanceState != null)
@@ -866,13 +889,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
         ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState,
             mExtraKeysState, mSnackbarState, mTerminalBackgroundState, mShellChromeState, mFirstRunState,
-            mPaletteState, savedTextInput, mShellHostCallbacks);
+            mPaletteState, mSnippetChipsState, savedTextInput, mShellHostCallbacks);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
 
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onCreate();
+    }
+
+    /** Reloads the snippet chips from the store and applies the row visibility preference. */
+    private void refreshSnippetChips() {
+        if (mSnippetChipsState == null || mSnippetStore == null || mUiPreferences == null) return;
+        mSnippetChipsState.setItems(mSnippetStore.load());
+        mSnippetChipsState.setRowVisible(
+            mUiPreferences.getBoolean(UiPreferenceKeys.SNIPPETS_ROW, true));
     }
 
     /**
