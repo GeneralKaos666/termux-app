@@ -62,6 +62,7 @@ public class TextSelectionHandleView extends View {
         mHandleLeftDrawable = getContext().getDrawable(R.drawable.text_select_handle_left_material);
         mHandleRightDrawable = getContext().getDrawable(R.drawable.text_select_handle_right_material);
 
+        applyHandleTint(terminalView.getSelectionHandleTint());
         setOrientation(mInitialOrientation);
     }
 
@@ -83,6 +84,23 @@ public class TextSelectionHandleView extends View {
             PopupWindowCompatGingerbread.setWindowLayoutType(mHandle, WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL);
         }
         mHandle.setContentView(this);
+    }
+
+    /**
+     * Recolours both handle drawables. The drawables come from shared resources, so each is
+     * {@code mutate()}d first: tinting the shared state would recolour every handle in the process.
+     *
+     * @param tint an opaque ARGB colour, or 0 to keep the drawables' own colour.
+     */
+    public void setHandleTint(int tint) {
+        applyHandleTint(tint);
+        invalidate();
+    }
+
+    private void applyHandleTint(int tint) {
+        if (tint == 0) return;
+        mHandleLeftDrawable.mutate().setTint(tint);
+        mHandleRightDrawable.mutate().setTint(tint);
     }
 
     public void setOrientation(int orientation) {

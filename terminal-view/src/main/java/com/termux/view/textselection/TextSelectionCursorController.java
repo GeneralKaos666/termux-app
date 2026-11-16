@@ -41,6 +41,12 @@ public class TextSelectionCursorController implements CursorController {
         mHandleHeight = Math.max(mStartHandle.getHandleHeight(), mEndHandle.getHandleHeight());
     }
 
+    /** Recolours both selection handles; 0 restores their built-in colour. */
+    public void setHandleTint(int tint) {
+        mStartHandle.setHandleTint(tint);
+        mEndHandle.setHandleTint(tint);
+    }
+
     @Override
     public void show(MotionEvent event) {
         setInitialTextSelectionPosition(event);

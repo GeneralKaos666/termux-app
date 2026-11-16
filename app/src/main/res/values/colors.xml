@@ -1,3 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Text-selection action mode (floating toolbar). Mirrors the Compose shell's surfaceVariant
+         and onSurfaceVariant, since the XML theme cannot read the dynamic palette. -->
+    <color name="termux_selection_toolbar_background">#202020</color>
+    <color name="termux_selection_toolbar_text">#E0E0E0</color>
 </resources>
