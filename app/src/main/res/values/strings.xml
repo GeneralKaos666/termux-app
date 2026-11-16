@@ -403,6 +403,7 @@
     <string name="snippets_command">Command</string>
     <string name="snippets_delete">Delete snippet</string>
     <string name="snippets_empty">No snippets yet. Add one to get a quick chip above the keys.</string>
+    <string name="first_run_next_steps">After the install, try:</string>
     <string name="termux_display_snippets_title">Snippets</string>
     <string name="termux_display_snippets_summary">Save commands and insert them from the key bar</string>
 </resources>

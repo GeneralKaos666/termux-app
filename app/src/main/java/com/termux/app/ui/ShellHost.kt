@@ -379,6 +379,7 @@ private fun TerminalShellHost(
             if (firstRunOverlayVisible) {
                 FirstRunOverlay(
                     installing = firstRunState.installing,
+                    stage = firstRunState.stage,
                     onInstall = callbacks::onFirstRunInstall,
                 )
             }
