@@ -42,8 +42,10 @@ import com.termux.app.ui.background.BackgroundFx;
 import com.termux.app.ui.background.TerminalBackgroundState;
 import com.termux.app.ui.firstrun.FirstRunState;
 import com.termux.app.ui.keys.ExtraKeysState;
+import com.termux.app.domain.sessions.SessionIdAllocator;
 import com.termux.app.domain.sessions.SessionItem;
-import com.termux.app.domain.sessions.SessionItemKt;
+import com.termux.app.domain.sessions.SessionItemsKt;
+import com.termux.app.domain.sessions.SessionSnapshot;
 import com.termux.app.ui.sessions.SessionsState;
 import com.termux.app.ui.appearance.AppearanceActivity;
 import com.termux.app.data.appearance.AppearanceStyling;
@@ -86,7 +88,6 @@ import androidx.compose.ui.platform.ComposeView;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -178,22 +179,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private SessionsState mSessionsState;
 
     /**
-     * Maps each live {@link TerminalSession} to the stable id shown by the Compose sessions bar.
+     * Assigns each live {@link TerminalSession} the stable id shown by the Compose sessions bar.
      * TerminalSession objects do not change identity across list mutations or title refreshes, so
      * the id stays stable for the lifetime of a session and the bar's LazyRow keys never shift.
-     * Entries for closed sessions are kept; ids are never reused within an activity lifetime.
+     * Ids are never reused within an activity lifetime.
      */
-    private final Map<TerminalSession, Integer> mSessionIds = new IdentityHashMap<>();
+    private final SessionIdAllocator mSessionIds = new SessionIdAllocator();
 
     /**
      * Reverse map from the stable session id back to its session, rebuilt on every refresh.
      */
     private final Map<Integer, TermuxSession> mSessionsById = new HashMap<>();
-
-    /**
-     * Monotonic counter for stable session ids; 0 is reserved.
-     */
-    private int mNextSessionId = 1;
 
     /**
      * Compose-observable snackbar requests shown by the shell host.
@@ -801,37 +797,38 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public void refreshSessionsBar() {
         if (mSessionsState == null) return;
 
-        final List<SessionItem> items = new ArrayList<>();
         final List<TermuxSession> sessions = (mTermuxService != null) ? mTermuxService.getTermuxSessions() : null;
         final TerminalSession currentSession = getCurrentSession();
 
         mSessionsById.clear();
-        if (sessions != null) {
-            for (int i = 0; i < sessions.size(); i++) {
-                TermuxSession termuxSession = sessions.get(i);
-                TerminalSession terminalSession = (termuxSession != null) ? termuxSession.getTerminalSession() : null;
-                if (terminalSession == null) continue;
+        if (sessions == null) {
+            mSessionsState.setSessions(new ArrayList<>());
+            return;
+        }
 
-                // Assign each session a stable id on first sight; entries for closed sessions stay
-                // in mSessionIds so a later session can never inherit a dead id.
-                Integer stableId = mSessionIds.get(terminalSession);
-                if (stableId == null) {
-                    stableId = ++mNextSessionId;
-                    mSessionIds.put(terminalSession, stableId);
-                }
-                mSessionsById.put(stableId, termuxSession);
+        final List<SessionSnapshot> snapshots = new ArrayList<>();
+        final List<Integer> ids = new ArrayList<>();
+        int activeIndex = -1;
 
-                items.add(SessionItemKt.sessionItem(
-                    stableId,
-                    terminalSession.mSessionName,
-                    terminalSession.getTitle(),
-                    terminalSession.isRunning(),
-                    terminalSession.getExitStatus(),
-                    terminalSession == currentSession));
+        for (int i = 0; i < sessions.size(); i++) {
+            TermuxSession termuxSession = sessions.get(i);
+            TerminalSession terminalSession = (termuxSession != null) ? termuxSession.getTerminalSession() : null;
+            if (terminalSession == null) continue;
+
+            int stableId = mSessionIds.idFor(terminalSession);
+            mSessionsById.put(stableId, termuxSession);
+            snapshots.add(new SessionSnapshot(
+                terminalSession.mSessionName,
+                terminalSession.getTitle(),
+                terminalSession.isRunning(),
+                terminalSession.getExitStatus()));
+            ids.add(stableId);
+            if (terminalSession == currentSession) {
+                activeIndex = snapshots.size() - 1;
             }
         }
 
-        mSessionsState.setSessions(items);
+        mSessionsState.setSessions(SessionItemsKt.sessionItems(snapshots, ids, activeIndex));
     }
 
     /** Returns the session with the given stable bar id, or {@code null} if it was closed. */
