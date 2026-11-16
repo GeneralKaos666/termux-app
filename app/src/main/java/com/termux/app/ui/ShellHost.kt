@@ -58,6 +58,8 @@ import com.termux.app.ui.palette.CommandPalette
 import com.termux.app.ui.snippets.SnippetChipsState
 import com.termux.app.ui.snippets.SnippetChipsRow
 import com.termux.app.ui.splash.IntroSplash
+import com.termux.app.ui.terminal.LinkActionSheet
+import com.termux.app.ui.terminal.LinkActionState
 import com.termux.app.ui.palette.PaletteState
 import com.termux.app.ui.sessions.SessionsBar
 import com.termux.app.ui.sessions.SessionsRestoreHandle
@@ -129,6 +131,9 @@ interface ShellHostCallbacks {
 
     /** The user pressed Install on the first-run overlay; starts the bootstrap install. */
     fun onFirstRunInstall()
+
+    /** The user chose [action] for [url] in the link action sheet. */
+    fun onLinkAction(action: com.termux.app.domain.terminal.LinkAction, url: String)
 }
 
 /**
@@ -154,6 +159,7 @@ fun installTerminalShellHost(
     firstRunState: FirstRunState,
     paletteState: PaletteState,
     snippetChipsState: SnippetChipsState,
+    linkActionState: LinkActionState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
@@ -168,6 +174,7 @@ fun installTerminalShellHost(
             firstRunState,
             paletteState,
             snippetChipsState,
+            linkActionState,
             savedTextInput,
             callbacks,
         )
@@ -185,6 +192,7 @@ private fun TerminalShellHost(
     firstRunState: FirstRunState,
     paletteState: PaletteState,
     snippetChipsState: SnippetChipsState,
+    linkActionState: LinkActionState,
     savedTextInput: String?,
     callbacks: ShellHostCallbacks,
 ) {
@@ -396,6 +404,15 @@ private fun TerminalShellHost(
                     callbacks.onPaletteAction(entry.action, entry.payload)
                 },
                 onDismiss = paletteState::close,
+            )
+
+            LinkActionSheet(
+                state = linkActionState,
+                onAction = { action, url ->
+                    linkActionState.dismiss()
+                    callbacks.onLinkAction(action, url)
+                },
+                onDismiss = linkActionState::dismiss,
             )
         }
     }

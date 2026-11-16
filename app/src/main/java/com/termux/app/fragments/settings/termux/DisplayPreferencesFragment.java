@@ -13,6 +13,8 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceManager;
 
 import com.termux.R;
+import com.termux.app.data.ui.AndroidUiPreferences;
+import com.termux.app.data.ui.UiPreferenceKeys;
 import com.termux.app.ui.appearance.AppearanceActivity;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_APP;
@@ -167,12 +169,14 @@ class DisplayPreferencesDataStore extends PreferenceDataStore {
 
     private final Context mContext;
     private final TermuxAppSharedPreferences mPreferences;
+    private final AndroidUiPreferences mUiPreferences;
 
     private static DisplayPreferencesDataStore mInstance;
 
     private DisplayPreferencesDataStore(Context context) {
         mContext = context;
         mPreferences = TermuxAppSharedPreferences.build(context, true);
+        mUiPreferences = new AndroidUiPreferences(context);
     }
 
     public static synchronized DisplayPreferencesDataStore getInstance(Context context) {
@@ -190,6 +194,9 @@ class DisplayPreferencesDataStore extends PreferenceDataStore {
         if (key == null) return;
 
         switch (key) {
+            case UiPreferenceKeys.LINK_ACTION_SHEET:
+                    mUiPreferences.setBoolean(key, value);
+                break;
             case "terminal_margin_adjustment":
                     mPreferences.setTerminalMarginAdjustment(value);
                 break;
@@ -203,6 +210,8 @@ class DisplayPreferencesDataStore extends PreferenceDataStore {
         if (mPreferences == null) return false;
 
         switch (key) {
+            case UiPreferenceKeys.LINK_ACTION_SHEET:
+                return mUiPreferences.getBoolean(key, defValue);
             case "terminal_margin_adjustment":
                 return mPreferences.isTerminalMarginAdjustmentEnabled();
             default:

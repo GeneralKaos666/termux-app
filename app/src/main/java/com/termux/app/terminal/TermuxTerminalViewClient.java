@@ -199,7 +199,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
 
             if (!urlSet.isEmpty()) {
                 String url = (String) urlSet.iterator().next();
-                ShareUtils.openUrl(mActivity, url);
+                mActivity.openUrlOrShowLinkActions(url);
                 return;
             }
         }
@@ -215,9 +215,9 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     @Override
     public void onLinkClicked(String uri) {
         // The URI has already been sanitized by TerminalView (LinkUris) before it reaches the client.
-        // Use the app's standard URL opener: it handles a missing handler with the system chooser and
-        // logs failures.
-        ShareUtils.openUrl(mActivity, uri);
+        // The activity either opens it or, when the user asked to confirm first, shows the action
+        // sheet.
+        mActivity.openUrlOrShowLinkActions(uri);
     }
 
     @Override
@@ -729,7 +729,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             lv.setOnItemLongClickListener((parent, view, position, id) -> {
                 dialog.dismiss();
                 String url = (String) urls[position];
-                ShareUtils.openUrl(mActivity, url);
+                mActivity.openUrlOrShowLinkActions(url);
                 return true;
             });
         });

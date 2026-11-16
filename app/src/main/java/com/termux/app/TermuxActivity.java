@@ -60,6 +60,7 @@ import com.termux.app.data.snippets.SnippetStore;
 import com.termux.app.data.ui.AndroidUiPreferences;
 import com.termux.app.data.ui.UiPreferenceKeys;
 import com.termux.app.ui.sessions.SessionsState;
+import com.termux.app.ui.terminal.LinkActionState;
 import com.termux.app.ui.snippets.SnippetChipsState;
 import com.termux.app.ui.appearance.AppearanceActivity;
 import com.termux.app.data.appearance.AppearanceStyling;
@@ -69,6 +70,7 @@ import com.termux.shared.activity.media.AppCompatActivityUtils;
 import com.termux.shared.data.IntentUtils;
 import com.termux.shared.android.PermissionUtils;
 import com.termux.shared.data.DataUtils;
+import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY;
 import com.termux.app.activities.HelpActivity;
@@ -251,6 +253,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     /** Quick-insert chips above the extra-keys grid, reloaded when the snippet editor closes. */
     private SnippetChipsState mSnippetChipsState;
+
+    /** The link action sheet, shown when a tapped link asks the user what to do with it. */
+    private LinkActionState mLinkActionState;
     private AndroidUiPreferences mUiPreferences;
     private SnippetStore mSnippetStore;
 
@@ -426,6 +431,23 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (mSnackbarUndoAction != null) {
                 mSnackbarUndoAction.run();
                 mSnackbarUndoAction = null;
+            }
+        }
+
+        @Override
+        public void onLinkAction(com.termux.app.domain.terminal.LinkAction action, String url) {
+            switch (action) {
+                case OPEN:
+                    ShareUtils.openUrl(TermuxActivity.this, url);
+                    break;
+                case COPY:
+                    ShareUtils.copyTextToClipboard(TermuxActivity.this, url,
+                        getString(R.string.link_action_copied));
+                    break;
+                case SHARE:
+                    ShareUtils.shareText(TermuxActivity.this,
+                        getString(R.string.title_share_link), url);
+                    break;
             }
         }
 
@@ -884,6 +906,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mUiPreferences = new AndroidUiPreferences(this);
         mSnippetStore = new SnippetStore(mUiPreferences);
         mSnippetChipsState = new SnippetChipsState();
+        mLinkActionState = new LinkActionState();
         refreshSnippetChips();
 
         String savedTextInput = null;
@@ -893,7 +916,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         ComposeView terminalShellHost = findViewById(R.id.terminal_shell_host);
         ShellHostKt.installTerminalShellHost(terminalShellHost, mTerminalView, mSessionsState,
             mExtraKeysState, mSnackbarState, mTerminalBackgroundState, mShellChromeState, mFirstRunState,
-            mPaletteState, mSnippetChipsState, savedTextInput, mShellHostCallbacks);
+            mPaletteState, mSnippetChipsState, mLinkActionState, savedTextInput, mShellHostCallbacks);
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
@@ -1333,6 +1356,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (mTermuxTerminalSessionActivityClient != null)
                 mTermuxTerminalSessionActivityClient.onResetTerminalSession();
         }
+    }
+
+    /**
+     * Opens [url] directly, or shows the link action sheet when the user asked to confirm first.
+     * Called from the terminal view client for both a tapped URL and a link click.
+     */
+    public void openUrlOrShowLinkActions(String url) {
+        boolean askFirst = mUiPreferences == null
+            || mUiPreferences.getBoolean(UiPreferenceKeys.LINK_ACTION_SHEET, true);
+        if (!askFirst || mLinkActionState == null) {
+            ShareUtils.openUrl(this, url);
+            return;
+        }
+        mLinkActionState.show(url);
     }
 
     private void launchAppearanceScreen() {

@@ -63,6 +63,12 @@
         app:title="@string/termux_display_layout_header">
 
         <SwitchPreferenceCompat
+            app:key="link_action_sheet"
+            app:title="@string/termux_terminal_view_link_action_sheet_title"
+            app:summary="@string/termux_terminal_view_link_action_sheet_summary"
+            app:defaultValue="true" />
+
+        <SwitchPreferenceCompat
             app:key="terminal_margin_adjustment"
             app:summaryOff="@string/termux_terminal_view_terminal_margin_adjustment_off"
             app:summaryOn="@string/termux_terminal_view_terminal_margin_adjustment_on"
