@@ -577,3 +577,48 @@ surfaces unchanged). Verify companion/plugin integration and service UI behavior
       path). No crash or exception; state/notification remain consistent.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 22. D-22 — UI appeal program (2026-11-16)
+
+Twenty-one tasks of shell polish: tab subtitles and unseen halo, starter chips, command palette,
+snippets, first-run boot panel, keycap depth, key-layout gallery, theme gallery with iTerm
+import/export, live preview, link action sheet, visual bell, themed selection handles and settings
+search. Everything below is device-only: it is either feel, animation or a platform picker.
+
+- [ ] **Tab subtitles at 320dp.** Open four sessions with long foreground-process names on a 320dp
+      wide screen. Each tab shows its subtitle, truncated with an ellipsis, never pushed out of the
+      tab or overlapping the halo.
+- [ ] **Unseen-output halo.** Run a command in a background tab. The tab shows the unseen halo until
+      it is selected, and the halo clears on selection.
+- [ ] **Starter chips.** With no sessions, the empty bar offers the starter chips. Tapping one starts
+      a session and inserts the command without running it.
+- [ ] **Palette keyboard navigation.** Open the palette with Ctrl+K. Arrow keys move the selection,
+      Enter runs the highlighted row, Back closes it. With a hardware keyboard attached the focus
+      must stay in the query field while typing.
+- [ ] **Drag lift feel.** Long-press a tab and drag. The tab lifts under the finger, the drop index
+      follows the finger, and the reorder lands where it was dropped.
+- [ ] **First-run animation on a cold start.** Clear app data, cold-start, and watch the intro splash
+      and the terminal-styled boot panel. The typewriter lines appear in order and the Install button
+      becomes reachable; the animation is instant when "Remove animations" is enabled.
+- [ ] **Keycap press feel.** Press and hold an extra key: the keycap shows depth on press, the popup
+      chevron appears only on keys that have a popup, and a swipe up triggers it.
+- [ ] **Key layout gallery.** Open Settings → Keyboard → Key layouts. Each card previews the preset;
+      picking one changes the extra-keys bar on return, and a custom `extra-keys` property still wins.
+- [ ] **Theme gallery and import.** Open the appearance screen: presets are grouped Dark/Light with a
+      colour strip. Import an `.itermcolors` file and confirm the staged colours; import a truncated
+      or non-plist file and confirm the rejection message appears and nothing changes.
+- [ ] **Live preview.** From a session with output on screen, open Style. The preview shows that
+      output, not the fixed sample; opening Style from Settings keeps the sample.
+- [ ] **Link action sheet.** Tap a link with "Ask before opening links" on: the sheet lists Open,
+      Copy and Share for http(s) and only Open/Copy for `mailto:`. Copy puts the URL on the
+      clipboard. Turn the switch off and a tap opens the link directly.
+- [ ] **Visual bell.** Set `bell-character = visual` in `termux.properties`, run `printf '\a'` a few
+      times quickly. The sessions bar flashes and one snackbar appears, not one per bell; a bell more
+      than 400 ms later flashes and posts again.
+- [ ] **Selection handle contrast.** Select text on a light scheme (Solarized Light, Gruvbox Light)
+      and a dark one. The handles stay visible on both, and the copy/paste toolbar uses the shell
+      surface colour.
+- [ ] **Settings search.** In Settings → Termux, type "colour" and "crash": the list narrows to the
+      matching rows, each row opens its screen, and clearing the field restores the full list.
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
