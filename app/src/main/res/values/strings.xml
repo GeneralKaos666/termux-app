@@ -425,4 +425,6 @@
     <string name="termux_terminal_view_link_action_sheet_title">Ask before opening links</string>
     <string name="termux_terminal_view_link_action_sheet_summary">Show Open, Copy and Share when a link is tapped</string>
     <string name="msg_bell">Bell</string>
+    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_no_results">No settings match</string>
 </resources>

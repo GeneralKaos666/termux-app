@@ -1,16 +1,19 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <Preference
+        app:icon="@drawable/ic_settings_display"
         app:title="@string/termux_display_preferences_title"
         app:summary="@string/termux_display_preferences_summary"
         app:fragment="com.termux.app.fragments.settings.termux.DisplayPreferencesFragment"/>
 
     <Preference
+        app:icon="@drawable/ic_settings_keyboard"
         app:title="@string/termux_keyboard_preferences_title"
         app:summary="@string/termux_keyboard_preferences_summary"
         app:fragment="com.termux.app.fragments.settings.termux.KeyboardPreferencesFragment"/>
 
     <Preference
+        app:icon="@drawable/ic_settings_advanced"
         app:title="@string/termux_advanced_preferences_title"
         app:summary="@string/termux_advanced_preferences_summary"
         app:fragment="com.termux.app.fragments.settings.termux.DebuggingPreferencesFragment"/>
