@@ -84,11 +84,61 @@ class SnippetsStateTest {
     }
 
     @Test
+    fun `two blank rows are independent`() {
+        val state = SnippetsState(store)
+        state.addBlank()
+        state.addBlank()
+        assertEquals(2, state.items.size)
+        assertTrue(state.items[0].id != state.items[1].id)
+
+        state.update(state.items[0].id, "build", "npm run build")
+
+        assertEquals("build", state.items[0].label)
+        assertEquals("", state.items[1].label)
+    }
+
+    @Test
+    fun `removing one blank row keeps the other`() {
+        val state = SnippetsState(store)
+        state.addBlank()
+        state.addBlank()
+
+        state.remove(state.items[0].id)
+
+        assertEquals(1, state.items.size)
+        assertEquals("", state.items.single().label)
+    }
+
+    @Test
+    fun `save renumbers draft rows and drops the draft ids`() {
+        val state = SnippetsState(store)
+        state.addBlank()
+        state.add("build", "npm run build")
+
+        val saved = state.save()
+
+        assertEquals(listOf("snippet-1"), saved.map { it.id })
+        assertEquals(saved, state.items)
+    }
+
+    @Test
+    fun `two added rows are independent before saving`() {
+        val state = SnippetsState(store)
+        state.add("a", "a")
+        state.add("b", "b")
+
+        state.update(state.items[0].id, "first", "one")
+
+        assertEquals("first", state.items[0].label)
+        assertEquals("b", state.items[1].label)
+    }
+
+    @Test
     fun `moving an out of range index is a no op`() {
         val state = SnippetsState(store)
         state.add("a", "a")
         state.move(0, 5)
         state.move(-1, 0)
-        assertEquals(listOf(Snippet("", "a", "a")), state.items)
+        assertEquals(listOf("a" to "a"), state.items.map { it.label to it.command })
     }
 }

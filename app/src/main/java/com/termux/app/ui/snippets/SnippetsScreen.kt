@@ -67,7 +67,7 @@ fun SnippetsScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(state.items) { snippet ->
+                items(state.items, key = { it.id }) { snippet ->
                     SnippetRow(
                         snippet = snippet,
                         onLabelChange = { state.update(snippet.id, it, snippet.command) },
