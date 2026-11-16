@@ -1,4 +1,4 @@
-package com.termux.app.ui.appearance
+package com.termux.app.data.appearance
 
 import com.termux.app.domain.appearance.CursorStyle
 

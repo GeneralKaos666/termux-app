@@ -1,4 +1,4 @@
-package com.termux.app.ui.floating
+package com.termux.app.data.floating
 
 import android.content.Context
 import org.junit.Assert.assertEquals

@@ -1,5 +1,6 @@
-package com.termux.app.ui.floating
+package com.termux.app.data.floating
 
+import android.content.Context
 import android.content.SharedPreferences
 
 /** The position and size of the in-app floating terminal window, in dp. */
@@ -37,7 +38,11 @@ class FloatWindowPrefs(
             .apply()
     }
 
-    private companion object {
+    companion object {
+        const val PREFERENCES_FILE = "termux_float_window"
+
+        fun create(context: Context): FloatWindowPrefs =
+            FloatWindowPrefs(context.getSharedPreferences(PREFERENCES_FILE, Context.MODE_PRIVATE))
         const val KEY_X = "window_x"
         const val KEY_Y = "window_y"
         const val KEY_WIDTH = "window_width"

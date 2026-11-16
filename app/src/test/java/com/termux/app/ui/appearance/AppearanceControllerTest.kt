@@ -1,5 +1,15 @@
 package com.termux.app.ui.appearance
 
+import com.termux.app.domain.appearance.TerminalAppearance
+
+import com.termux.app.domain.appearance.FontError
+
+import com.termux.app.data.appearance.AppearanceWriteResult
+
+import com.termux.app.data.appearance.AppearanceStore
+
+import com.termux.app.data.appearance.AppearancePreferences
+
 import com.termux.app.domain.appearance.ColorSchemes
 import com.termux.app.domain.appearance.CursorStyle
 

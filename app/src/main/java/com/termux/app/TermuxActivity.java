@@ -46,7 +46,7 @@ import com.termux.app.domain.sessions.SessionItem;
 import com.termux.app.domain.sessions.SessionItemKt;
 import com.termux.app.ui.sessions.SessionsState;
 import com.termux.app.ui.appearance.AppearanceActivity;
-import com.termux.app.ui.appearance.AppearanceStyling;
+import com.termux.app.data.appearance.AppearanceStyling;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.activity.ActivityUtils;
 import com.termux.shared.activity.media.AppCompatActivityUtils;

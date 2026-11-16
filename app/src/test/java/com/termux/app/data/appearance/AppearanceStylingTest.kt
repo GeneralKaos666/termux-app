@@ -1,4 +1,4 @@
-package com.termux.app.ui.appearance
+package com.termux.app.data.appearance
 
 import android.content.Context
 import org.junit.Assert.assertEquals

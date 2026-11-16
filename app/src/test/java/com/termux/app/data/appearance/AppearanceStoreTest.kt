@@ -1,4 +1,8 @@
-package com.termux.app.ui.appearance
+package com.termux.app.data.appearance
+
+import com.termux.app.domain.appearance.FontValidator
+
+import com.termux.app.domain.appearance.FontError
 
 import com.termux.app.domain.appearance.CursorStyle
 import com.termux.app.domain.appearance.TerminalAppearance

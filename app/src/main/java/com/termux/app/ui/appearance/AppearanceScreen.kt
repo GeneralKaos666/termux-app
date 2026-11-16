@@ -1,5 +1,11 @@
 package com.termux.app.ui.appearance
 
+import com.termux.app.domain.appearance.FontValidator
+
+import com.termux.app.data.appearance.AppearanceWriteResult
+
+import com.termux.app.data.appearance.AppearanceStore
+
 import com.termux.app.domain.appearance.ANSI_COLOR_COUNT
 import com.termux.app.domain.appearance.ColorSchemes
 

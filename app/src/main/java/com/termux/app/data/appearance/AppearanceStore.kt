@@ -1,111 +1,23 @@
-package com.termux.app.ui.appearance
+package com.termux.app.data.appearance
 
+import com.termux.app.domain.appearance.ColorPropertiesDocument
 import com.termux.app.domain.appearance.ColorSchemes
 import com.termux.app.domain.appearance.CursorBlink
 import com.termux.app.domain.appearance.CursorStyle
+import com.termux.app.domain.appearance.FontError
+import com.termux.app.domain.appearance.FontValidator
 import com.termux.app.domain.appearance.INDEXED_COLOR_COUNT
 import com.termux.app.domain.appearance.TerminalAppearance
 import com.termux.app.domain.appearance.TerminalColorSet
+import com.termux.app.domain.appearance.color
 import com.termux.app.domain.appearance.colorToHex
-import com.termux.app.domain.appearance.parseColor
-
 import java.io.File
-import java.io.IOException
-
-/**
- * App-local settings the appearance screen owns.
- *
- * Font size already lives in the app's shared preferences. Cursor style and blink rate stay
- * app-local, and `termux.properties` is only the fallback: the override getters return the
- * app-local value (or `null` when unset), so the screen can represent and clear an override, while
- * [AppearancePreferences.getDefaultCursorStyle] exposes the `termux.properties` value the terminal
- * would use instead.
- */
-interface AppearancePreferences {
-
-    fun getFontSize(): Int
-
-    fun setFontSize(size: Int)
-
-    /** The app-local cursor-style override, or `null` when `termux.properties` governs. */
-    fun getCursorStyleOverride(): Int?
-
-    /** The `termux.properties` cursor style, or `null` when it sets none. */
-    fun getDefaultCursorStyle(): Int?
-
-    fun setCursorStyle(style: Int?)
-
-    /** The app-local blink-rate override, or `null` when `termux.properties` governs. */
-    fun getCursorBlinkRateOverride(): Int?
-
-    fun setCursorBlinkRate(rate: Int?)
-
-    /** Whether the terminal asks the font for ligatures. */
-    fun getLigatures(): Boolean
-
-    fun setLigatures(enabled: Boolean)
-}
-
-/** Why a candidate font was not installed. */
-enum class FontError { NOT_FOUND, INVALID, TOO_LARGE, COPY_FAILED }
 
 /**
  * Outcome of [AppearanceStore.write]. [fontInstalled] says whether any custom font is in place when
  * the write returns; [fontError] says why a candidate was rejected, if it was.
  */
 data class AppearanceWriteResult(val fontInstalled: Boolean, val fontError: FontError?)
-
-/**
- * Shared-preferences keys the appearance screen owns, kept app-local so `:termux-shared` needs no
- * change. The read sites on the terminal view consume these constants rather than literals.
- */
-object AppearancePreferenceKeys {
-    /** The app-local preferences file that holds the appearance keys. */
-    const val PREFERENCES_FILE = "termux_appearance"
-
-    const val CURSOR_STYLE = "appearance_cursor_style"
-    const val CURSOR_BLINK_RATE = "appearance_cursor_blink_rate"
-
-    /** Whether the terminal asks the font for ligatures. */
-    const val LIGATURES = "appearance_ligatures"
-    /** Ligatures are on unless the user turns them off. */
-    const val LIGATURES_DEFAULT = true
-
-    /** Bumped on every successful apply so the terminal can detect a change it has not shown. */
-    const val STYLING_REVISION = "appearance_styling_revision"
-}
-
-/** Validates a candidate font before it replaces the installed one. */
-object FontValidator {
-
-    /** Fonts larger than this are rejected rather than copied. */
-    const val MAX_FONT_BYTES = 8L * 1024 * 1024
-
-    private val SIGNATURES = listOf(
-        byteArrayOf(0x00, 0x01, 0x00, 0x00), // TrueType
-        "true".toByteArray(), // TrueType (Apple)
-        "OTTO".toByteArray(), // CFF/OpenType
-        "ttcf".toByteArray(), // TrueType collection
-    )
-
-    /** @return `null` when [file] can be installed, otherwise the reason it cannot. */
-    fun validate(file: File): FontError? {
-        if (!file.isFile || !file.canRead()) return FontError.NOT_FOUND
-        if (file.length() == 0L) return FontError.INVALID
-        if (file.length() > MAX_FONT_BYTES) return FontError.TOO_LARGE
-        return if (hasFontSignature(file)) null else FontError.INVALID
-    }
-
-    private fun hasFontSignature(file: File): Boolean {
-        val head = ByteArray(4)
-        val read = try {
-            file.inputStream().use { it.read(head) }
-        } catch (e: IOException) {
-            return false
-        }
-        return read == head.size && SIGNATURES.any { it.contentEquals(head) }
-    }
-}
 
 /**
  * Reads and writes the appearance the engine consumes: `colors.properties` for colors, `font.ttf`
@@ -245,41 +157,3 @@ class AppearanceStore(
         const val INSTALL_TEMP_SUFFIX = ".tmp"
     }
 }
-
-/**
- * The line structure of `colors.properties`. Keys are looked up like `Properties` does (`key=value`
- * or `key:value`); [set] rewrites the existing line or appends a new one, and [render] keeps every
- * other line - comments, blank lines and keys this screen does not manage - exactly as it was.
- */
-internal class ColorPropertiesDocument(text: String) {
-
-    private val lines: MutableList<String> =
-        if (text.isEmpty()) mutableListOf() else text.trimEnd('\n').split('\n').toMutableList()
-
-    fun get(key: String): String? =
-        lines.firstNotNullOfOrNull { line -> parseLine(line)?.takeIf { it.first == key }?.second }
-
-    fun set(key: String, value: String) {
-        val entry = "$key=$value"
-        for (index in lines.indices) {
-            if (parseLine(lines[index])?.first == key) {
-                lines[index] = entry
-                return
-            }
-        }
-        lines.add(entry)
-    }
-
-    fun render(): String = if (lines.isEmpty()) "" else lines.joinToString("\n") + "\n"
-
-    private fun parseLine(line: String): Pair<String, String>? {
-        val trimmed = line.trim()
-        if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith("!")) return null
-        val separator = trimmed.indexOfFirst { it == '=' || it == ':' || it.isWhitespace() }
-        if (separator <= 0) return null
-        return trimmed.substring(0, separator) to trimmed.substring(separator + 1).trim()
-    }
-}
-
-/** Reads a managed color from the document, falling back to `null` when it is absent or unparseable. */
-private fun ColorPropertiesDocument.color(key: String): Int? = get(key)?.let(::parseColor)

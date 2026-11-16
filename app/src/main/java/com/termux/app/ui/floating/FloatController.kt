@@ -1,5 +1,9 @@
 package com.termux.app.ui.floating
 
+import com.termux.app.data.floating.FloatWindowState
+
+import com.termux.app.data.floating.FloatWindowPrefs
+
 import com.termux.app.domain.floating.FloatWindowGeometry
 
 import android.content.Context
@@ -84,9 +88,7 @@ class FloatController @JvmOverloads constructor(
         setTextSize(TermuxAppSharedPreferences.build(context)?.fontSize ?: DEFAULT_FONT_SIZE)
     }
 
-    private val prefs = FloatWindowPrefs(
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
-    )
+    private val prefs = FloatWindowPrefs.create(context)
 
     private val sessionClient = FloatSessionClient(this)
 
@@ -331,7 +333,6 @@ class FloatController @JvmOverloads constructor(
     private fun pxToDp(value: Int): Int = (value / context.resources.displayMetrics.density).roundToInt()
 
     private companion object {
-        const val PREFS_NAME = "termux_float_window"
         const val BUBBLE_SIZE_DP = 56
         const val MIN_WIDTH_DP = 200
         const val MIN_HEIGHT_DP = 200
