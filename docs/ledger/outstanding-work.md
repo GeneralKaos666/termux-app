@@ -129,17 +129,18 @@ drag-to-reorder, rename and close have all since shipped.
   status line although the three §9 reversals were confirmed and the work shipped
   (`docs/specs/2026-11-15-motion-craft-design.md`, head of file). Raised as Finding 3 by the same
   review. Next step: correct the status line to record the approval date.
-- `[needs approval]` **UI appeal program** (`docs/plans/2026-11-16-ui-appeal-program.md`, written
-  2026-11-16 from the chat brainstorm). Seven workstreams, 21 tasks: app UI preference store, session
-  tab context + unseen-output badges, overflow fade + drag lift, starter prompt, command palette,
-  snippets (store, editor, chips), installer stage reporting, branded splash, animated first run,
-  keycap visuals + popup chevrons, key layout gallery, iTerm color import/export, theme gallery,
+- `[device checks pending]` **UI appeal program** (`docs/plans/2026-11-16-ui-appeal-program.md`,
+  written 2026-11-16 from the chat brainstorm). Seven workstreams, 21 tasks: app UI preference store,
+  session tab context + unseen-output badges, overflow fade + drag lift, starter prompt, command
+  palette, snippets (store, editor, chips), installer stage reporting, branded splash, animated first
+  run, keycap visuals + popup chevrons, key layout gallery, iTerm color import/export, theme gallery,
   real-output preview, link action sheet, visual bell, themed selection handles, settings search.
-  Each workstream is independently shippable and ends with its own tests; the
-  plan records the design decisions in place of a spec until one is written. Next step: human review
-  of the plan, then choose an execution method (subagent-driven or native). Deliberately excluded:
-  wallpaper/blur controls (already owned by Display preferences) and a separate sound/haptic toggle
-  (covered by `bell-behaviour`).
+  **Implemented natively 2026-11-16** as 21 signed commits on `feature/ui-appeal-program`, each with
+  its tests; `./gradlew test` is green. What remains is the device pass in
+  `docs/ledger/manual-checks.md` §22 (D-22), which covers every feel/animation/picker check. The
+  plan records the design decisions in place of a spec; per-task deviations and their rulings are in
+  the git-ignored execution ledger. Deliberately excluded: wallpaper/blur controls (already owned by
+  Display preferences) and a separate sound/haptic toggle (covered by `bell-behaviour`).
 
 ---
 
