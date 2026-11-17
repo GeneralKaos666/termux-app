@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.R
+import com.termux.app.domain.keys.shouldHandBackFocus
 import com.termux.app.domain.snippets.Snippet
 import com.termux.app.ui.ShellHostCallbacks
 import com.termux.app.ui.snippets.SnippetChipsRow
@@ -155,7 +156,7 @@ fun ExtraKeysBar(
         }.collect { writing ->
             val page = pagerState.settledPage
             if (state.page != page) state.page = page
-            if (previousWriting && !writing && page != ExtraKeysState.PAGE_WRITING) {
+            if (shouldHandBackFocus(previousWriting, writing)) {
                 onLeaveWritingPage()
             }
             if (writing) {
