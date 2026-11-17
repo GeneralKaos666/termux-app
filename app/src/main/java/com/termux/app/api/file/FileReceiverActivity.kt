@@ -44,8 +44,13 @@ class FileReceiverActivity : AppCompatActivity() {
      */
     private var mFinishOnDismissNameDialog = true
 
+    /** `onResume` runs again after every dialog, so the launch intent must be handled only once. */
+    private val mIntentGate = ReceivedIntentGate()
+
     override fun onResume() {
         super.onResume()
+
+        if (!mIntentGate.begin()) return
 
         val intent = getIntent()
         val action = intent.action
@@ -142,7 +147,11 @@ class FileReceiverActivity : AppCompatActivity() {
             if (attachmentFileName == null) attachmentFileName = UriUtils.getUriFileBasename(uri, true)
 
             val inputStream = contentResolver.openInputStream(uri)
-            promptNameAndSave(inputStream!!, attachmentFileName)
+            if (inputStream == null) {
+                showErrorDialogAndQuit("Unable to open the shared content")
+                return
+            }
+            promptNameAndSave(inputStream, attachmentFileName)
         } catch (e: Exception) {
             showErrorDialogAndQuit("Unable to handle shared content:\n\n" + e.message)
             Logger.logStackTraceWithMessage(LOG_TAG, "handleContentUri(uri=$uri) failed", e)
@@ -188,8 +197,14 @@ class FileReceiverActivity : AppCompatActivity() {
                 finish()
             },
             android.R.string.cancel,
-            TextInputDialogUtils.TextSetListener { finish() },
+            TextInputDialogUtils.TextSetListener {
+                // The dialog can be cancelled before the stream is copied: close it here so a
+                // cancelled share does not leak the content descriptor.
+                runCatching { inputStream.close() }
+                finish()
+            },
             DialogInterface.OnDismissListener {
+                runCatching { inputStream.close() }
                 if (mFinishOnDismissNameDialog) finish()
             },
         )
@@ -216,12 +231,14 @@ class FileReceiverActivity : AppCompatActivity() {
         }
 
         try {
-            FileOutputStream(outFile).use { f ->
-                val buffer = ByteArray(4096)
-                while (true) {
-                    val readBytes = inputStream.read(buffer)
-                    if (readBytes <= 0) break
-                    f.write(buffer, 0, readBytes)
+            inputStream.use { input ->
+                FileOutputStream(outFile).use { f ->
+                    val buffer = ByteArray(4096)
+                    while (true) {
+                        val readBytes = input.read(buffer)
+                        if (readBytes <= 0) break
+                        f.write(buffer, 0, readBytes)
+                    }
                 }
             }
             return outFile
