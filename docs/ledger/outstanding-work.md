@@ -79,6 +79,14 @@ drag-to-reorder, rename and close have all since shipped.
   `plans/2026-10-16-settings-ia.md`; final review clean.
 - The onboarding and settings checks in `manual-checks.md` D-7 and D-8 are closed (D-7 measured
   2026-11-02; D-8 on the maintainer's verdict, since exercising the edges needs a data wipe).
+- `[open 2026-11-17]` **Settings search matches nothing in the Termux panel.** Typing any query
+  ("font", "keyboard", "colour") shows "No settings match". `SettingsIndexBuilder` only indexes
+  preferences that have an `app:key`, and the three rows in `res/xml/termux_preferences.xml`
+  (Display / Keyboard / Advanced) have none — they only carry `app:fragment`. Pre-existing on
+  `master`, found while checking the Kotlin conversion on device; clearing the query restores the
+  full list, so nothing is lost. Fix by giving the three rows keys (and freezing them) or by
+  indexing keyless rows on their title/summary; either way add a test that a query matching a
+  row's title keeps it.
 
 ### 1.4 Appearance — shipped, device passes outstanding
 
