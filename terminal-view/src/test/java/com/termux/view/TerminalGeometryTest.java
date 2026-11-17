@@ -20,6 +20,14 @@ public class TerminalGeometryTest {
     }
 
     @Test
+    public void cursorRowTruncatesTheSumNotTheQuotient() {
+        // Above the -40 offset the quotient is negative-fractional. Java's getCursorY cast the
+        // sum, so the scroll offset is added before truncating: -1.5 + 5 truncates to 3, not 4.
+        assertEquals(3, TerminalGeometry.cursorRow(10, 20f, 5));
+        assertEquals(3, TerminalGeometry.cursorRow(0, 20f, 5));
+    }
+
+    @Test
     public void pointXClampsToTheColumnCount() {
         assertEquals(200, TerminalGeometry.pointX(20, 80, 10f));
         assertEquals(800, TerminalGeometry.pointX(200, 80, 10f));

@@ -3,7 +3,6 @@ apply plugin: 'maven-publish'
 
 android {
     namespace = "com.termux.view"
-    enableKotlin = false
     compileSdkVersion project.properties.compileSdkVersion.toInteger()
 
     dependencies {
@@ -53,6 +52,18 @@ dependencies {
     testImplementation "junit:junit:4.13.2"
     androidTestImplementation "androidx.test:runner:1.7.0"
     androidTestImplementation "androidx.test.ext:junit:1.3.0"
+}
+
+kotlin {
+    compilerOptions {
+        // Java classes in :termux-shared and :app implement TerminalViewClient and rely on its
+        // default onLinkClicked method. Kotlin would otherwise emit DefaultImpls only, which Java
+        // implementors cannot inherit, so real JVM default methods are required. all-compatibility
+        // additionally keeps DefaultImpls for consumers of the already published AAR.
+        // `enable` is the renamed `all-compatibility`: real JVM default methods plus retained
+        // DefaultImpls, which is what Java implementors and existing AAR consumers need.
+        freeCompilerArgs.add("-jvm-default=enable")
+    }
 }
 
 task sourceJar(type: Jar) {
