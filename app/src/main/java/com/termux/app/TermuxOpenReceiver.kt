@@ -12,7 +12,6 @@ import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
-import androidx.annotation.NonNull
 import com.termux.shared.data.DataUtils
 import com.termux.shared.data.IntentUtils
 import com.termux.shared.logger.Logger
@@ -130,7 +129,7 @@ class TermuxOpenReceiver : BroadcastReceiver() {
         }
 
         override fun query(
-            @NonNull uri: Uri,
+            uri: Uri,
             projection: Array<String>?,
             selection: String?,
             selectionArgs: Array<String>?,
@@ -160,7 +159,7 @@ class TermuxOpenReceiver : BroadcastReceiver() {
             return cursor
         }
 
-        override fun getType(@NonNull uri: Uri): String? {
+        override fun getType(uri: Uri): String? {
             val pathComponent = uri.lastPathSegment
             if (pathComponent == null || pathComponent.isEmpty()) return null
 
@@ -173,16 +172,16 @@ class TermuxOpenReceiver : BroadcastReceiver() {
             return null
         }
 
-        override fun insert(@NonNull uri: Uri, values: ContentValues?): Uri? {
+        override fun insert(uri: Uri, values: ContentValues?): Uri? {
             return null
         }
 
-        override fun delete(@NonNull uri: Uri, selection: String?, selectionArgs: Array<String>?): Int {
+        override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int {
             return 0
         }
 
         override fun update(
-            @NonNull uri: Uri,
+            uri: Uri,
             values: ContentValues?,
             selection: String?,
             selectionArgs: Array<String>?,
@@ -191,7 +190,7 @@ class TermuxOpenReceiver : BroadcastReceiver() {
         }
 
         @Throws(FileNotFoundException::class)
-        override fun openFile(@NonNull uri: Uri, @NonNull mode: String): ParcelFileDescriptor {
+        override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
             var openMode = mode
             val file = File(uri.path!!)
             try {

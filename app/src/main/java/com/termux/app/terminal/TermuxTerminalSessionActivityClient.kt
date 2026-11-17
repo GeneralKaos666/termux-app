@@ -9,8 +9,6 @@ import android.graphics.Typeface
 import android.media.AudioAttributes
 import android.media.SoundPool
 import android.text.TextUtils
-import androidx.annotation.NonNull
-import androidx.annotation.Nullable
 import com.termux.R
 import com.termux.app.TermuxActivity
 import com.termux.app.TermuxService
@@ -126,14 +124,14 @@ class TermuxTerminalSessionActivityClient(activity: TermuxActivity) : TermuxTerm
     }
 
 
-    override fun onTextChanged(@NonNull changedSession: TerminalSession) {
+    override fun onTextChanged(changedSession: TerminalSession) {
         if (!mActivity.isVisible()) return
 
         mActivity.recordSessionOutput(changedSession)
         if (mActivity.getCurrentSession() === changedSession) mActivity.getTerminalView().onScreenUpdated()
     }
 
-    override fun onTitleChanged(@NonNull updatedSession: TerminalSession) {
+    override fun onTitleChanged(updatedSession: TerminalSession) {
         if (!mActivity.isVisible()) return
 
         if (updatedSession !== mActivity.getCurrentSession()) {
@@ -146,7 +144,7 @@ class TermuxTerminalSessionActivityClient(activity: TermuxActivity) : TermuxTerm
         termuxSessionListNotifyUpdated()
     }
 
-    override fun onSessionFinished(@NonNull finishedSession: TerminalSession) {
+    override fun onSessionFinished(finishedSession: TerminalSession) {
         val service = mActivity.getTermuxService()
 
         if (service == null || service.wantsToStop()) {
@@ -194,13 +192,13 @@ class TermuxTerminalSessionActivityClient(activity: TermuxActivity) : TermuxTerm
         }
     }
 
-    override fun onCopyTextToClipboard(@NonNull session: TerminalSession, text: String?) {
+    override fun onCopyTextToClipboard(session: TerminalSession, text: String?) {
         if (!mActivity.isVisible()) return
 
         ShareUtils.copyTextToClipboard(mActivity, text)
     }
 
-    override fun onPasteTextFromClipboard(@Nullable session: TerminalSession?) {
+    override fun onPasteTextFromClipboard(session: TerminalSession?) {
         if (!mActivity.isVisible()) return
 
         val text = ShareUtils.getTextStringFromClipboardIfSet(mActivity, true)
@@ -208,7 +206,7 @@ class TermuxTerminalSessionActivityClient(activity: TermuxActivity) : TermuxTerm
             mActivity.getTerminalView().mEmulator!!.paste(text)
     }
 
-    override fun onBell(@NonNull session: TerminalSession) {
+    override fun onBell(session: TerminalSession) {
         if (!mActivity.isVisible()) return
 
         when (mActivity.getProperties().getBellBehaviour()) {
@@ -224,7 +222,7 @@ class TermuxTerminalSessionActivityClient(activity: TermuxActivity) : TermuxTerm
         }
     }
 
-    override fun onColorsChanged(@NonNull changedSession: TerminalSession) {
+    override fun onColorsChanged(changedSession: TerminalSession) {
         if (mActivity.getCurrentSession() === changedSession)
             updateBackgroundColor()
     }
@@ -241,7 +239,7 @@ class TermuxTerminalSessionActivityClient(activity: TermuxActivity) : TermuxTerm
         mActivity.getTerminalView().setTerminalCursorBlinkerState(enabled, false)
     }
 
-    override fun setTerminalShellPid(@NonNull terminalSession: TerminalSession, pid: Int) {
+    override fun setTerminalShellPid(terminalSession: TerminalSession, pid: Int) {
         val service = mActivity.getTermuxService() ?: return
 
         val termuxSession: TermuxSession? = service.getTermuxSessionForTerminalSession(terminalSession)
