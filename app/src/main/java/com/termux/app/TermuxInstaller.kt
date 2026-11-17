@@ -246,7 +246,7 @@ class TermuxInstaller private constructor() {
                                     val symlinksReader = BufferedReader(InputStreamReader(zipInput))
                                     while (true) {
                                         val line = symlinksReader.readLine() ?: break
-                                        val parts = line.split("←")
+                                        val parts = line.split("←").dropLastWhile { it.isEmpty() }
                                         if (parts.size != 2)
                                             throw RuntimeException("Malformed symlink line: $line")
                                         val oldPath = parts[0]
