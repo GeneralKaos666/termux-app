@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.graphics.Bitmap
 import android.os.Build
@@ -27,6 +26,7 @@ import android.widget.RelativeLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.ui.platform.ComposeView
+import androidx.core.content.ContextCompat
 import com.termux.R
 import com.termux.app.activities.HelpActivity
 import com.termux.app.activities.SettingsActivity
@@ -1541,13 +1541,17 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
 
 
     private fun registerTermuxActivityBroadcastReceiver() {
-        val intentFilter = IntentFilter()
-        intentFilter.addAction(TERMUX_ACTIVITY.ACTION_NOTIFY_APP_CRASH)
-        intentFilter.addAction(TERMUX_ACTIVITY.ACTION_RELOAD_STYLE)
-        intentFilter.addAction(TERMUX_ACTIVITY.ACTION_REQUEST_PERMISSIONS)
-        intentFilter.addAction(Intent.ACTION_WALLPAPER_CHANGED)
-
-        registerReceiver(mTermuxActivityBroadcastReceiver, intentFilter)
+        // The three internal actions are sent only by this app, so the kernel must not deliver a
+        // matching broadcast from another app. The wallpaper change is sent by the system, so it is
+        // registered separately as exported.
+        ContextCompat.registerReceiver(
+            this, mTermuxActivityBroadcastReceiver, internalActivityFilter(),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        ContextCompat.registerReceiver(
+            this, mTermuxActivityBroadcastReceiver, systemActivityFilter(),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
     }
 
     private fun unregisterTermuxActivityBroadcastReceiver() {
