@@ -305,15 +305,20 @@ final class SixelParser {
                     int sixelWidth = args[2]; // `Ph`
                     int sixelHeight = args[3]; // `Pv`
                     if (sixelWidth > 0 && sixelHeight > 0) {
-                        // 2% extra for sixel commands/parameters in addition to image data.
-                        int sixelArgsExpectedLength = (int) (sixelWidth * sixelHeight * 1.02);
+                        // 2% extra for sixel commands/parameters in addition to image data. The
+                        // product is computed in long arithmetic: `Ph`/`Pv` are untrusted, so an int
+                        // product overflows long before the clamp below can apply.
+                        long sixelArgsExpectedLength = (long) ((double) sixelWidth * sixelHeight * 1.02);
                         // If sixel commands are too long, they are divided into parts, and if a
                         // new command starts near `mTerminalControlArgsMaxLength / 2`, it could
                         // contain image data for 1 pixel line of image width, so add that.
-                        int sixelArgsPartsExpectedLength = (int) ((((double) terminalControlArgsMaxLength / 2) + sixelWidth) * 1.02);
-                        int sixelArgsExpectedCapacity = Math.min(sixelArgsPartsExpectedLength, sixelArgsExpectedLength);
+                        long sixelArgsPartsExpectedLength = (long) ((((double) terminalControlArgsMaxLength / 2) + sixelWidth) * 1.02);
+                        long sixelArgsExpectedCapacity = Math.min(sixelArgsPartsExpectedLength, sixelArgsExpectedLength);
                         if (sixelArgsExpectedCapacity > SIXEL_ARGS__INITIAL_CAPACITY) {
-                            newArgsCapacity = sixelArgsExpectedCapacity;
+                            // The control args buffer is split at terminalControlArgsMaxLength, so a
+                            // larger capacity can never be used; without the clamp a hostile raster
+                            // size allocates hundreds of megabytes of char storage.
+                            newArgsCapacity = (int) Math.min(sixelArgsExpectedCapacity, terminalControlArgsMaxLength);
                         }
 
                         screen.sixelResize(sixelWidth, sixelHeight);
