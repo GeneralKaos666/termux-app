@@ -2,8 +2,10 @@ package com.termux.app.ui.snippets
 
 import com.termux.app.data.snippets.SnippetStore
 import com.termux.app.data.ui.UiPreferences
+import com.termux.app.domain.snippets.MAX_SNIPPETS
 import com.termux.app.domain.snippets.Snippet
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -140,5 +142,24 @@ class SnippetsStateTest {
         state.move(0, 5)
         state.move(-1, 0)
         assertEquals(listOf("a" to "a"), state.items.map { it.label to it.command })
+    }
+
+    @Test
+    fun `the editor stops at the store cap`() {
+        val state = SnippetsState(store)
+        repeat(MAX_SNIPPETS) { state.addBlank() }
+
+        assertTrue(state.atLimit)
+        assertFalse(state.add("label", "command"))
+        assertEquals(MAX_SNIPPETS, state.items.size)
+    }
+
+    @Test
+    fun `saving more rows than the cap keeps the cap`() {
+        val state = SnippetsState(store)
+        repeat(MAX_SNIPPETS + 3) { index -> state.add("label $index", "command $index") }
+
+        assertEquals(MAX_SNIPPETS, state.items.size)
+        assertEquals(MAX_SNIPPETS, state.save().size)
     }
 }

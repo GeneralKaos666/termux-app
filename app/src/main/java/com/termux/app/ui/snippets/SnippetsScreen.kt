@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.termux.R
+import com.termux.app.domain.snippets.MAX_SNIPPETS
 import com.termux.app.domain.snippets.Snippet
 import com.termux.app.ui.materialIcon
 
@@ -78,13 +79,22 @@ fun SnippetsScreen(
             }
         }
 
+        if (state.atLimit) {
+            Text(
+                text = stringResource(R.string.snippets_limit, MAX_SNIPPETS),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             horizontalArrangement = Arrangement.End,
         ) {
-            Button(onClick = state::addBlank) {
+            Button(onClick = { state.addBlank() }, enabled = !state.atLimit) {
                 Text(stringResource(R.string.snippets_add))
             }
         }
