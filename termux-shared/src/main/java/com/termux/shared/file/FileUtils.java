@@ -122,6 +122,20 @@ public class FileUtils {
         return FilePaths.isPathInDirPaths(path, dirPaths, ensureUnder);
     }
 
+    /**
+     * True when {@code filePath} canonicalises to a file directly inside {@code directoryPath}.
+     * Unlike {@link #isPathInDirPath}, both sides are canonicalised, so {@code /data/data} and
+     * {@code /data/user/0} compare correctly, and the separator keeps a sibling prefix ({@code dir2})
+     * out.
+     */
+    public static boolean isDirectChildPath(String directoryPath, String filePath) {
+        if (directoryPath == null || filePath == null) return false;
+        String directory = getCanonicalPath(directoryPath, null);
+        String candidate = getCanonicalPath(filePath, null);
+        return directory != null && candidate != null
+            && candidate.startsWith(directory + File.separator);
+    }
+
 
 
     /**
