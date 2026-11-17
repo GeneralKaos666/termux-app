@@ -375,6 +375,22 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
 ### 3.1 Code gaps
 
+- `[done 2026-11-17]` **Kotlin conversion of `:terminal-view` and the remaining `:app` Java** —
+  spec `docs/specs/2026-11-16-kotlin-conversion-design.md`, plan
+  `docs/plans/2026-11-16-kotlin-conversion.md`. Both modules are Kotlin-only now; no `.java` file is
+  left under `terminal-view/src/main` or `app/src/main`, the `src/main/java` layout is kept so the
+  published `sourceJar` still carries sources, and no behavior, class name or Java-visible signature
+  changed (the JNI `getZip`, the fragment/`ContentProvider` nested names, and the
+  `getInstance(Context)` statics were checked with `javap`). Batches, one revertable commit each:
+  `133e8c90` (Kotlin enabled, `TerminalViewClient`), `ba44efcf` (leaf classes), `ab00c9c2` (text
+  selection), `e6b6c3e2` (renderer, gesture recognizer), `4ae6905b` (`TerminalView`), `fe4a1010`
+  (app `terminal/` package, `TermuxActivity`, `TermuxService`), `9d0aac6d` (settings fragments),
+  `735ecb62` (the app tail). Tests stayed Java and were not touched; the suite is 905 tests, 0
+  failures. Two modules were deliberately left out: `:terminal-emulator` (the emulation hot loop —
+  a rewrite there would be judged on throughput, so it needs its own spec) and `:termux-shared`
+  (published to JitPack and consumed by the plugin apps, so its public statics are a compatibility
+  surface).
+
 - `[resolved 2026-10-18]` **WS4 kitty graphics was ack-only** — it parsed and answered `OK` without
   decoding, storing, placing or drawing; `deleteTerminalBitmaps(...)` had no call site and chunk
   accumulation did not exist. Resolved by the WS4 completion plan (commits above). Kept here as the
