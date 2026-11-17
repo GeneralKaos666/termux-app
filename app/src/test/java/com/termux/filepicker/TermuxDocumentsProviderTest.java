@@ -20,6 +20,7 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * The provider is mostly a thin shell over {@link File}, but its document-id checks and its search
@@ -164,6 +165,46 @@ public class TermuxDocumentsProviderTest {
         String path = provider.createDocument(root.getAbsolutePath(), Document.MIME_TYPE_DIR, "sub");
 
         assertTrue(new File(path).isDirectory());
+    }
+
+    @Test
+    public void testSearchDoesNotLeaveTheRootThroughASiblingPrefix() throws Exception {
+        File sibling = new File(root.getParentFile(), root.getName() + "2");
+        assertTrue(sibling.mkdirs());
+        file(sibling, "secret.txt");
+        File link = new File(root, "escape");
+        try {
+            java.nio.file.Files.createSymbolicLink(link.toPath(), sibling.toPath());
+        } catch (IOException | UnsupportedOperationException e) {
+            return; // a filesystem without symlinks cannot exercise the boundary
+        }
+
+        try {
+            List<String> names = names(provider.querySearchDocuments(root.getAbsolutePath(), "secret", null));
+
+            assertFalse(names.toString(), names.contains("secret.txt"));
+        } finally {
+            link.delete();
+            deleteRecursively(sibling);
+        }
+    }
+
+    @Test(expected = java.io.FileNotFoundException.class)
+    public void testCreateDocumentRejectsATraversingName() throws Exception {
+        provider.createDocument(root.getAbsolutePath(), "text/plain", "../escape.txt");
+    }
+
+    @Test
+    public void testCreateDocumentRejectsASubdirectoryName() throws Exception {
+        dir("sub");
+
+        try {
+            provider.createDocument(root.getAbsolutePath(), "text/plain", "sub/child.txt");
+            fail("expected FileNotFoundException");
+        } catch (java.io.FileNotFoundException expected) {
+            assertFalse("a rejected name must not create a file",
+                new File(new File(root, "sub"), "child.txt").exists());
+        }
     }
 
     private File file(String name) throws IOException {

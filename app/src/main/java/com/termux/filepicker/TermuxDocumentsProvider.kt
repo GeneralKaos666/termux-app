@@ -105,10 +105,24 @@ class TermuxDocumentsProvider : DocumentsProvider() {
 
     @Throws(FileNotFoundException::class)
     override fun createDocument(parentDocumentId: String, mimeType: String, displayName: String): String {
-        var newFile = File(parentDocumentId, displayName)
+        if (!isValidDisplayName(displayName)) {
+            throw FileNotFoundException("Invalid display name: $displayName")
+        }
+
+        val parent = File(parentDocumentId)
+        val parentCanonicalPath = try {
+            parent.canonicalPath
+        } catch (e: IOException) {
+            throw FileNotFoundException("Failed to resolve document directory $parentDocumentId")
+        }
+
+        var newFile = File(parent, displayName)
         var noConflictId = 2
         while (newFile.exists()) {
-            newFile = File(parentDocumentId, "$displayName (${noConflictId++})")
+            newFile = File(parent, "$displayName (${noConflictId++})")
+        }
+        if (!isInsideRoot(parentCanonicalPath, newFile)) {
+            throw FileNotFoundException("Refusing to create a document outside $parentDocumentId")
         }
         try {
             val succeeded: Boolean
@@ -167,14 +181,9 @@ class TermuxDocumentsProvider : DocumentsProvider() {
         while (pending.isNotEmpty() && result.getCount() < maxSearchResults) {
             val file = pending.removeFirst()
             // Avoid directories outside the search root linked with symlinks (to avoid e.g. search
-            // through the whole SD card).
-            var isInsideSearchRoot: Boolean
-            try {
-                isInsideSearchRoot = file.getCanonicalPath().startsWith(searchRootPath)
-            } catch (e: IOException) {
-                isInsideSearchRoot = true
-            }
-            if (isInsideSearchRoot) {
+            // through the whole SD card). The comparison is by canonical path and includes the
+            // separator, so a sibling that only shares the root's prefix is not inside it.
+            if (isInsideRoot(searchRootPath, file)) {
                 if (file.isDirectory()) {
                     val children = file.listFiles()
                     if (children != null) Collections.addAll(pending, *children)
@@ -188,6 +197,28 @@ class TermuxDocumentsProvider : DocumentsProvider() {
 
         return result
     }
+
+    /**
+     * True when [candidate] is [rootCanonicalPath] itself or a path under it. The separator keeps a
+     * sibling whose name merely starts with the root's path (`.../home2` vs `.../home`) out, and an
+     * unreadable path is skipped instead of trusted.
+     */
+    private fun isInsideRoot(rootCanonicalPath: String, candidate: File): Boolean =
+        try {
+            val canonical = candidate.canonicalPath
+            canonical == rootCanonicalPath || canonical.startsWith(rootCanonicalPath + File.separator)
+        } catch (e: IOException) {
+            false
+        }
+
+    /**
+     * A display name must name one file directly in the parent directory. Separators, `.`, `..` and
+     * control characters are refused rather than rewritten.
+     */
+    private fun isValidDisplayName(displayName: String): Boolean =
+        displayName.isNotEmpty() && displayName != "." && displayName != ".." &&
+            !displayName.contains('/') && !displayName.contains('\\') &&
+            displayName.none { it.code < 0x20 }
 
     override fun isChildDocument(parentDocumentId: String, documentId: String): Boolean {
         // A plain prefix check would accept a sibling whose name only starts with the parent's path
