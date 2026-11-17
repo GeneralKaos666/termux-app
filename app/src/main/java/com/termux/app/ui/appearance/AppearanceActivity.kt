@@ -5,6 +5,7 @@ import com.termux.app.data.appearance.AppearanceWriteResult
 import com.termux.app.domain.appearance.FontValidator
 import com.termux.app.domain.appearance.exportItermColors
 import com.termux.app.domain.appearance.parseItermColors
+import com.termux.app.domain.appearance.readBounded
 
 import com.termux.app.domain.appearance.FontError
 
@@ -64,7 +65,7 @@ class AppearanceActivity : ComponentActivity() {
     private val importColors = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@registerForActivityResult
         val xml = runCatching {
-            contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            contentResolver.openInputStream(uri)?.use { readBounded(it, FontValidator.MAX_ITERM_BYTES) }
         }.getOrNull()
         val colors = xml?.let(::parseItermColors)
         if (colors == null) {
