@@ -399,68 +399,6 @@ foreground command so the received bytes are visible:
 - [ ] `Tab` completes a path prefix rather than inserting a literal tab.
 - [ ] Enter submits the line (`\n` from the IME is still mapped to control-M, not a literal newline).
 
-- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
-      open the Style screen and return, and send the crash envelope with `am broadcast -a
-      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
-      no duplicated sessions bar, no replayed intro on rotation.
-- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
-      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
-      behaviour and leave the service list consistent.
-- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
-      text, autofill username/password, reset terminal, kill process (disabled for a finished
-      session), style, keep-screen-on checkmark, help, settings, report issue.
-- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
-      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
-      `~/storage` symlinks.
-- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
-      the float button, then stop the service from the notification. No crash and no orphaned
-      sessions; the notification disappears when the last session, task and float end.
-- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
-      `TerminalSession` and background `AppShell` runners; the result must come back and the
-      background-only notification must not appear.
-- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
-      bootstrap installs, reports each stage, and the first session appears when done; a failed
-      install leaves the overlay in the failure state instead of hanging on progress.
-
-- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
-      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
-      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
-      stored ones, and flipping one must persist across a restart.
-- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
-      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
-      the query restores the full list from the resource.
-- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
-      chosen image is copied into the app storage and appears behind the terminal, and the image,
-      blur and opacity rows appear only in the modes that use them.
-- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
-      the "(default)" tag follows the default value, and the choice survives a settings reopen.
-
-- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
-      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
-      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
-      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
-- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
-      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
-      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
-      `external-*` and `media-*` links that resolve.
-- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
-      tree lists, names and sizes are right, folders can be created, a file can be opened for read
-      and written back, and a search for a known file name returns it.
-- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
-      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
-      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
-- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
-      receives the content URI and can read the file; opening `termux.properties` through the
-      provider must fall back to read-only.
-- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
-      `termux-environment` is rewritten and nothing crashes.
-- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
-      opens the browser, and Back returns through the page history before leaving.
-
-- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
-      start handle: the floating action toolbar stays over the selection, centered rather than
-      collapsed to a zero-width rect at one edge.
-
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 15. D-14 — cursor fade blink, glow and eased bar/underline movement
@@ -497,68 +435,6 @@ Run in a live shell session:
       steady and fully opaque and a bar/underline cursor snaps to its cell instead of gliding.
 - [ ] Remove animations is live: turn the setting on (or set `ANIMATOR_DURATION_SCALE` to 0) while a
       session is open — the cursor stops fading and gliding without restarting the app.
-
-- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
-      open the Style screen and return, and send the crash envelope with `am broadcast -a
-      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
-      no duplicated sessions bar, no replayed intro on rotation.
-- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
-      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
-      behaviour and leave the service list consistent.
-- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
-      text, autofill username/password, reset terminal, kill process (disabled for a finished
-      session), style, keep-screen-on checkmark, help, settings, report issue.
-- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
-      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
-      `~/storage` symlinks.
-- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
-      the float button, then stop the service from the notification. No crash and no orphaned
-      sessions; the notification disappears when the last session, task and float end.
-- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
-      `TerminalSession` and background `AppShell` runners; the result must come back and the
-      background-only notification must not appear.
-- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
-      bootstrap installs, reports each stage, and the first session appears when done; a failed
-      install leaves the overlay in the failure state instead of hanging on progress.
-
-- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
-      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
-      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
-      stored ones, and flipping one must persist across a restart.
-- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
-      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
-      the query restores the full list from the resource.
-- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
-      chosen image is copied into the app storage and appears behind the terminal, and the image,
-      blur and opacity rows appear only in the modes that use them.
-- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
-      the "(default)" tag follows the default value, and the choice survives a settings reopen.
-
-- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
-      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
-      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
-      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
-- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
-      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
-      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
-      `external-*` and `media-*` links that resolve.
-- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
-      tree lists, names and sizes are right, folders can be created, a file can be opened for read
-      and written back, and a search for a known file name returns it.
-- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
-      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
-      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
-- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
-      receives the content URI and can read the file; opening `termux.properties` through the
-      provider must fall back to read-only.
-- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
-      `termux-environment` is rewritten and nothing crashes.
-- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
-      opens the browser, and Back returns through the page history before leaving.
-
-- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
-      start handle: the floating action toolbar stays over the selection, centered rather than
-      collapsed to a zero-width rect at one edge.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -601,68 +477,6 @@ Run with at least three sessions and the float session available:
       fade, slide or overshoot.
 - [ ] Remove animations is live: turn the setting on while the app runs — every transition above
       becomes instant without restarting the app.
-
-- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
-      open the Style screen and return, and send the crash envelope with `am broadcast -a
-      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
-      no duplicated sessions bar, no replayed intro on rotation.
-- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
-      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
-      behaviour and leave the service list consistent.
-- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
-      text, autofill username/password, reset terminal, kill process (disabled for a finished
-      session), style, keep-screen-on checkmark, help, settings, report issue.
-- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
-      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
-      `~/storage` symlinks.
-- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
-      the float button, then stop the service from the notification. No crash and no orphaned
-      sessions; the notification disappears when the last session, task and float end.
-- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
-      `TerminalSession` and background `AppShell` runners; the result must come back and the
-      background-only notification must not appear.
-- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
-      bootstrap installs, reports each stage, and the first session appears when done; a failed
-      install leaves the overlay in the failure state instead of hanging on progress.
-
-- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
-      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
-      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
-      stored ones, and flipping one must persist across a restart.
-- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
-      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
-      the query restores the full list from the resource.
-- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
-      chosen image is copied into the app storage and appears behind the terminal, and the image,
-      blur and opacity rows appear only in the modes that use them.
-- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
-      the "(default)" tag follows the default value, and the choice survives a settings reopen.
-
-- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
-      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
-      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
-      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
-- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
-      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
-      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
-      `external-*` and `media-*` links that resolve.
-- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
-      tree lists, names and sizes are right, folders can be created, a file can be opened for read
-      and written back, and a search for a known file name returns it.
-- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
-      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
-      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
-- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
-      receives the content URI and can read the file; opening `termux.properties` through the
-      provider must fall back to read-only.
-- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
-      `termux-environment` is rewritten and nothing crashes.
-- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
-      opens the browser, and Back returns through the page history before leaving.
-
-- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
-      start handle: the floating action toolbar stays over the selection, centered rather than
-      collapsed to a zero-width rect at one edge.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -712,68 +526,6 @@ Run with a busy static wallpaper and with a custom image:
 - [x] Rotation: rotate with a blurred picture showing. No crash, no stretched crop, and the blur does
       not become sharper or softer across the rotation.
 
-- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
-      open the Style screen and return, and send the crash envelope with `am broadcast -a
-      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
-      no duplicated sessions bar, no replayed intro on rotation.
-- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
-      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
-      behaviour and leave the service list consistent.
-- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
-      text, autofill username/password, reset terminal, kill process (disabled for a finished
-      session), style, keep-screen-on checkmark, help, settings, report issue.
-- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
-      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
-      `~/storage` symlinks.
-- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
-      the float button, then stop the service from the notification. No crash and no orphaned
-      sessions; the notification disappears when the last session, task and float end.
-- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
-      `TerminalSession` and background `AppShell` runners; the result must come back and the
-      background-only notification must not appear.
-- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
-      bootstrap installs, reports each stage, and the first session appears when done; a failed
-      install leaves the overlay in the failure state instead of hanging on progress.
-
-- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
-      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
-      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
-      stored ones, and flipping one must persist across a restart.
-- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
-      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
-      the query restores the full list from the resource.
-- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
-      chosen image is copied into the app storage and appears behind the terminal, and the image,
-      blur and opacity rows appear only in the modes that use them.
-- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
-      the "(default)" tag follows the default value, and the choice survives a settings reopen.
-
-- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
-      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
-      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
-      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
-- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
-      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
-      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
-      `external-*` and `media-*` links that resolve.
-- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
-      tree lists, names and sizes are right, folders can be created, a file can be opened for read
-      and written back, and a search for a known file name returns it.
-- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
-      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
-      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
-- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
-      receives the content URI and can read the file; opening `termux.properties` through the
-      provider must fall back to read-only.
-- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
-      `termux-environment` is rewritten and nothing crashes.
-- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
-      opens the browser, and Back returns through the page history before leaving.
-
-- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
-      start handle: the floating action toolbar stays over the selection, centered rather than
-      collapsed to a zero-width rect at one edge.
-
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 18. D-17 to D-20 — termux-backup on a real device
@@ -801,68 +553,6 @@ package manager or a second device yet.
       `status` and `backup`. Expect `storage_access: false` in `status` and exit 2 from `backup` with
       the failing root named, not a hang or a partial backup in `list`.
 
-- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
-      open the Style screen and return, and send the crash envelope with `am broadcast -a
-      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
-      no duplicated sessions bar, no replayed intro on rotation.
-- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
-      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
-      behaviour and leave the service list consistent.
-- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
-      text, autofill username/password, reset terminal, kill process (disabled for a finished
-      session), style, keep-screen-on checkmark, help, settings, report issue.
-- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
-      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
-      `~/storage` symlinks.
-- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
-      the float button, then stop the service from the notification. No crash and no orphaned
-      sessions; the notification disappears when the last session, task and float end.
-- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
-      `TerminalSession` and background `AppShell` runners; the result must come back and the
-      background-only notification must not appear.
-- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
-      bootstrap installs, reports each stage, and the first session appears when done; a failed
-      install leaves the overlay in the failure state instead of hanging on progress.
-
-- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
-      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
-      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
-      stored ones, and flipping one must persist across a restart.
-- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
-      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
-      the query restores the full list from the resource.
-- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
-      chosen image is copied into the app storage and appears behind the terminal, and the image,
-      blur and opacity rows appear only in the modes that use them.
-- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
-      the "(default)" tag follows the default value, and the choice survives a settings reopen.
-
-- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
-      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
-      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
-      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
-- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
-      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
-      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
-      `external-*` and `media-*` links that resolve.
-- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
-      tree lists, names and sizes are right, folders can be created, a file can be opened for read
-      and written back, and a search for a known file name returns it.
-- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
-      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
-      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
-- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
-      receives the content URI and can read the file; opening `termux.properties` through the
-      provider must fall back to read-only.
-- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
-      `termux-environment` is rewritten and nothing crashes.
-- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
-      opens the browser, and Back returns through the page history before leaving.
-
-- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
-      start handle: the floating action toolbar stays over the selection, centered rather than
-      collapsed to a zero-width rect at one edge.
-
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 21. D-21 — app layering extraction (domain/data/ui, 2026-11-15)
@@ -885,68 +575,6 @@ surfaces unchanged). Verify companion/plugin integration and service UI behavior
       stop or release as appropriate, float toggles).
 - [ ] **Wake-lock tapped twice.** Tap the wake-lock notification action twice in a row (release/no-op
       path). No crash or exception; state/notification remain consistent.
-
-- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
-      open the Style screen and return, and send the crash envelope with `am broadcast -a
-      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
-      no duplicated sessions bar, no replayed intro on rotation.
-- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
-      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
-      behaviour and leave the service list consistent.
-- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
-      text, autofill username/password, reset terminal, kill process (disabled for a finished
-      session), style, keep-screen-on checkmark, help, settings, report issue.
-- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
-      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
-      `~/storage` symlinks.
-- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
-      the float button, then stop the service from the notification. No crash and no orphaned
-      sessions; the notification disappears when the last session, task and float end.
-- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
-      `TerminalSession` and background `AppShell` runners; the result must come back and the
-      background-only notification must not appear.
-- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
-      bootstrap installs, reports each stage, and the first session appears when done; a failed
-      install leaves the overlay in the failure state instead of hanging on progress.
-
-- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
-      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
-      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
-      stored ones, and flipping one must persist across a restart.
-- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
-      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
-      the query restores the full list from the resource.
-- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
-      chosen image is copied into the app storage and appears behind the terminal, and the image,
-      blur and opacity rows appear only in the modes that use them.
-- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
-      the "(default)" tag follows the default value, and the choice survives a settings reopen.
-
-- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
-      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
-      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
-      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
-- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
-      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
-      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
-      `external-*` and `media-*` links that resolve.
-- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
-      tree lists, names and sizes are right, folders can be created, a file can be opened for read
-      and written back, and a search for a known file name returns it.
-- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
-      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
-      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
-- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
-      receives the content URI and can read the file; opening `termux.properties` through the
-      provider must fall back to read-only.
-- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
-      `termux-environment` is rewritten and nothing crashes.
-- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
-      opens the browser, and Back returns through the page history before leaving.
-
-- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
-      start handle: the floating action toolbar stays over the selection, centered rather than
-      collapsed to a zero-width rect at one edge.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -1001,6 +629,14 @@ search. Everything below is device-only: it is either feel, animation or a platf
       the IME's backspace, paste, and toggle the terminal cursor blink rate to both extremes in
       Settings.
 
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 23. D-23 — Kotlin conversion (terminal-view and app, 2026-11-17)
+
+Hand conversion of `terminal-view/src/main` and `app/src/main` from Java to Kotlin with no
+intended behavior change. The unit suites stay green, so these are the paths that only a
+device can settle.
+
 - [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
       open the Style screen and return, and send the crash envelope with `am broadcast -a
       com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
@@ -1024,33 +660,58 @@ search. Everything below is device-only: it is either feel, animation or a platf
       bootstrap installs, reports each stage, and the first session appears when done; a failed
       install leaves the overlay in the failure state instead of hanging on progress.
 
-- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
+- [x] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
       and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
       panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
       stored ones, and flipping one must persist across a restart.
+      *2026-11-17: the Termux panel, Display, Keyboard and Advanced inflate and show the stored
+      values; log level persisted. API/Tasker/Widget are hidden because no companion app is
+      installed, so those hubs are untested.*
 - [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
       narrows to the matching rows, a query with no match shows the "no results" row, and clearing
       the query restores the full list from the resource.
-- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
+      *2026-11-17: fails, and fails the same way on `master`. Every query ("font", "keyboard")
+      reports "No settings match": the three Termux rows in `res/xml/termux_preferences.xml` carry
+      no `app:key`, and the index builder skips keyless preferences. Clearing the query restores
+      the full list. Tracked in `outstanding-work.md` §3.2.*
+- [x] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
       chosen image is copied into the app storage and appears behind the terminal, and the image,
       blur and opacity rows appear only in the modes that use them.
-- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
+      *2026-11-17: the list offers Solid colour / System wallpaper / Custom image; choosing Custom
+      image shows the picker row, the blur and opacity rows, and persists
+      `terminal_background=image` plus the stored image path; switching back persists `solid`.
+      The image was not visually confirmed behind the terminal.*
+- [x] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
       the "(default)" tag follows the default value, and the choice survives a settings reopen.
+      *2026-11-17: Termux panel only. Off / Normal (default) / Debug / Verbose list with the
+      `(default)` tag; Verbose persisted `log_level=3` and Normal restored `log_level=1`.*
 
 - [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
       `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
       the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
       "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
-- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
+      *2026-11-17: not run (it would delete the working prefix). The installed prefix from an
+      earlier run is intact: `files/usr/{bin,etc,include,lib,libexec}` all exist.*
+- [x] **Storage symlinks.** Grant storage permission and run the setup from a session (or
       `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
       `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
       `external-*` and `media-*` links that resolve.
-- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
+      *2026-11-17: all eleven links present (`shared`, `documents`, `downloads`, `dcim`,
+      `pictures`, `music`, `movies`, `podcasts`, `audiobooks`, `external-0`, `media-0`) and
+      pointing at the real shared paths.*
+- [x] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
       tree lists, names and sizes are right, folders can be created, a file can be opened for read
       and written back, and a search for a known file name returns it.
-- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
+      *2026-11-17: root, `$HOME` listing (names, sizes, dates) and search ("bands" returns
+      `a_bands.done`) verified through the system `OPEN_DOCUMENT` picker. Folder creation and
+      write-back were not exercised.*
+- [x] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
       file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
       "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
+      *2026-11-17: URL -> the "does not exist: $HOME/bin/termux-url-opener" dialog with no opener;
+      with a temporary opener the script ran with the URL as `$1`. Text -> the
+      "Save file in ~/downloads/" name dialog; CANCEL wrote nothing, a typed name saved the payload
+      and EDIT ran `termux-file-editor` with the saved path. An image share was not exercised.*
 - [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
       receives the content URI and can read the file; opening `termux.properties` through the
       provider must fall back to read-only.
@@ -1062,5 +723,12 @@ search. Everything below is device-only: it is either feel, animation or a platf
 - [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
       start handle: the floating action toolbar stays over the selection, centered rather than
       collapsed to a zero-width rect at one edge.
+
+**Found on device, fixed in `b576f5b9`.** `TermuxService` passed `Runner.TERMINAL_SESSION.name`,
+which Kotlin resolves to `Enum.name()` (`"TERMINAL_SESSION"`) instead of the class's
+`getName()` (`"terminal-session"`). Every `ACTION_SERVICE_EXECUTE` intent without an explicit
+`EXTRA_RUNNER` was therefore rejected as an invalid runner, so `termux-url-opener`,
+`termux-file-editor` and the receive dialog's "open directory" action all did nothing and said
+nothing. The URL and text share checks below are what caught it; both were re-run after the fix.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
