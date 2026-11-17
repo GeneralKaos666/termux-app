@@ -399,6 +399,29 @@ foreground command so the received bytes are visible:
 - [ ] `Tab` completes a path prefix rather than inserting a literal tab.
 - [ ] Enter submits the line (`\n` from the IME is still mapped to control-M, not a literal newline).
 
+- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
+      open the Style screen and return, and send the crash envelope with `am broadcast -a
+      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
+      no duplicated sessions bar, no replayed intro on rotation.
+- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
+      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
+      behaviour and leave the service list consistent.
+- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
+      text, autofill username/password, reset terminal, kill process (disabled for a finished
+      session), style, keep-screen-on checkmark, help, settings, report issue.
+- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
+      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
+      `~/storage` symlinks.
+- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
+      the float button, then stop the service from the notification. No crash and no orphaned
+      sessions; the notification disappears when the last session, task and float end.
+- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
+      `TerminalSession` and background `AppShell` runners; the result must come back and the
+      background-only notification must not appear.
+- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
+      bootstrap installs, reports each stage, and the first session appears when done; a failed
+      install leaves the overlay in the failure state instead of hanging on progress.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 15. D-14 — cursor fade blink, glow and eased bar/underline movement
@@ -435,6 +458,29 @@ Run in a live shell session:
       steady and fully opaque and a bar/underline cursor snaps to its cell instead of gliding.
 - [ ] Remove animations is live: turn the setting on (or set `ANIMATOR_DURATION_SCALE` to 0) while a
       session is open — the cursor stops fading and gliding without restarting the app.
+
+- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
+      open the Style screen and return, and send the crash envelope with `am broadcast -a
+      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
+      no duplicated sessions bar, no replayed intro on rotation.
+- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
+      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
+      behaviour and leave the service list consistent.
+- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
+      text, autofill username/password, reset terminal, kill process (disabled for a finished
+      session), style, keep-screen-on checkmark, help, settings, report issue.
+- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
+      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
+      `~/storage` symlinks.
+- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
+      the float button, then stop the service from the notification. No crash and no orphaned
+      sessions; the notification disappears when the last session, task and float end.
+- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
+      `TerminalSession` and background `AppShell` runners; the result must come back and the
+      background-only notification must not appear.
+- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
+      bootstrap installs, reports each stage, and the first session appears when done; a failed
+      install leaves the overlay in the failure state instead of hanging on progress.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -477,6 +523,29 @@ Run with at least three sessions and the float session available:
       fade, slide or overshoot.
 - [ ] Remove animations is live: turn the setting on while the app runs — every transition above
       becomes instant without restarting the app.
+
+- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
+      open the Style screen and return, and send the crash envelope with `am broadcast -a
+      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
+      no duplicated sessions bar, no replayed intro on rotation.
+- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
+      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
+      behaviour and leave the service list consistent.
+- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
+      text, autofill username/password, reset terminal, kill process (disabled for a finished
+      session), style, keep-screen-on checkmark, help, settings, report issue.
+- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
+      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
+      `~/storage` symlinks.
+- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
+      the float button, then stop the service from the notification. No crash and no orphaned
+      sessions; the notification disappears when the last session, task and float end.
+- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
+      `TerminalSession` and background `AppShell` runners; the result must come back and the
+      background-only notification must not appear.
+- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
+      bootstrap installs, reports each stage, and the first session appears when done; a failed
+      install leaves the overlay in the failure state instead of hanging on progress.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -526,6 +595,29 @@ Run with a busy static wallpaper and with a custom image:
 - [x] Rotation: rotate with a blurred picture showing. No crash, no stretched crop, and the blur does
       not become sharper or softer across the rotation.
 
+- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
+      open the Style screen and return, and send the crash envelope with `am broadcast -a
+      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
+      no duplicated sessions bar, no replayed intro on rotation.
+- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
+      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
+      behaviour and leave the service list consistent.
+- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
+      text, autofill username/password, reset terminal, kill process (disabled for a finished
+      session), style, keep-screen-on checkmark, help, settings, report issue.
+- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
+      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
+      `~/storage` symlinks.
+- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
+      the float button, then stop the service from the notification. No crash and no orphaned
+      sessions; the notification disappears when the last session, task and float end.
+- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
+      `TerminalSession` and background `AppShell` runners; the result must come back and the
+      background-only notification must not appear.
+- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
+      bootstrap installs, reports each stage, and the first session appears when done; a failed
+      install leaves the overlay in the failure state instead of hanging on progress.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 18. D-17 to D-20 — termux-backup on a real device
@@ -553,6 +645,29 @@ package manager or a second device yet.
       `status` and `backup`. Expect `storage_access: false` in `status` and exit 2 from `backup` with
       the failing root named, not a hang or a partial backup in `list`.
 
+- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
+      open the Style screen and return, and send the crash envelope with `am broadcast -a
+      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
+      no duplicated sessions bar, no replayed intro on rotation.
+- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
+      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
+      behaviour and leave the service list consistent.
+- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
+      text, autofill username/password, reset terminal, kill process (disabled for a finished
+      session), style, keep-screen-on checkmark, help, settings, report issue.
+- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
+      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
+      `~/storage` symlinks.
+- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
+      the float button, then stop the service from the notification. No crash and no orphaned
+      sessions; the notification disappears when the last session, task and float end.
+- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
+      `TerminalSession` and background `AppShell` runners; the result must come back and the
+      background-only notification must not appear.
+- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
+      bootstrap installs, reports each stage, and the first session appears when done; a failed
+      install leaves the overlay in the failure state instead of hanging on progress.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 21. D-21 — app layering extraction (domain/data/ui, 2026-11-15)
@@ -575,6 +690,29 @@ surfaces unchanged). Verify companion/plugin integration and service UI behavior
       stop or release as appropriate, float toggles).
 - [ ] **Wake-lock tapped twice.** Tap the wake-lock notification action twice in a row (release/no-op
       path). No crash or exception; state/notification remain consistent.
+
+- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
+      open the Style screen and return, and send the crash envelope with `am broadcast -a
+      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
+      no duplicated sessions bar, no replayed intro on rotation.
+- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
+      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
+      behaviour and leave the service list consistent.
+- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
+      text, autofill username/password, reset terminal, kill process (disabled for a finished
+      session), style, keep-screen-on checkmark, help, settings, report issue.
+- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
+      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
+      `~/storage` symlinks.
+- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
+      the float button, then stop the service from the notification. No crash and no orphaned
+      sessions; the notification disappears when the last session, task and float end.
+- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
+      `TerminalSession` and background `AppShell` runners; the result must come back and the
+      background-only notification must not appear.
+- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
+      bootstrap installs, reports each stage, and the first session appears when done; a failed
+      install leaves the overlay in the failure state instead of hanging on progress.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -628,5 +766,28 @@ search. Everything below is device-only: it is either feel, animation or a platf
 - [ ] **TerminalView conversion.** Type text with the soft keyboard open, delete text mid-word with
       the IME's backspace, paste, and toggle the terminal cursor blink rate to both extremes in
       Settings.
+
+- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
+      open the Style screen and return, and send the crash envelope with `am broadcast -a
+      com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
+      no duplicated sessions bar, no replayed intro on rotation.
+- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
+      close a running tab and confirm the dialog; drag to reorder. Each action must match the old
+      behaviour and leave the service list consistent.
+- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
+      text, autofill username/password, reset terminal, kill process (disabled for a finished
+      session), style, keep-screen-on checkmark, help, settings, report issue.
+- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
+      com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
+      `~/storage` symlinks.
+- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
+      the float button, then stop the service from the notification. No crash and no orphaned
+      sessions; the notification disappears when the last session, task and float end.
+- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
+      `TerminalSession` and background `AppShell` runners; the result must come back and the
+      background-only notification must not appear.
+- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
+      bootstrap installs, reports each stage, and the first session appears when done; a failed
+      install leaves the overlay in the failure state instead of hanging on progress.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
