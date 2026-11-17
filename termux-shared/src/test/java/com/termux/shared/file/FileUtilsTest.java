@@ -1,9 +1,15 @@
 package com.termux.shared.file;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 
 /** JVM tests for the pure path helpers in {@link FileUtils}. */
 public class FileUtilsTest {
@@ -36,5 +42,18 @@ public class FileUtilsTest {
         assertEquals("file", FileUtils.getFileBasenameWithoutExtension("/path/file.txt"));
         assertEquals("file", FileUtils.getFileBasenameWithoutExtension("file"));
         assertEquals("file.tar", FileUtils.getFileBasenameWithoutExtension("file.tar.gz"));
+    }
+
+    @Test
+    public void testIsDirectChildPath() throws IOException {
+        File dir = Files.createTempDirectory("direct-child").toFile();
+        assertTrue(FileUtils.isDirectChildPath(dir.getAbsolutePath(), new File(dir, "a.bin").getAbsolutePath()));
+        assertFalse(FileUtils.isDirectChildPath(dir.getAbsolutePath(),
+            new File(dir, "../escape.bin").getAbsolutePath()));
+        assertFalse(FileUtils.isDirectChildPath(dir.getAbsolutePath(),
+            new File(dir.getAbsolutePath() + "2", "a.bin").getAbsolutePath()));
+        assertFalse(FileUtils.isDirectChildPath(dir.getAbsolutePath(), dir.getAbsolutePath()));
+        assertFalse(FileUtils.isDirectChildPath(null, dir.getAbsolutePath()));
+        assertFalse(FileUtils.isDirectChildPath(dir.getAbsolutePath(), null));
     }
 }

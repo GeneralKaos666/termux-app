@@ -123,6 +123,11 @@ public class ReportActivity extends AppCompatActivity {
             mReportInfoFilePath = mBundle.getString(EXTRA_REPORT_INFO_OBJECT_FILE_PATH);
             Logger.logVerbose(LOG_TAG, ReportInfo.class.getSimpleName() + " serialized object will be read from file at path \"" + mReportInfoFilePath + "\"");
             if (mReportInfoFilePath != null) {
+                if (!FileUtils.isDirectChildPath(getReportInfoDirectoryPath(this), mReportInfoFilePath)) {
+                    Logger.logError(LOG_TAG, "Refusing to read " + ReportInfo.class.getSimpleName()
+                        + " serialized object from a path outside the report info directory: \"" + mReportInfoFilePath + "\"");
+                    finish(); return;
+                }
                 try {
                     FileUtils.ReadSerializableObjectResult result = FileUtils.readSerializableObjectFromFile(ReportInfo.class.getSimpleName(), mReportInfoFilePath, ReportInfo.class, false);
                     if (result.error != null) {
@@ -403,8 +408,7 @@ public class ReportActivity extends AppCompatActivity {
 
         // Extra protection for mainly if someone set `exported="true"` for ReportActivityBroadcastReceiver
         String reportInfoDirectoryPath = getReportInfoDirectoryPath(context);
-        reportInfoFilePath = FileUtils.getCanonicalPath(reportInfoFilePath, null);
-        if(!reportInfoFilePath.equals(reportInfoDirectoryPath) && reportInfoFilePath.startsWith(reportInfoDirectoryPath + "/")) {
+        if (FileUtils.isDirectChildPath(reportInfoDirectoryPath, reportInfoFilePath)) {
             Logger.logVerbose(LOG_TAG, "Deleting " + ReportInfo.class.getSimpleName() + " serialized object file at path \"" + reportInfoFilePath + "\"");
             Error error = FileUtils.deleteRegularFile(ReportInfo.class.getSimpleName(), reportInfoFilePath, true);
             if (error != null) {
