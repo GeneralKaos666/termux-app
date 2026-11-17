@@ -1220,44 +1220,54 @@ Expected: the four arrays and the used-characters count. Adapt the code below to
 package com.termux.terminal;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.ConscryptMode;
 
 @RunWith(RobolectricTestRunner.class)
+@ConscryptMode(ConscryptMode.Mode.OFF)
 public class RowSnapshotTest {
 
     @Test
     public void aSnapshotDoesNotFollowLaterWrites() {
-        TerminalEmulator emulator = new TerminalEmulator(new TerminalTestCase.MockTerminalOutput(), 80, 24, 13, 15, 48, null);
-        TerminalBuffer screen = emulator.getScreen();
-        screen.setChar(0, 0, 'a', TextStyle.encode(TextStyle.COLOR_INDEX_FOREGROUND, TextStyle.COLOR_INDEX_BACKGROUND, 0));
+        TerminalBuffer screen = new TerminalBuffer(10, 10, 10);
+        screen.setChar(0, 0, 'a', TextStyle.encode(TextStyle.COLOR_INDEX_FOREGROUND,
+            TextStyle.COLOR_INDEX_BACKGROUND, TextStyle.CHARACTER_ATTRIBUTE_BOLD));
 
         TerminalBuffer.RowSnapshot snapshot = screen.snapshotRow(0);
         screen.setChar(0, 0, 'b', TextStyle.NORMAL);
 
         assertEquals('a', snapshot.text[0]);
-        assertEquals(TextStyle.encode(TextStyle.COLOR_INDEX_FOREGROUND, TextStyle.COLOR_INDEX_BACKGROUND, 0),
-            snapshot.styles[0]);
+        assertEquals(TextStyle.encode(TextStyle.COLOR_INDEX_FOREGROUND,
+            TextStyle.COLOR_INDEX_BACKGROUND, TextStyle.CHARACTER_ATTRIBUTE_BOLD), snapshot.styles[0]);
     }
 
     @Test
     public void anUntouchedRowSnapshotsAsBlankCells() {
-        TerminalEmulator emulator = new TerminalEmulator(new TerminalTestCase.MockTerminalOutput(), 80, 24, 13, 15, 48, null);
-        TerminalBuffer.RowSnapshot snapshot = emulator.getScreen().snapshotRow(10);
+        TerminalBuffer screen = new TerminalBuffer(10, 10, 10);
+
+        TerminalBuffer.RowSnapshot snapshot = screen.snapshotRow(5);
+
         assertEquals(' ', snapshot.text[0]);
         assertEquals(TextStyle.NORMAL, snapshot.styles[0]);
-        assertTrue(snapshot.spaceUsed >= 80);
+        assertEquals(10, snapshot.spaceUsed);
+        assertEquals(10, snapshot.linkIds.length);
+        assertEquals(10, snapshot.underlineColors.length);
     }
 }
 ```
 
+`TerminalBuffer(columns, screenRows, totalRows)` with all three equal keeps external and internal row
+numbers identical. The second test fails today with `NullPointerException` inside a naive
+`line.mLinkIds.clone()`: those arrays are allocated lazily and stay `null` on a row that never stored a
+link or an underline colour.
+
 - [ ] **Step 3: Run it and see it fail**
 
-Run: `./gradlew :terminal-emulator:test --tests "com.termux.terminal.RowSnapshotTest"`
-Expected: compilation failure.
+Run: `./gradlew :terminal-emulator:testDebugUnitTest --tests "com.termux.terminal.RowSnapshotTest"`
+Expected: compilation failure, then the lazy-array `NullPointerException` once the types exist.
 
 - [ ] **Step 4: Add the snapshot to `TerminalBuffer`**
 
@@ -1281,12 +1291,22 @@ public static final class RowSnapshot {
 
 public synchronized RowSnapshot snapshotRow(int externalRow) {
     TerminalRow line = allocateFullLineIfNecessary(externalToInternalRow(externalRow));
+    // The link and underline arrays are allocated lazily, so a row that never stored one has to be
+    // expanded with the values its getters report: no link, and "no underline color".
+    int[] linkIds = line.mLinkIds != null ? line.mLinkIds.clone() : new int[mColumns];
+    int[] underlineColors;
+    if (line.mUnderlineColors != null) {
+        underlineColors = line.mUnderlineColors.clone();
+    } else {
+        underlineColors = new int[mColumns];
+        Arrays.fill(underlineColors, TextStyle.COLOR_INDEX_FOREGROUND);
+    }
     return new RowSnapshot(
         Arrays.copyOf(line.mText, line.mText.length),
         line.mStyle.clone(),
-        line.mLinkIds.clone(),
-        line.mUnderlineColors.clone(),
-        line.spaceUsed);
+        linkIds,
+        underlineColors,
+        line.getSpaceUsed());
 }
 ```
 
@@ -1295,6 +1315,8 @@ public synchronized RowSnapshot snapshotRow(int externalRow) {
 In `TerminalRenderer.drawRows`, replace the four live reads:
 
 ```kotlin
+// Taken under the buffer lock: the emulator writes rows from its own thread, and a live read could
+// pair a new char with an old style (or the reverse) mid-cell.
 val rowSnapshot = screen.snapshotRow(row)
 val line = rowSnapshot.text
 val charsUsedInLine = rowSnapshot.spaceUsed
@@ -1309,7 +1331,7 @@ and a null bitmap is already handled.
 
 - [ ] **Step 6: Run both modules**
 
-Run: `./gradlew :terminal-emulator:test :terminal-view:test`
+Run: `./gradlew :terminal-emulator:testDebugUnitTest :terminal-view:testDebugUnitTest`
 Expected: `BUILD SUCCESSFUL`.
 
 - [ ] **Step 7: Commit**

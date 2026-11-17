@@ -1111,6 +1111,48 @@ public final class TerminalBuffer {
     }
 
 
+    /**
+     * A copy of one row, taken under the buffer lock so a renderer never sees a half-written cell.
+     * The arrays are the row's own storage sizes; {@link #spaceUsed} bounds how much of them holds
+     * text.
+     */
+    public static final class RowSnapshot {
+        public final char[] text;
+        public final long[] styles;
+        public final int[] linkIds;
+        public final int[] underlineColors;
+        public final int spaceUsed;
+
+        RowSnapshot(char[] text, long[] styles, int[] linkIds, int[] underlineColors, int spaceUsed) {
+            this.text = text;
+            this.styles = styles;
+            this.linkIds = linkIds;
+            this.underlineColors = underlineColors;
+            this.spaceUsed = spaceUsed;
+        }
+    }
+
+    /** @return a consistent copy of {@code externalRow} for a renderer to read outside the lock. */
+    public synchronized RowSnapshot snapshotRow(int externalRow) {
+        TerminalRow line = allocateFullLineIfNecessary(externalToInternalRow(externalRow));
+        // The link and underline arrays are allocated lazily, so a row that never stored one has to
+        // be expanded with the values its getters report: no link, and "no underline color".
+        int[] linkIds = line.mLinkIds != null ? line.mLinkIds.clone() : new int[mColumns];
+        int[] underlineColors;
+        if (line.mUnderlineColors != null) {
+            underlineColors = line.mUnderlineColors.clone();
+        } else {
+            underlineColors = new int[mColumns];
+            Arrays.fill(underlineColors, TextStyle.COLOR_INDEX_FOREGROUND);
+        }
+        return new RowSnapshot(
+            Arrays.copyOf(line.mText, line.mText.length),
+            line.mStyle.clone(),
+            linkIds,
+            underlineColors,
+            line.getSpaceUsed());
+    }
+
     /** Remove bitmaps that are completely scrolled out. */
     public synchronized void removeScrolledOutTerminalBitmaps(int row) {
         if (row < 0 || row >= mTotalRows) return;

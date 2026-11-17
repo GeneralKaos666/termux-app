@@ -190,9 +190,11 @@ class TerminalRenderer(
                 selx2 = if (row == selectionY2) selectionX2 else mEmulator.mColumns
             }
 
-            val lineObject = screen.allocateFullLineIfNecessary(screen.externalToInternalRow(row))
-            val line = lineObject.mText
-            val charsUsedInLine = lineObject.spaceUsed
+            // Taken under the buffer lock: the emulator writes rows from its own thread, and a live
+            // read could pair a new char with an old style (or the reverse) mid-cell.
+            val rowSnapshot = screen.snapshotRow(row)
+            val line = rowSnapshot.text
+            val charsUsedInLine = rowSnapshot.spaceUsed
 
             var lastRunStyle = 0L
             var lastRunLinkId = 0
@@ -211,9 +213,9 @@ class TerminalRenderer(
                 val charsForCodePoint = if (charIsHighsurrogate) 2 else 1
                 val codePoint =
                     if (charIsHighsurrogate) Character.toCodePoint(charAtIndex, line[currentCharIndex + 1]) else charAtIndex.code
-                val style = lineObject.getStyle(column)
-                val linkId = lineObject.getLinkId(column)
-                val underlineColor = lineObject.getUnderlineColor(column)
+                val style = rowSnapshot.styles[column]
+                val linkId = rowSnapshot.linkIds[column]
+                val underlineColor = rowSnapshot.underlineColors[column]
                 if (TextStyle.isTerminalBitmap(style)) {
                     // A bitmap cell is not text: close the pending run at this column, so the cells
                     // before it are drawn and the run after it starts at the next column.
