@@ -2313,35 +2313,40 @@ versionName "2.6.1"
 At the end of §3 in `docs/ledger/outstanding-work.md`:
 
 ```markdown
-### 3.x Post-review hardening — closed 2026-11-17
+### 3.3 Post-review hardening — closed 2026-11-17
 
-- `[done 2026-11-17]` the 20 code findings of the `v2.0.0-beta..e3f68eb1` review are fixed in
-  `plans/2026-11-17-post-review-hardening.md`: received-file containment and one-shot handling,
-  report-info read containment, documents-provider containment, broadcast export flags, sixel
-  capacity, bitmap row walking and resize sizing, renderer run flush and row snapshots, key-bar
-  focus handback, snippet cap, bounded iTerm import, pending-font cleanup, symlink walk, handle tint,
-  wallpaper error containment, foreground-command cache, `keycap-visuals` wiring.
-- `[non-goal]` rewriting the seven historical commits that do not use the capitalized conventional
-  types: the messages are in the past and rewriting `master` would break every clone; the rule is
-  enforced from here on.
-- The settings-search defect stays `[open 2026-11-17]` above; it is independent of this review.
+- `[done 2026-11-17]` the 22 findings (F1–F22) of the `v2.0.0-beta..e3f68eb1` review are fixed in
+  `plans/2026-11-17-post-review-hardening.md`, one commit per finding: received-file name
+  containment and one-shot intent handling, report-info read containment, documents-provider
+  containment, broadcast export flags, sixel capacity clamp, bitmap row walking and resize sizing,
+  renderer run flush and row snapshots, palette paste without an emulator, key-bar focus handback,
+  snippet cap, bounded iTerm import, pending-font cleanup, symlink-safe old-file walk, handle tint
+  clearing, wallpaper error containment, foreground-command cache, and `keycap-visuals` wiring.
+- `[non-goal]` rewriting the seven historical commits whose messages do not use the capitalized
+  conventional types: the messages are in the past and rewriting `master` would break every clone;
+  the rule is enforced from here on.
+- The settings-search defect stays `[open 2026-11-17]` in §3.1; it is independent of this review.
 ```
+
+Numbering is fixed: `manual-checks.md` already uses D-21..D-23 and §21–§23 for other programs, so
+the new checks start at D-27 and the new section is §24.
 
 - [ ] **Step 3: Add the manual checks**
 
 In the `manual-checks.md` status table, append:
 
 ```markdown
-| D-21 | Received file with a hostile display name is refused and nothing is written outside `~/downloads` | pending | §19 below |
-| D-22 | Absurd sixel raster size neither crashes nor stalls the terminal | pending | §19 below |
-| D-23 | Text either side of a sixel cell renders with no missing, doubled or shifted cell | pending | §19 below |
-| D-24 | `keycap-visuals = false` removes the keycap inset and the popup chevron | pending | §19 below |
-| D-25 | A share is saved and opened exactly once (no second editor launch on resume) | pending | §19 below |
-| D-26 | The snippet screen stops at 20 rows and shows the limit line | pending | §19 below |
+| D-27 | Received file with a hostile display name is refused and nothing is written outside `~/downloads` | pending | §24 below |
+| D-28 | Absurd sixel raster size neither crashes nor stalls the terminal | pending | §24 below |
+| D-29 | Text either side of a sixel cell renders with no missing, doubled or shifted cell | pending | §24 below |
+| D-30 | `keycap-visuals = false` removes the keycap inset and the popup chevron | pending | §24 below |
+| D-31 | A shared file is saved and opened exactly once (no second editor launch on resume) | pending | §24 below |
+| D-32 | The snippet screen stops at 20 rows and shows the limit line | pending | §24 below |
 ```
 
-and a `## 19. Post-review hardening` section listing each check as a numbered step with its
-reproduction command or tap path.
+and a `## 24. D-27 to D-32 — post-review hardening (2026-11-17)` section listing each check as a
+step with its reproduction command or tap path. The section number and the check numbers continue
+after §21–§23/D-21–D-23, which belong to the Kotlin conversion program.
 
 - [ ] **Step 4: Verify the version gate**
 
@@ -2389,5 +2394,5 @@ trusts the input. Record the file:line of each check in the final commit body.
 
 - [ ] **Step 5: Hand over the device phase**
 
-Point the user at `docs/ledger/manual-checks.md` D-21..D-26. Do not claim the branch is done until
+Point the user at `docs/ledger/manual-checks.md` D-27..D-32. Do not claim the branch is done until
 Steps 1-3 pass and the user accepts that the device checks are pending.
