@@ -422,6 +422,19 @@ foreground command so the received bytes are visible:
       bootstrap installs, reports each stage, and the first session appears when done; a failed
       install leaves the overlay in the failure state instead of hanging on progress.
 
+- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
+      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
+      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
+      stored ones, and flipping one must persist across a restart.
+- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
+      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
+      the query restores the full list from the resource.
+- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
+      chosen image is copied into the app storage and appears behind the terminal, and the image,
+      blur and opacity rows appear only in the modes that use them.
+- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
+      the "(default)" tag follows the default value, and the choice survives a settings reopen.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 15. D-14 — cursor fade blink, glow and eased bar/underline movement
@@ -481,6 +494,19 @@ Run in a live shell session:
 - [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
       bootstrap installs, reports each stage, and the first session appears when done; a failed
       install leaves the overlay in the failure state instead of hanging on progress.
+
+- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
+      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
+      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
+      stored ones, and flipping one must persist across a restart.
+- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
+      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
+      the query restores the full list from the resource.
+- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
+      chosen image is copied into the app storage and appears behind the terminal, and the image,
+      blur and opacity rows appear only in the modes that use them.
+- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
+      the "(default)" tag follows the default value, and the choice survives a settings reopen.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -546,6 +572,19 @@ Run with at least three sessions and the float session available:
 - [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
       bootstrap installs, reports each stage, and the first session appears when done; a failed
       install leaves the overlay in the failure state instead of hanging on progress.
+
+- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
+      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
+      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
+      stored ones, and flipping one must persist across a restart.
+- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
+      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
+      the query restores the full list from the resource.
+- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
+      chosen image is copied into the app storage and appears behind the terminal, and the image,
+      blur and opacity rows appear only in the modes that use them.
+- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
+      the "(default)" tag follows the default value, and the choice survives a settings reopen.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -618,6 +657,19 @@ Run with a busy static wallpaper and with a custom image:
       bootstrap installs, reports each stage, and the first session appears when done; a failed
       install leaves the overlay in the failure state instead of hanging on progress.
 
+- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
+      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
+      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
+      stored ones, and flipping one must persist across a restart.
+- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
+      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
+      the query restores the full list from the resource.
+- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
+      chosen image is copied into the app storage and appears behind the terminal, and the image,
+      blur and opacity rows appear only in the modes that use them.
+- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
+      the "(default)" tag follows the default value, and the choice survives a settings reopen.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 18. D-17 to D-20 — termux-backup on a real device
@@ -668,6 +720,19 @@ package manager or a second device yet.
       bootstrap installs, reports each stage, and the first session appears when done; a failed
       install leaves the overlay in the failure state instead of hanging on progress.
 
+- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
+      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
+      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
+      stored ones, and flipping one must persist across a restart.
+- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
+      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
+      the query restores the full list from the resource.
+- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
+      chosen image is copied into the app storage and appears behind the terminal, and the image,
+      blur and opacity rows appear only in the modes that use them.
+- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
+      the "(default)" tag follows the default value, and the choice survives a settings reopen.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 21. D-21 — app layering extraction (domain/data/ui, 2026-11-15)
@@ -713,6 +778,19 @@ surfaces unchanged). Verify companion/plugin integration and service UI behavior
 - [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
       bootstrap installs, reports each stage, and the first session appears when done; a failed
       install leaves the overlay in the failure state instead of hanging on progress.
+
+- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
+      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
+      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
+      stored ones, and flipping one must persist across a restart.
+- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
+      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
+      the query restores the full list from the resource.
+- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
+      chosen image is copied into the app storage and appears behind the terminal, and the image,
+      blur and opacity rows appear only in the modes that use them.
+- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
+      the "(default)" tag follows the default value, and the choice survives a settings reopen.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -789,5 +867,18 @@ search. Everything below is device-only: it is either feel, animation or a platf
 - [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
       bootstrap installs, reports each stage, and the first session appears when done; a failed
       install leaves the overlay in the failure state instead of hanging on progress.
+
+- [ ] **Settings hub after the Kotlin conversion.** Open Settings from the terminal context menu
+      and from the palette: the Termux, API, Float, Tasker and Widget hubs open, and each of their
+      panels (Display, Keyboard, Debugging) inflates without a crash. The values shown must be the
+      stored ones, and flipping one must persist across a restart.
+- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
+      narrows to the matching rows, a query with no match shows the "no results" row, and clearing
+      the query restores the full list from the resource.
+- [ ] **Background image picker.** Settings -> Display -> pick a custom image: the picker opens, the
+      chosen image is copied into the app storage and appears behind the terminal, and the image,
+      blur and opacity rows appear only in the modes that use them.
+- [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
+      the "(default)" tag follows the default value, and the choice survives a settings reopen.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
