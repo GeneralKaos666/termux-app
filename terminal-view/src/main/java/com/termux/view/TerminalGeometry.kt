@@ -21,7 +21,7 @@ object TerminalGeometry {
      */
     @JvmStatic
     fun cursorRow(y: Float, lineSpacing: Float, topRow: Int): Int {
-        return (((y - 40) / lineSpacing).toInt() + topRow)
+        return ((y - 40) / lineSpacing + topRow).toInt()
     }
 
     /** Left edge of `column`, clamped to the last column so a past-the-end point stays inside. */
