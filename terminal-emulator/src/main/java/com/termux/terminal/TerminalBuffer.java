@@ -1113,32 +1113,30 @@ public final class TerminalBuffer {
 
     /** Remove bitmaps that are completely scrolled out. */
     public synchronized void removeScrolledOutTerminalBitmaps(int row) {
+        if (row < 0 || row >= mTotalRows) return;
+
         Set<Integer> bitmapsToRemove = new HashSet<>();
+        collectTerminalBitmapNums(row, bitmapsToRemove);
+        // The row the terminal is scrolling into may wrap to the first physical line, and it may
+        // never have been written, so the successor is optional.
+        collectTerminalBitmapNums((row + 1) % mTotalRows, bitmapsToRemove);
+        if (bitmapsToRemove.isEmpty()) return;
 
+        for (Integer bitmapNum : bitmapsToRemove) {
+            mTerminalBitmaps.remove(bitmapNum);
+            removeImagePlacement(bitmapNum);
+        }
+        // The cells that referenced the removed bitmaps must not keep a dangling bitmap style.
+        blankStampedCells(bitmapsToRemove);
+    }
+
+    /** Collect the bitmap numbers stamped on {@code internalRow}, if the row exists. */
+    private void collectTerminalBitmapNums(int internalRow, Set<Integer> out) {
+        TerminalRow line = mLines[internalRow];
+        if (line == null || !line.mHasTerminalBitmap) return;
         for (int column = 0; column < mColumns; column++) {
-            long columnStyle = mLines[row].getStyle(column);
-            int bitmapNum = TextStyle.getTerminalBitmapNum(columnStyle);
-            if (bitmapNum >= TERMINAL_BITMAP__NUM_START) {
-                bitmapsToRemove.add(bitmapNum);
-            }
-        }
-
-        if (row + 1 < mTotalRows) {
-            TerminalRow nextLine = mLines[row + 1];
-            if (nextLine.mHasTerminalBitmap) {
-                for (int column = 0; column < mColumns; column++) {
-                    long columnStyle = nextLine.getStyle(column);
-                    int bitmapNum = TextStyle.getTerminalBitmapNum(columnStyle);
-                    if (bitmapNum >= TERMINAL_BITMAP__NUM_START) {
-                        bitmapsToRemove.add(bitmapNum);
-                    }
-                }
-            }
-        }
-
-        for(Integer bitmapStyle : bitmapsToRemove) {
-            mTerminalBitmaps.remove(bitmapStyle);
-            removeImagePlacement(bitmapStyle);
+            int bitmapNum = TextStyle.getTerminalBitmapNum(line.getStyle(column));
+            if (bitmapNum >= TERMINAL_BITMAP__NUM_START) out.add(bitmapNum);
         }
     }
 

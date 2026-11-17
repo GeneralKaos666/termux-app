@@ -32,6 +32,39 @@ public class TerminalBufferPlacementTest {
     }
 
     @Test
+    public void lastInternalRowDoesNotOverrunTheLineArray() {
+        // totalRows == screenRows, so internal and external row numbers coincide.
+        TerminalBuffer buffer = new TerminalBuffer(10, 10, 10);
+        buffer.setChar(0, 9, ' ', TextStyle.encodeTerminalBitmap(7, 0, 0));
+
+        // The call site passes an internal row; the last one has no `row + 1` slot.
+        buffer.removeScrolledOutTerminalBitmaps(buffer.mTotalRows - 1);
+
+        assertFalse(TextStyle.isTerminalBitmap(buffer.getStyleAt(9, 0)));
+    }
+
+    @Test
+    public void theNextRowWrapsToTheFirstSlot() {
+        TerminalBuffer buffer = new TerminalBuffer(10, 10, 10);
+        buffer.setChar(0, 0, ' ', TextStyle.encodeTerminalBitmap(8, 0, 0));
+
+        buffer.removeScrolledOutTerminalBitmaps(buffer.mTotalRows - 1);
+
+        assertFalse(TextStyle.isTerminalBitmap(buffer.getStyleAt(0, 0)));
+    }
+
+    @Test
+    public void anUnallocatedNextRowIsTolerated() {
+        TerminalBuffer buffer = new TerminalBuffer(10, 10, 10);
+        // A bitmap on a row whose physical successor was never written: `mLines[row + 1]` is null.
+        buffer.setChar(0, 5, ' ', TextStyle.encodeTerminalBitmap(9, 0, 0));
+
+        buffer.removeScrolledOutTerminalBitmaps(5);
+
+        assertFalse(TextStyle.isTerminalBitmap(buffer.getStyleAt(5, 0)));
+    }
+
+    @Test
     public void placeRegistersImageAndReturnsBitmapNum() {
         TerminalBuffer buffer = new TerminalBuffer(10, 10, 4);
 
