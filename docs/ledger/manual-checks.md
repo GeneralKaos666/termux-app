@@ -435,6 +435,28 @@ foreground command so the received bytes are visible:
 - [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
       the "(default)" tag follows the default value, and the choice survives a settings reopen.
 
+- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
+      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
+      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
+      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
+- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
+      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
+      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
+      `external-*` and `media-*` links that resolve.
+- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
+      tree lists, names and sizes are right, folders can be created, a file can be opened for read
+      and written back, and a search for a known file name returns it.
+- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
+      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
+      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
+- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
+      receives the content URI and can read the file; opening `termux.properties` through the
+      provider must fall back to read-only.
+- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
+      `termux-environment` is rewritten and nothing crashes.
+- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
+      opens the browser, and Back returns through the page history before leaving.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 15. D-14 — cursor fade blink, glow and eased bar/underline movement
@@ -507,6 +529,28 @@ Run in a live shell session:
       blur and opacity rows appear only in the modes that use them.
 - [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
       the "(default)" tag follows the default value, and the choice survives a settings reopen.
+
+- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
+      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
+      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
+      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
+- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
+      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
+      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
+      `external-*` and `media-*` links that resolve.
+- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
+      tree lists, names and sizes are right, folders can be created, a file can be opened for read
+      and written back, and a search for a known file name returns it.
+- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
+      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
+      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
+- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
+      receives the content URI and can read the file; opening `termux.properties` through the
+      provider must fall back to read-only.
+- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
+      `termux-environment` is rewritten and nothing crashes.
+- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
+      opens the browser, and Back returns through the page history before leaving.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -585,6 +629,28 @@ Run with at least three sessions and the float session available:
       blur and opacity rows appear only in the modes that use them.
 - [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
       the "(default)" tag follows the default value, and the choice survives a settings reopen.
+
+- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
+      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
+      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
+      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
+- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
+      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
+      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
+      `external-*` and `media-*` links that resolve.
+- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
+      tree lists, names and sizes are right, folders can be created, a file can be opened for read
+      and written back, and a search for a known file name returns it.
+- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
+      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
+      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
+- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
+      receives the content URI and can read the file; opening `termux.properties` through the
+      provider must fall back to read-only.
+- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
+      `termux-environment` is rewritten and nothing crashes.
+- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
+      opens the browser, and Back returns through the page history before leaving.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -670,6 +736,28 @@ Run with a busy static wallpaper and with a custom image:
 - [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
       the "(default)" tag follows the default value, and the choice survives a settings reopen.
 
+- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
+      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
+      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
+      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
+- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
+      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
+      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
+      `external-*` and `media-*` links that resolve.
+- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
+      tree lists, names and sizes are right, folders can be created, a file can be opened for read
+      and written back, and a search for a known file name returns it.
+- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
+      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
+      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
+- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
+      receives the content URI and can read the file; opening `termux.properties` through the
+      provider must fall back to read-only.
+- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
+      `termux-environment` is rewritten and nothing crashes.
+- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
+      opens the browser, and Back returns through the page history before leaving.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 18. D-17 to D-20 — termux-backup on a real device
@@ -733,6 +821,28 @@ package manager or a second device yet.
 - [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
       the "(default)" tag follows the default value, and the choice survives a settings reopen.
 
+- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
+      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
+      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
+      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
+- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
+      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
+      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
+      `external-*` and `media-*` links that resolve.
+- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
+      tree lists, names and sizes are right, folders can be created, a file can be opened for read
+      and written back, and a search for a known file name returns it.
+- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
+      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
+      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
+- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
+      receives the content URI and can read the file; opening `termux.properties` through the
+      provider must fall back to read-only.
+- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
+      `termux-environment` is rewritten and nothing crashes.
+- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
+      opens the browser, and Back returns through the page history before leaving.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 21. D-21 — app layering extraction (domain/data/ui, 2026-11-15)
@@ -791,6 +901,28 @@ surfaces unchanged). Verify companion/plugin integration and service UI behavior
       blur and opacity rows appear only in the modes that use them.
 - [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
       the "(default)" tag follows the default value, and the choice survives a settings reopen.
+
+- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
+      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
+      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
+      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
+- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
+      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
+      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
+      `external-*` and `media-*` links that resolve.
+- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
+      tree lists, names and sizes are right, folders can be created, a file can be opened for read
+      and written back, and a search for a known file name returns it.
+- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
+      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
+      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
+- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
+      receives the content URI and can read the file; opening `termux.properties` through the
+      provider must fall back to read-only.
+- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
+      `termux-environment` is rewritten and nothing crashes.
+- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
+      opens the browser, and Back returns through the page history before leaving.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -880,5 +1012,27 @@ search. Everything below is device-only: it is either feel, animation or a platf
       blur and opacity rows appear only in the modes that use them.
 - [ ] **Debugging log level.** In each Debugging panel, change the log level: the selection sticks,
       the "(default)" tag follows the default value, and the choice survives a settings reopen.
+
+- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
+      `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
+      the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
+      "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
+- [ ] **Storage symlinks.** Grant storage permission and run the setup from a session (or
+      `am broadcast -a com.termux.app.event.REQUEST_PERMISSIONS`): `~/storage` is rebuilt with
+      `shared`, `documents`, `downloads`, `dcim`, `pictures`, `music`, `movies`, `podcasts`,
+      `external-*` and `media-*` links that resolve.
+- [ ] **Documents provider.** From another app's file picker, browse the Termux root: the `$HOME`
+      tree lists, names and sizes are right, folders can be created, a file can be opened for read
+      and written back, and a search for a known file name returns it.
+- [ ] **Share into Termux.** Share text, an image and a URL to Termux: the name dialog appears, the
+      file lands in `~/downloads` (or `termux-url-opener` runs for a URL), and the
+      "file does not exist" dialog appears when `~/bin/termux-file-editor` is missing.
+- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
+      receives the content URI and can read the file; opening `termux.properties` through the
+      provider must fall back to read-only.
+- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
+      `termux-environment` is rewritten and nothing crashes.
+- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
+      opens the browser, and Back returns through the page history before leaving.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
