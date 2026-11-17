@@ -2078,13 +2078,29 @@ public class FileUtils {
      *
      * This replaces commons-io {@code FileUtils.iterateFiles} with an {@code AgeFileFilter}.
      */
-    private static void collectFilesOlderThan(@NonNull File directory, long cutoffTime,
-                                              @Nullable FileFilter dirFilter, @NonNull List<File> filesToDelete) {
+    static void collectFilesOlderThan(@NonNull File directory, long cutoffTime,
+                                      @Nullable FileFilter dirFilter, @NonNull List<File> filesToDelete) {
         File[] files = directory.listFiles();
         if (files == null)
             return;
 
+        String canonicalDirectory;
+        try {
+            canonicalDirectory = directory.getCanonicalPath();
+        } catch (IOException e) {
+            return; // An unresolvable directory cannot be proven to be the one that was listed.
+        }
+
         for (File file : files) {
+            try {
+                // A symlinked directory's canonical parent is its target's parent, so it is skipped;
+                // the same comparison keeps a real entry inside the directory. Comparing by canonical
+                // path also means the walk never leaves the tree it was given.
+                String canonicalEntry = file.getCanonicalPath();
+                if (!canonicalDirectory.equals(new File(canonicalEntry).getParent())) continue;
+            } catch (IOException e) {
+                continue;
+            }
             if (file.isDirectory()) {
                 if (dirFilter != null && dirFilter.accept(file))
                     collectFilesOlderThan(file, cutoffTime, dirFilter, filesToDelete);
