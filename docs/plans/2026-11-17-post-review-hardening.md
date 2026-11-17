@@ -1769,45 +1769,53 @@ git commit -m "Fixed(app): Delete pending font cache files when the appearance s
 
 ```java
 @Test
-public void deleteFilesOlderThanXDaysDoesNotFollowDirectorySymlinks() throws Exception {
+public void testCollectFilesOlderThanSkipsDirectorySymlinks() throws Exception {
     File root = Files.createTempDirectory("old-files").toFile();
     File outside = Files.createTempDirectory("outside").toFile();
     File victim = new File(outside, "keep.txt");
     assertTrue(victim.createNewFile());
     assertTrue(victim.setLastModified(0));
+    File mine = new File(root, "mine.txt");
+    assertTrue(mine.createNewFile());
+    assertTrue(mine.setLastModified(0));
+    File sub = new File(root, "sub");
+    assertTrue(sub.mkdir());
+    File nested = new File(sub, "nested.txt");
+    assertTrue(nested.createNewFile());
+    assertTrue(nested.setLastModified(0));
+    Files.createSymbolicLink(new File(root, "link").toPath(), outside.toPath());
 
-    File link = new File(root, "link");
-    Files.createSymbolicLink(link.toPath(), outside.toPath());
+    List<File> collected = new ArrayList<>();
+    FileUtils.collectFilesOlderThan(root, System.currentTimeMillis(), file -> file.isDirectory(), collected);
 
-    FileUtils.deleteFilesOlderThanXDays("test", root.getAbsolutePath, null, 1, true,
-        FileType.REGULAR.getValue());
-
-    assertTrue("a file reached through a symlink must survive", victim.exists());
+    assertTrue(collected.contains(mine));
+    assertTrue(collected.contains(nested));
+    assertFalse("a file reached through a symlink must not be collected", collected.contains(victim));
+    for (File file : collected)
+        assertFalse(file.getAbsolutePath(), file.getAbsolutePath().startsWith(new File(root, "link").getAbsolutePath()));
 }
 ```
 
-Add the `java.nio.file.Files` import to the test only. Production code stays on `java.io`.
+Add `java.nio.file.Files`, `java.util.ArrayList` and `java.util.List` imports to the test only.
+Production code stays on `java.io`.
+
+The test drives the walk directly instead of `deleteFilesOlderThanXDays`: the deletion path calls
+`FileTypes.getFileType`, which uses `android.system.Os.lstat`, and that is a no-op stub in a JVM test,
+so an end-to-end assertion passes whether or not the walk followed the link. The walk itself is pure
+`java.io`.
 
 - [ ] **Step 2: Run it and see it fail**
 
-Run: `./gradlew :termux-shared:test --tests "com.termux.shared.file.FileUtilsTest"`
-Expected: `victim` is deleted.
-
-Note: today `deleteFilesOlderThanXDays` only recurses when `dirFilter != null`, and this call passes
-`null`. Keep the test but pass a filter that accepts everything
-(`dirFilter = File::isDirectory`), cast to `FileFilter`:
-
-```java
-FileFilter allDirs = File::isDirectory;
-FileUtils.deleteFilesOlderThanXDays("test", root.getAbsolutePath(), allDirs, 1, true,
-    FileType.REGULAR.getValue());
-```
+Run: `./gradlew :termux-shared:test`
+Expected: `collectFilesOlderThan` is private (compilation failure); once it is package-private,
+`testCollectFilesOlderThanSkipsDirectorySymlinks` fails with the collected path
+`.../old-files.../link/keep.txt`.
 
 - [ ] **Step 3: Skip entries reached through a link**
 
 ```java
-private static void collectFilesOlderThan(@NonNull File directory, long cutoffTime,
-                                          @Nullable FileFilter dirFilter, @NonNull List<File> filesToDelete) {
+static void collectFilesOlderThan(@NonNull File directory, long cutoffTime,
+                                  @Nullable FileFilter dirFilter, @NonNull List<File> filesToDelete) {
     File[] files = directory.listFiles();
     if (files == null)
         return;
@@ -1816,13 +1824,13 @@ private static void collectFilesOlderThan(@NonNull File directory, long cutoffTi
     try {
         canonicalDirectory = directory.getCanonicalPath();
     } catch (IOException e) {
-        return; // Fail closed: an unresolvable directory cannot be proven to be the same one.
+        return; // An unresolvable directory cannot be proven to be the one that was listed.
     }
 
     for (File file : files) {
         try {
             // A symlinked directory's canonical parent is its target's parent, so it is skipped;
-            // the same test keeps files under a symlinked path prefix.
+            // the same comparison keeps a real entry inside the directory.
             String canonicalEntry = file.getCanonicalPath();
             if (!canonicalDirectory.equals(new File(canonicalEntry).getParent())) continue;
         } catch (IOException e) {
@@ -1838,7 +1846,8 @@ private static void collectFilesOlderThan(@NonNull File directory, long cutoffTi
 }
 ```
 
-Add `import java.io.IOException;` if it is not already present.
+`collectFilesOlderThan` loses `private` so the test in the same package can call it; it stays out of
+the public API. `java.io.IOException` is already imported.
 
 - [ ] **Step 4: Run the module suite**
 

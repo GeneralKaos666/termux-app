@@ -10,6 +10,8 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 
 /** JVM tests for the pure path helpers in {@link FileUtils}. */
 public class FileUtilsTest {
@@ -55,5 +57,32 @@ public class FileUtilsTest {
         assertFalse(FileUtils.isDirectChildPath(dir.getAbsolutePath(), dir.getAbsolutePath()));
         assertFalse(FileUtils.isDirectChildPath(null, dir.getAbsolutePath()));
         assertFalse(FileUtils.isDirectChildPath(dir.getAbsolutePath(), null));
+    }
+
+    @Test
+    public void testCollectFilesOlderThanSkipsDirectorySymlinks() throws Exception {
+        File root = Files.createTempDirectory("old-files").toFile();
+        File outside = Files.createTempDirectory("outside").toFile();
+        File victim = new File(outside, "keep.txt");
+        assertTrue(victim.createNewFile());
+        assertTrue(victim.setLastModified(0));
+        File mine = new File(root, "mine.txt");
+        assertTrue(mine.createNewFile());
+        assertTrue(mine.setLastModified(0));
+        File sub = new File(root, "sub");
+        assertTrue(sub.mkdir());
+        File nested = new File(sub, "nested.txt");
+        assertTrue(nested.createNewFile());
+        assertTrue(nested.setLastModified(0));
+        Files.createSymbolicLink(new File(root, "link").toPath(), outside.toPath());
+
+        List<File> collected = new ArrayList<>();
+        FileUtils.collectFilesOlderThan(root, System.currentTimeMillis(), file -> file.isDirectory(), collected);
+
+        assertTrue(collected.contains(mine));
+        assertTrue(collected.contains(nested));
+        assertFalse("a file reached through a symlink must not be collected", collected.contains(victim));
+        for (File file : collected)
+            assertFalse(file.getAbsolutePath(), file.getAbsolutePath().startsWith(new File(root, "link").getAbsolutePath()));
     }
 }
