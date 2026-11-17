@@ -88,6 +88,15 @@ public class SixelParserTest {
         assertEquals(-1, result.newArgsCapacity);
     }
 
+    @Test
+    public void rasterSizeCannotRequestMoreThanTheArgsBufferMaximum() {
+        // `Ph;Pv` are untrusted; without a clamp and long arithmetic this asks for ~2 GB of char
+        // storage (and overflows the int product before the clamp is even reached).
+        SixelParser.Result result = parse("\"1;1;2000000000;2000000000");
+        assertTrue(result.valid);
+        assertEquals(1024, result.newArgsCapacity);
+    }
+
     // --- setup args -----------------------------------------------------------
 
     private static SixelParser.Setup setup(String dcs) {
