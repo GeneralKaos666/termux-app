@@ -22,6 +22,23 @@ interface WallpaperSource {
     fun downscaleForBlur(bitmap: Bitmap?, blurRadius: Float): Bitmap?
 }
 
+/**
+ * Runs an image decode and turns a failure into `null`: a wallpaper is decoration, so it must never
+ * take the app down. Running out of memory is handled separately from other failures so the log says
+ * what happened and the collector gets a chance before the next allocation.
+ */
+internal fun <T> containImageFailure(label: String, block: () -> T?): T? =
+    try {
+        block()
+    } catch (e: OutOfMemoryError) {
+        System.gc()
+        com.termux.shared.logger.Logger.logStackTraceWithMessage(LOG_TAG, "Not enough memory to load the $label", e)
+        null
+    } catch (e: Exception) {
+        com.termux.shared.logger.Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the $label", e)
+        null
+    }
+
 class AndroidWallpaperSource @JvmOverloads constructor(
     context: Context,
     private val sdkInt: Int = Build.VERSION.SDK_INT,
@@ -58,7 +75,7 @@ class AndroidWallpaperSource @JvmOverloads constructor(
     @Nullable
     override fun customImage(path: String?): Bitmap? {
         if (path.isNullOrEmpty()) return null
-        return try {
+        return containImageFailure("custom terminal background image") {
             val displayMetrics: DisplayMetrics = resources.displayMetrics
             val targetW = displayMetrics.widthPixels
             val targetH = displayMetrics.heightPixels
@@ -76,9 +93,6 @@ class AndroidWallpaperSource @JvmOverloads constructor(
             options.inSampleSize = inSampleSize
             options.inPreferredConfig = Bitmap.Config.ARGB_8888
             BitmapFactory.decodeFile(path, options)
-        } catch (e: Exception) {
-            com.termux.shared.logger.Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the custom terminal background image", e)
-            null
         }
     }
 
@@ -131,7 +145,6 @@ class AndroidWallpaperSource @JvmOverloads constructor(
         return bitmap
     }
 
-    private companion object {
-        const val LOG_TAG = "TermuxActivity"
-    }
 }
+
+private const val LOG_TAG = "TermuxActivity"
