@@ -1016,8 +1016,10 @@ import android.graphics.Bitmap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.ConscryptMode;
 
 @RunWith(RobolectricTestRunner.class)
+@ConscryptMode(ConscryptMode.Mode.OFF)
 public class TerminalBitmapResizeTest {
 
     @Test
@@ -1054,9 +1056,11 @@ public class TerminalBitmapResizeTest {
 
 - [ ] **Step 2: Run it and see it fail**
 
-Run: `./gradlew :terminal-emulator:test --tests "com.termux.terminal.TerminalBitmapResizeTest"`
+Run: `./gradlew :terminal-emulator:testDebugUnitTest --tests "com.termux.terminal.TerminalBitmapResizeTest"`
 Expected: compilation failure (`pixelBufferLength` / `requiredBitmapBytes` unresolved). The two
-behaviour tests pass today; they are the regression guards for the change.
+behaviour tests pass today; they are the regression guards for the change. Every Robolectric class in
+this module needs `@ConscryptMode(OFF)`: without it the Conscrypt JNI library fails to load
+`libpthread.so.0` on this host and all four tests error out.
 
 - [ ] **Step 3: Fix the sizing**
 
@@ -1071,11 +1075,13 @@ static int pixelBufferLength(int width, int height) {
     return width * height;
 }
 
-public static Bitmap resizeBitmap(...) {
+public static Bitmap resizeBitmap(String logTag, String label, TerminalSessionClient client, Bitmap bitmap,
+                                  int bitmapWidth, int bitmapHeight) {
     try {
         long newBitmapSize = requiredBitmapBytes(bitmapWidth, bitmapHeight);
         if (newBitmapSize > MAX_BITMAP_SIZE) { /* existing error + return null */ }
 
+        // One int per pixel, not one int per byte.
         int[] pixels = new int[pixelBufferLength(bitmap.getWidth(), bitmap.getHeight())];
         // ... unchanged from here
 ```
@@ -1084,7 +1090,7 @@ Keep `catch (Throwable)` and the `OutOfMemoryError` `System.gc()`.
 
 - [ ] **Step 4: Run the module suite**
 
-Run: `./gradlew :terminal-emulator:test`
+Run: `./gradlew :terminal-emulator:testDebugUnitTest`
 Expected: `BUILD SUCCESSFUL`.
 
 - [ ] **Step 5: Commit**
