@@ -898,42 +898,50 @@ git commit -m "Security(terminal-emulator): Clamp the sixel arguments capacity t
 ```java
 @Test
 public void lastInternalRowDoesNotOverrunTheLineArray() {
-    TerminalEmulator emulator = new TerminalEmulator(new TerminalTestCase.MockTerminalOutput(), 80, 24, 13, 15, 48, null);
-    TerminalBuffer screen = emulator.getScreen();
-    screen.setChar(0, 23, ' ', TextStyle.encodeTerminalBitmap(7, 0, 0));
+    // totalRows == screenRows, so internal and external row numbers coincide.
+    TerminalBuffer buffer = new TerminalBuffer(10, 10, 10);
+    buffer.setChar(0, 9, ' ', TextStyle.encodeTerminalBitmap(7, 0, 0));
+
     // The call site passes an internal row; the last one has no `row + 1` slot.
-    screen.removeScrolledOutTerminalBitmaps(screen.mTotalRows - 1);
-    assertFalse(TextStyle.isTerminalBitmap(screen.getStyleAt(23, 0)));
+    buffer.removeScrolledOutTerminalBitmaps(buffer.mTotalRows - 1);
+
+    assertFalse(TextStyle.isTerminalBitmap(buffer.getStyleAt(9, 0)));
 }
 
 @Test
 public void theNextRowWrapsToTheFirstSlot() {
-    TerminalEmulator emulator = new TerminalEmulator(new TerminalTestCase.MockTerminalOutput(), 80, 24, 13, 15, 48, null);
-    TerminalBuffer screen = emulator.getScreen();
-    screen.setChar(0, 0, ' ', TextStyle.encodeTerminalBitmap(8, 0, 0));
-    screen.removeScrolledOutTerminalBitmaps(screen.mTotalRows - 1);
-    assertFalse(TextStyle.isTerminalBitmap(screen.getStyleAt(0, 0)));
+    TerminalBuffer buffer = new TerminalBuffer(10, 10, 10);
+    buffer.setChar(0, 0, ' ', TextStyle.encodeTerminalBitmap(8, 0, 0));
+
+    buffer.removeScrolledOutTerminalBitmaps(buffer.mTotalRows - 1);
+
+    assertFalse(TextStyle.isTerminalBitmap(buffer.getStyleAt(0, 0)));
 }
 
 @Test
 public void anUnallocatedNextRowIsTolerated() {
-    TerminalEmulator emulator = new TerminalEmulator(new TerminalTestCase.MockTerminalOutput(), 80, 24, 13, 15, 48, null);
-    TerminalBuffer screen = emulator.getScreen();
+    TerminalBuffer buffer = new TerminalBuffer(10, 10, 10);
     // A bitmap on a row whose physical successor was never written: `mLines[row + 1]` is null.
-    screen.setChar(0, 5, ' ', TextStyle.encodeTerminalBitmap(9, 0, 0));
-    screen.removeScrolledOutTerminalBitmaps(5);
-    assertFalse(TextStyle.isTerminalBitmap(screen.getStyleAt(5, 0)));
+    buffer.setChar(0, 5, ' ', TextStyle.encodeTerminalBitmap(9, 0, 0));
+
+    buffer.removeScrolledOutTerminalBitmaps(5);
+
+    assertFalse(TextStyle.isTerminalBitmap(buffer.getStyleAt(5, 0)));
 }
 ```
 
-`getStyleAt(externalRow, column)` is the buffer's accessor; `mTotalRows` is package-private and the test
-lives in `com.termux.terminal`. Keep the `RobolectricTestRunner` annotation already on the class.
+`TerminalBuffer(columns, screenRows, totalRows)` keeps `mTotalRows` and the screen equal here, so
+internal and external row numbers coincide and `setChar` accepts row 9. `getStyleAt(externalRow,
+column)` is the buffer's accessor; `mTotalRows` is package-private and the test lives in
+`com.termux.terminal`. Keep the `RobolectricTestRunner`/`@ConscryptMode(OFF)` annotations already on
+the class.
 
 - [ ] **Step 2: Run them and see them fail**
 
-Run: `./gradlew :terminal-emulator:test --tests "com.termux.terminal.TerminalBufferPlacementTest"`
-Expected: `ArrayIndexOutOfBoundsException` on the first, `NullPointerException` on the third, no
-blanking on the second.
+Run: `./gradlew :terminal-emulator:testDebugUnitTest --tests "com.termux.terminal.TerminalBufferPlacementTest"`
+Expected: all three fail — the last row never wraps to row 0 and `mLines[row + 1]` is dereferenced
+without a null check; each end state is a cell that still carries the stamp of a bitmap that was just
+removed.
 
 - [ ] **Step 3: Fix the walk**
 
