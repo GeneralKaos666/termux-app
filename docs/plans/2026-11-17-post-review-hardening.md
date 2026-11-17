@@ -1956,66 +1956,84 @@ git commit -m "Fixed(terminal-view): Clear the selection handle tint when the va
 - Test: `app/src/test/java/com/termux/app/data/WallpaperSourceTest.kt`
 
 **Interfaces:**
-- Produces: `customImage` returns `null` for a missing path, a non-image file and a decode error.
-- Consumes: `AndroidWallpaperSource(context)`.
+- Produces: `internal fun <T> containImageFailure(label: String, block: () -> T?): T?` and
+  `customImage` returns `null` for a missing path, an undecodable file and an out-of-memory decode.
+- Consumes: nothing.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
 
 ```kotlin
 package com.termux.app.data
 
-import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
+import org.robolectric.annotation.ConscryptMode
 
 @RunWith(RobolectricTestRunner::class)
+@ConscryptMode(ConscryptMode.Mode.OFF)
 class WallpaperSourceTest {
 
-    private val source = AndroidWallpaperSource(ApplicationProvider.getApplicationContext())
-
     @Test
-    fun `a missing path yields no bitmap`() {
-        assertNull(source.customImage("/no/such/image.png"))
-        assertNull(source.customImage(null))
-        assertNull(source.customImage(""))
+    fun `running out of memory yields no bitmap`() {
+        assertNull(containImageFailure<Unit>("background") { throw OutOfMemoryError("test") })
     }
 
     @Test
-    fun `a file that is not an image yields no bitmap`() {
-        val file = File.createTempFile("wallpaper", ".png").apply { writeText("not a png") }
-        assertNull(source.customImage(file.absolutePath))
+    fun `a decode failure yields no bitmap`() {
+        assertNull(containImageFailure<Unit>("background") { throw IllegalStateException("test") })
+    }
+
+    @Test
+    fun `a successful decode is returned`() {
+        assertEquals("bitmap", containImageFailure("background") { "bitmap" })
     }
 }
 ```
 
-If `androidx.test.core` is not on the `:app` test classpath, use
-`RuntimeEnvironment.getApplication()` from Robolectric instead; check the existing
-`app/src/test/java/com/termux/app/ui/appearance/AppearanceActivityTest.kt` for the pattern it uses.
+The test drives the containment seam, not `customImage(path)`: Robolectric's `BitmapFactory` shadow
+returns a `Bitmap` for a missing path and for a file that is not an image, so a path-based test cannot
+observe the failure branches. It also cannot provoke an `OutOfMemoryError`.
 
-- [ ] **Step 2: Run it and see it fail or pass**
+- [ ] **Step 2: Run it and see it fail**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.data.WallpaperSourceTest"`
-Expected: passes today for the missing path; the non-image case may pass through `decodeFile`
-returning `null`. If both already pass, keep the tests as the regression gate and skip Step 3's
-behaviour change; the remaining gap is the `Error` path.
+Expected: compilation failure (`containImageFailure` unresolved).
 
-- [ ] **Step 3: Widen the catch**
+- [ ] **Step 3: Contain the failure**
+
+```kotlin
+/**
+ * Runs an image decode and turns a failure into `null`: a wallpaper is decoration, so it must never
+ * take the app down. Running out of memory is handled separately from other failures so the log says
+ * what happened and the collector gets a chance before the next allocation.
+ */
+internal fun <T> containImageFailure(label: String, block: () -> T?): T? =
+    try {
+        block()
+    } catch (e: OutOfMemoryError) {
+        System.gc()
+        com.termux.shared.logger.Logger.logStackTraceWithMessage(LOG_TAG, "Not enough memory to load the $label", e)
+        null
+    } catch (e: Exception) {
+        com.termux.shared.logger.Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the $label", e)
+        null
+    }
+```
+
+`catch (Exception)` rather than `catch (Throwable)` keeps programming errors (`AssertionError`, a
+stack overflow) visible instead of filing them as a missing wallpaper. Move `LOG_TAG` from the
+private companion to a file-level `private const val` so the top-level function can use it.
+
+Wrap the body of `customImage` in it:
 
 ```kotlin
 override fun customImage(path: String?): Bitmap? {
     if (path.isNullOrEmpty()) return null
-    return try {
-        // ... existing decode
-    } catch (e: OutOfMemoryError) {
-        System.gc()
-        com.termux.shared.logger.Logger.logStackTraceWithMessage(LOG_TAG, "Not enough memory to load the custom background", e)
-        null
-    } catch (t: Throwable) {
-        com.termux.shared.logger.Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load the custom terminal background image", t)
-        null
+    return containImageFailure("custom terminal background image") {
+        // ... the existing decode, unchanged
     }
 }
 ```
