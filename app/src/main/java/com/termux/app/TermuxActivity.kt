@@ -366,6 +366,7 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
 
             view.setExtraKeysViewClient(extraKeys)
             view.setButtonTextAllCaps(mProperties.shouldExtraKeysTextBeAllCaps())
+            view.setKeycapVisuals(mProperties.shouldKeycapVisualsBeEnabled())
             view.setSpecialButtons(getSharedExtraKeysSpecialButtons(view))
             view.reload(extraKeysInfoForPage(page), mTerminalToolbarDefaultHeight)
 
@@ -1610,6 +1611,9 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
             val allCaps = mProperties.shouldExtraKeysTextBeAllCaps()
             mExtraKeysView?.setButtonTextAllCaps(allCaps)
             mExtraKeysView2?.setButtonTextAllCaps(allCaps)
+            val keycapVisuals = mProperties.shouldKeycapVisualsBeEnabled()
+            mExtraKeysView?.setKeycapVisuals(keycapVisuals)
+            mExtraKeysView2?.setKeycapVisuals(keycapVisuals)
             reloadExtraKeysViews()
 
             // Update NightMode.APP_NIGHT_MODE

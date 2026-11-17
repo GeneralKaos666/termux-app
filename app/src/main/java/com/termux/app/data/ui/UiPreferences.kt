@@ -20,12 +20,8 @@ interface UiPreferences {
 /** Keys used with [UiPreferences]. Stored as strings so a key rename is a deliberate edit. */
 object UiPreferenceKeys {
     const val TAB_SUBTITLES = "tab_subtitles"
-    const val ACTIVITY_BADGES = "activity_badges"
     const val COMMAND_PALETTE = "command_palette"
     const val SNIPPETS = "snippets"
     const val SNIPPETS_ROW = "snippets_row"
-    const val KEYCAP_VISUALS = "keycap_visuals"
     const val LINK_ACTION_SHEET = "link_action_sheet"
-    const val VISUAL_BELL = "visual_bell"
-    const val FIRST_RUN_TIPS = "first_run_tips"
 }
