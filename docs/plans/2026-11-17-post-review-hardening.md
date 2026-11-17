@@ -487,16 +487,27 @@ do not add a second fixture.
 
 ```java
 @Test
-public void testSearchDoesNotEnterASiblingWithTheSamePrefix() throws Exception {
+public void testSearchDoesNotLeaveTheRootThroughASiblingPrefix() throws Exception {
+    // A sibling that only shares the root's prefix is reached through a symlink inside the root:
+    // a plain `startsWith` sees it as inside, a separator-aware check does not.
     File sibling = new File(root.getParentFile(), root.getName() + "2");
     assertTrue(sibling.mkdirs());
-    FileOutputStream out = new FileOutputStream(new File(sibling, "secret.txt"));
-    out.write(1);
-    out.close();
+    file(sibling, "secret.txt");
+    File link = new File(root, "escape");
+    try {
+        java.nio.file.Files.createSymbolicLink(link.toPath(), sibling.toPath());
+    } catch (IOException | UnsupportedOperationException e) {
+        return; // a filesystem without symlinks cannot exercise the boundary
+    }
 
-    List<String> names = names(provider.querySearchDocuments(root.getAbsolutePath(), "secret", null));
+    try {
+        List<String> names = names(provider.querySearchDocuments(root.getAbsolutePath(), "secret", null));
 
-    assertFalse(names.toString(), names.contains("secret.txt"));
+        assertFalse(names.toString(), names.contains("secret.txt"));
+    } finally {
+        link.delete();
+        deleteRecursively(sibling);
+    }
 }
 
 @Test(expected = java.io.FileNotFoundException.class)
@@ -506,18 +517,21 @@ public void testCreateDocumentRejectsATraversingName() throws Exception {
 
 @Test
 public void testCreateDocumentRejectsASubdirectoryName() throws Exception {
+    // `sub` must exist, otherwise today's code fails for the wrong reason (no parent directory).
+    dir("sub");
+
     try {
         provider.createDocument(root.getAbsolutePath(), "text/plain", "sub/child.txt");
         fail("expected FileNotFoundException");
     } catch (java.io.FileNotFoundException expected) {
-        assertFalse(new File(root.getParentFile(), "sub").exists());
+        assertFalse("a rejected name must not create a file",
+            new File(new File(root, "sub"), "child.txt").exists());
     }
 }
 ```
 
-`names(...)` and the helpers already exist in the class; add `java.io.FileNotFoundException` and
-`org.junit.Assert.fail` imports only if the file does not already have them (`fail` usually arrives
-via `org.junit.Assert.*`; this file imports names individually, so add it).
+`names(...)`, `file(...)`, `dir(...)` and `deleteRecursively(...)` already exist in the class; add
+`import static org.junit.Assert.fail;` (the file imports names individually).
 
 - [ ] **Step 3: Run them and see them fail**
 
