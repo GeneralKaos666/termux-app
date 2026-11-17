@@ -560,6 +560,9 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   conventional types: the messages are in the past and rewriting `master` would break every clone;
   the rule is enforced from here on.
 - The settings-search defect stays `[open 2026-11-17]` in §3.1; it is independent of this review.
+- `[done 2026-11-17]` the extra-key corner affordance shows the popup's own display text when it is
+  at most three code points, and keeps the chevron otherwise (`ExtraKeysAffordance.popupBadge`);
+  device check D-33 in `manual-checks.md`.
 
 ---
 
