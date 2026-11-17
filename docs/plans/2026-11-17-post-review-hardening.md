@@ -1442,23 +1442,30 @@ git commit -m "Fixed(app): Return terminal focus when the key bar collapses from
 fun `the editor stops at the store cap`() {
     val state = SnippetsState(store)
     repeat(MAX_SNIPPETS) { state.addBlank() }
+
     assertTrue(state.atLimit)
     assertFalse(state.add("label", "command"))
     assertEquals(MAX_SNIPPETS, state.items.size)
 }
 
 @Test
-fun `saving more rows than the cap keeps the cap and drops the extra`() {
+fun `saving more rows than the cap keeps the cap`() {
     val state = SnippetsState(store)
-    repeat(MAX_SNIPPETS + 3) { state.addBlank() }
+    repeat(MAX_SNIPPETS + 3) { index -> state.add("label $index", "command $index") }
+
+    assertEquals(MAX_SNIPPETS, state.items.size)
     assertEquals(MAX_SNIPPETS, state.save().size)
 }
 ```
 
+The second test cannot fill the editor with blank rows: `save` drops a row whose label or command is
+blank, so a blank-row version of it asserts `0`. Named rows make the cap itself the only reason the
+size stops growing.
+
 - [ ] **Step 2: Run them and see them fail**
 
 Run: `./gradlew :app:testDebugUnitTest --tests "com.termux.app.ui.snippets.SnippetsStateTest"`
-Expected: the first test fails (21 rows accepted), the second fails or hangs on the intended behaviour.
+Expected: compilation failure — `add` returns `Unit` and `atLimit` does not exist.
 
 - [ ] **Step 3: Enforce the cap in the state**
 

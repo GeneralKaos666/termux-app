@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.termux.app.data.snippets.SnippetStore
+import com.termux.app.domain.snippets.MAX_SNIPPETS
 import com.termux.app.domain.snippets.Snippet
 
 /**
@@ -22,17 +23,31 @@ class SnippetsState(private val store: SnippetStore) {
     var items: List<Snippet> by mutableStateOf(store.load())
         private set
 
-    /** Appends a draft row; a blank label or command is ignored rather than saved as an empty chip. */
-    fun add(label: String, command: String) {
+    /** True when no more rows can be added; the store keeps at most [MAX_SNIPPETS]. */
+    val atLimit: Boolean
+        get() = items.size >= MAX_SNIPPETS
+
+    /**
+     * Appends a draft row; a blank label or command is ignored rather than saved as an empty chip.
+     * @return whether a row was appended.
+     */
+    fun add(label: String, command: String): Boolean {
+        if (atLimit) return false
         val trimmedLabel = label.trim()
         val trimmedCommand = command.trim()
-        if (trimmedLabel.isEmpty() || trimmedCommand.isEmpty()) return
+        if (trimmedLabel.isEmpty() || trimmedCommand.isEmpty()) return false
         items = items + Snippet(id = newDraftId(), label = trimmedLabel, command = trimmedCommand)
+        return true
     }
 
-    /** Appends an empty row for the add button; [save] drops it again if it is left blank. */
-    fun addBlank() {
+    /**
+     * Appends an empty row for the add button; [save] drops it again if it is left blank.
+     * @return whether a row was appended.
+     */
+    fun addBlank(): Boolean {
+        if (atLimit) return false
         items = items + Snippet(id = newDraftId(), label = "", command = "")
+        return true
     }
 
     private fun newDraftId(): String = DRAFT_ID_PREFIX + nextDraftId++

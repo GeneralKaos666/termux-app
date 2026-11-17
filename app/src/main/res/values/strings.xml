@@ -399,6 +399,7 @@
     <string name="snippets_title">Snippets</string>
     <string name="snippets_apply">Apply</string>
     <string name="snippets_add">Add snippet</string>
+    <string name="snippets_limit">At most %1$d snippets are kept.</string>
     <string name="snippets_label">Label</string>
     <string name="snippets_command">Command</string>
     <string name="snippets_delete">Delete snippet</string>
