@@ -839,22 +839,37 @@ not change normal behaviour.
 
 - [ ] **Step 2: Run it and see it fail**
 
-Run: `./gradlew :terminal-emulator:test --tests "com.termux.terminal.SixelParserTest"`
-Expected: the huge-raster test fails (`newArgsCapacity` ≈ 2.04e9).
+Run: `./gradlew :terminal-emulator:testDebugUnitTest --tests "com.termux.terminal.SixelParserTest"`
+Expected: the huge-raster test fails with `expected:<1024> but was:<-1>` — the `int` product
+overflows to a negative number, so today no capacity is set at all; a merely large raster
+(`20000x20000`) allocates ~400M chars instead.
 
-- [ ] **Step 3: Clamp**
+`:terminal-emulator:test` is a lifecycle aggregate and rejects `--tests`; the variant task is the
+one that runs a single class.
+
+- [ ] **Step 3: Clamp, and compute the product as a `long`**
 
 ```java
-if (sixelArgsExpectedCapacity > SIXEL_ARGS__INITIAL_CAPACITY) {
-    // The control args buffer is split at terminalControlArgsMaxLength (16384 for DCS), so a larger
-    // capacity can never be used; without the clamp a hostile raster size asks for gigabytes.
-    newArgsCapacity = Math.min(sixelArgsExpectedCapacity, terminalControlArgsMaxLength);
+if (sixelWidth > 0 && sixelHeight > 0) {
+    // 2% extra for sixel commands/parameters in addition to image data. The product is computed
+    // in long arithmetic: `Ph`/`Pv` are untrusted, so an int product overflows long before the
+    // clamp below can apply.
+    long sixelArgsExpectedLength = (long) ((double) sixelWidth * sixelHeight * 1.02);
+    long sixelArgsPartsExpectedLength = (long) ((((double) terminalControlArgsMaxLength / 2) + sixelWidth) * 1.02);
+    long sixelArgsExpectedCapacity = Math.min(sixelArgsPartsExpectedLength, sixelArgsExpectedLength);
+    if (sixelArgsExpectedCapacity > SIXEL_ARGS__INITIAL_CAPACITY) {
+        // The control args buffer is split at terminalControlArgsMaxLength, so a larger capacity
+        // can never be used; without the clamp a hostile raster size allocates hundreds of
+        // megabytes of char storage.
+        newArgsCapacity = (int) Math.min(sixelArgsExpectedCapacity, terminalControlArgsMaxLength);
+    }
+    screen.sixelResize(sixelWidth, sixelHeight);
 }
 ```
 
 - [ ] **Step 4: Run the class and the module suite**
 
-Run: `./gradlew :terminal-emulator:test`
+Run: `./gradlew :terminal-emulator:testDebugUnitTest`
 Expected: `BUILD SUCCESSFUL`.
 
 - [ ] **Step 5: Commit**
