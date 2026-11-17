@@ -1134,40 +1134,46 @@ public void testBitmapCellEndsTheRunAndTheNextRunStartsAtTheFollowingColumn() {
 test uses the same 10×3 terminal and `StubPaint` as its neighbours. `render(null)` disables the run
 advances policy, which is what the other structural tests do.
 
-The extra run exists because the bitmap branch sets `lastRunStartColumn = column + 1` and
-`lastRunStartIndex = currentCharIndex` *before* advancing them, so the following mismatch draws a
-one-column run one cell to the right of where the bitmap sits.
+The run before the bitmap is dropped entirely: the bitmap branch never flushes the pending run, so
+the cells to its left are never drawn and the following run starts at the bitmap's own character
+index. The fix closes the run before the bitmap draw and restarts it after the column is advanced.
 
 - [ ] **Step 2: Run it and see it fail**
 
-Run: `./gradlew :terminal-view:test --tests "com.termux.view.TerminalRendererRunTest"`
-Expected: the new test fails.
+Run: `./gradlew :terminal-view:testDebugUnitTest --tests "com.termux.view.TerminalRendererRunTest"`
+Expected: `expected:<2> but was:<1>` — only `{4,6,40.0}` is recorded, so columns 0-2 are missing.
 
-- [ ] **Step 3: Flush, then reset to the next column**
+- [ ] **Step 3: Flush, then advance, then reset**
 
 ```kotlin
 if (TextStyle.isTerminalBitmap(style)) {
+    // A bitmap cell is not text: close the pending run at this column, so the cells before it are
+    // drawn and the run after it starts at the next column.
+    if (lastRunStartColumn >= 0 && column != lastRunStartColumn) {
+        val columnWidthSinceLastRun = column - lastRunStartColumn
+        val charsSinceLastRun = currentCharIndex - lastRunStartIndex
+        val cursorColor = if (lastRunInsideCursor) mEmulator.mColors.mCurrentColors[TextStyle.COLOR_INDEX_CURSOR] else 0
+        var invertCursorTextColor = false
+        if (lastRunInsideCursor && cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK) {
+            invertCursorTextColor = true
+        }
+        drawTextRun(
+            canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun,
+            lastRunStartIndex, charsSinceLastRun,
+            cursorColor, cursorShape, lastRunStyle, reverseVideo || lastRunInsideSelection,
+            invertCursorTextColor, lastRunLinkId, lastRunUnderlineColor,
+        )
+    }
     val bitmap = mEmulator.screen.getSixelBitmap(style)
     if (bitmap != null) {
         // ... existing draw
     }
-    if (lastRunStartColumn >= 0 && lastRunStartColumn != column) {
-        drawTextRun(
-            canvas, line, palette, heightOffset, lastRunStartColumn, column - lastRunStartColumn,
-            lastRunStartIndex, currentCharIndex - lastRunStartIndex,
-            if (lastRunInsideCursor) mEmulator.mColors.mCurrentColors[TextStyle.COLOR_INDEX_CURSOR] else 0,
-            cursorShape, lastRunStyle, reverseVideo || lastRunInsideSelection,
-            lastRunInsideCursor && cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK,
-            lastRunLinkId, lastRunUnderlineColor,
-        )
-    }
     column += 1
     currentCharIndex += charsForCodePoint
-    lastRunStyle = 0L
+    lastRunStyle = 0
     lastRunLinkId = 0
     lastRunUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND
     lastRunInsideCursor = false
-    lastRunInsideSelection = false
     lastRunFontWidthMismatch = false
     lastRunStartColumn = column
     lastRunStartIndex = currentCharIndex
@@ -1175,11 +1181,9 @@ if (TextStyle.isTerminalBitmap(style)) {
 }
 ```
 
-`lastRunStartColumn = column` after the increment is the first column that has not been drawn.
-
 - [ ] **Step 4: Run the class and the module suite**
 
-Run: `./gradlew :terminal-view:test`
+Run: `./gradlew :terminal-view:testDebugUnitTest`
 Expected: `BUILD SUCCESSFUL`.
 
 - [ ] **Step 5: Commit**

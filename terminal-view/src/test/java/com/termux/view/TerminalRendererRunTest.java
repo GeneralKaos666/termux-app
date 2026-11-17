@@ -215,6 +215,20 @@ public class TerminalRendererRunTest extends TestCase {
         assertEquals(1, Collections.frequency(mCanvas.calls, "rect"));
     }
 
+    public void testBitmapCellEndsTheRunAndTheNextRunStartsAtTheFollowingColumn() {
+        enter("AAAAAAAAAA\r\n");
+        // A sixel cell in the middle of a text row: the bitmap branch draws it, not the glyph stage.
+        mTerminal.getScreen().setChar(3, 0, ' ', TextStyle.encodeTerminalBitmap(0, 0, 0));
+        render(null);
+
+        // Two runs: columns 0-2, then columns 4-9. Today a third run is recorded and the second one
+        // starts at the bitmap's own character index.
+        assertEquals(glyphDump(), 2, mCanvas.glyphs.size());
+        assertEquals(glyphDump(), 3f, glyphStartingAtChar(0)[1], 0.001f);
+        assertEquals(glyphDump(), 40f, glyphStartingAtChar(4)[2], 0.001f);
+        assertEquals(glyphDump(), 6f, glyphStartingAtChar(4)[1], 0.001f);
+    }
+
     public void testNoShapedAdvancesDrawsOneSpan() {
         enter("===\r\n");
         // Below API 29 RunAdvancesSource.forPaint returns null (the host stub reports API 0), so a run is drawn as
