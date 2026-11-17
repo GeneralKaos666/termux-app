@@ -15,7 +15,7 @@ subset.
 `app/src/main` is already half Kotlin: 82 Kotlin files (8,128 LOC) against 31 Java files (7,987
 LOC), with the Compose subtree under `app/src/main/java/com/termux/app/ui/` fully converted. What
 remains Java is the legacy layer — `TermuxActivity` (1,715 lines), `TermuxService` (961), the
-settings `PreferenceFragment` stack (13 files), the terminal clients, and the receivers/filepicker
+settings `PreferenceFragment` stack (12 files), the terminal clients, and the receivers/filepicker
 tail.
 
 `terminal-view` is 100% Java: 18 files, dominated by `TerminalView` (1,824 lines) and
@@ -111,7 +111,7 @@ Fixed before the first file, applied without deviation.
 | Java | Kotlin |
 |---|---|
 | `@Nullable` / `@NonNull` reference | `T?` / `T`, transcribed from the annotation |
-| unannotated reference type | `T?` unless the file proves non-null; never invent `T` |
+| unannotated reference type | `T` when the body has no null path and no in-repo caller passes null; `T?` where it returns or accepts null |
 | `getX()`/`setX()` on a class with Java callers | kept as `fun getX()` / `fun setX()`; no property rewrite |
 | `public static final int X` | `const val X` in `companion object` |
 | static utility method | `object` + `@JvmStatic` |
@@ -124,8 +124,9 @@ Fixed before the first file, applied without deviation.
 | `int[]` / `Integer` | `IntArray` / no boxing; hot paths never see `Int?` |
 | non-static inner class | `inner class` |
 
-Two rules carry the weight: nullability is transcribed from annotations and never guessed, and no
-public method signature changes shape. A `!!` in converted code is a defect, not a fix.
+Two rules carry the weight: nullability is never guessed — an annotation wins, and otherwise the Java
+body decides, because only two annotations exist in the whole module — and no public method signature
+changes shape. A `!!` in converted code is a defect, not a fix.
 
 ## 6. Sequencing
 
@@ -146,8 +147,8 @@ risky seam is proven in a one-file batch before any bulk work.
 
 **`:app`**, after `:terminal-view` merges:
 
-- **Batch 5** — `terminal/` (4 files), `TermuxActivity`, `TermuxService`.
-- **Batch 6** — `fragments/settings/` (13 files).
+- **Batch 5** — `terminal/` (7 files), `TermuxActivity`, `TermuxService`.
+- **Batch 6** — `fragments/settings/` (12 files).
 - **Batch 7** — the tail: `RunCommandService`, `TermuxApplication`, `TermuxInstaller`,
   `TermuxOpenReceiver`, `SystemEventReceiver`, `HelpActivity`, `SettingsActivity`,
   `FileReceiverActivity`, `UserAction`, `TermuxDocumentsProvider`.
