@@ -25,8 +25,6 @@ import android.view.WindowManager
 import android.widget.EditText
 import android.widget.RelativeLayout
 import android.widget.Toast
-import androidx.annotation.NonNull
-import androidx.annotation.Nullable
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.ui.platform.ComposeView
 import com.termux.R
@@ -945,7 +943,6 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
     }
 
     /** Returns the session with the given stable bar id, or `null` if it was closed. */
-    @Nullable
     private fun getTermuxSessionById(id: Int): TermuxSession? {
         return mSessionsById[id]
     }
@@ -1397,7 +1394,7 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
         }.start()
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, @Nullable data: Intent?) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         Logger.logVerbose(LOG_TAG, "onActivityResult: requestCode: " + requestCode + ", resultCode: " + resultCode + ", data: " + IntentUtils.getIntentString(data))
         if (requestCode == PermissionUtils.REQUEST_GRANT_STORAGE_PERMISSION) {
@@ -1405,7 +1402,7 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
         }
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, @NonNull permissions: Array<String>, @NonNull grantResults: IntArray) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         Logger.logVerbose(LOG_TAG, "onRequestPermissionsResult: requestCode: " + requestCode + ", permissions: " + Arrays.toString(permissions) + ", grantResults: " + Arrays.toString(grantResults))
         if (requestCode == PermissionUtils.REQUEST_GRANT_STORAGE_PERMISSION) {
@@ -1527,7 +1524,6 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
         return mTermuxTerminalSessionActivityClient
     }
 
-    @Nullable
     fun getCurrentSession(): TerminalSession? {
         return if (this::mTerminalView.isInitialized)
             mTerminalView.getCurrentSession()
@@ -1659,12 +1655,12 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
         }
 
         @JvmStatic
-        fun startTermuxActivity(@NonNull context: Context) {
+        fun startTermuxActivity(context: Context) {
             ActivityUtils.startActivity(context, newInstance(context))
         }
 
         @JvmStatic
-        fun newInstance(@NonNull context: Context): Intent {
+        fun newInstance(context: Context): Intent {
             val intent = Intent(context, TermuxActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             return intent

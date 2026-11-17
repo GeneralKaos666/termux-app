@@ -3,7 +3,6 @@ package com.termux.app.terminal.io
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.view.View
-import androidx.annotation.NonNull
 import com.termux.app.TermuxActivity
 import com.termux.app.activities.SettingsActivity
 import com.termux.app.domain.keys.KeySetPresets
@@ -21,7 +20,7 @@ import org.json.JSONException
 
 class TermuxTerminalExtraKeys(
     activity: TermuxActivity,
-    @NonNull terminalView: TerminalView,
+    terminalView: TerminalView,
     termuxTerminalViewClient: TermuxTerminalViewClient?,
     termuxTerminalSessionActivityClient: TermuxTerminalSessionActivityClient?,
 ) : TerminalExtraKeys(terminalView) {

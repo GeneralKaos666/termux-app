@@ -4,8 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import androidx.annotation.NonNull
-import androidx.annotation.Nullable
 import com.termux.shared.data.IntentUtils
 import com.termux.shared.logger.Logger
 import com.termux.shared.termux.TermuxUtils
@@ -15,7 +13,7 @@ import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment
 
 class SystemEventReceiver : BroadcastReceiver() {
 
-    override fun onReceive(@NonNull context: Context, @Nullable intent: Intent?) {
+    override fun onReceive(context: Context, intent: Intent?) {
         if (intent == null) return
         Logger.logDebug(LOG_TAG, "Intent Received:\n" + IntentUtils.getIntentString(intent))
 
@@ -34,12 +32,12 @@ class SystemEventReceiver : BroadcastReceiver() {
     }
 
     @Synchronized
-    fun onActionBootCompleted(@NonNull context: Context, @NonNull intent: Intent) {
+    fun onActionBootCompleted(context: Context, intent: Intent) {
         TermuxShellManager.onActionBootCompleted(context, intent)
     }
 
     @Synchronized
-    fun onActionPackageUpdated(@NonNull context: Context, @NonNull intent: Intent) {
+    fun onActionPackageUpdated(context: Context, intent: Intent) {
         val data = intent.data
         if (data != null && TermuxUtils.isUriDataForTermuxPluginPackage(data)) {
             Logger.logDebug(
@@ -76,7 +74,7 @@ class SystemEventReceiver : BroadcastReceiver() {
          */
         @JvmStatic
         @Synchronized
-        fun registerPackageUpdateEvents(@NonNull context: Context) {
+        fun registerPackageUpdateEvents(context: Context) {
             val intentFilter = IntentFilter()
             intentFilter.addAction(Intent.ACTION_PACKAGE_ADDED)
             intentFilter.addAction(Intent.ACTION_PACKAGE_REMOVED)
@@ -87,7 +85,7 @@ class SystemEventReceiver : BroadcastReceiver() {
 
         @JvmStatic
         @Synchronized
-        fun unregisterPackageUpdateEvents(@NonNull context: Context) {
+        fun unregisterPackageUpdateEvents(context: Context) {
             context.unregisterReceiver(getInstance())
         }
     }

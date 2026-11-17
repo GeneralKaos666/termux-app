@@ -9,8 +9,6 @@ import android.content.Intent
 import android.os.Binder
 import android.os.Handler
 import android.os.IBinder
-import androidx.annotation.NonNull
-import androidx.annotation.Nullable
 import com.termux.R
 import com.termux.app.data.notifications.ServiceNotification
 import com.termux.app.data.wakelock.WakeLockController
@@ -423,7 +421,6 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
     }
 
     /** Create a TermuxTask. */
-    @Nullable
     fun createTermuxTask(executablePath: String?, arguments: Array<String>?, stdin: String?, workingDirectory: String?): AppShell? {
         return createTermuxTask(
             ExecutionCommand(
@@ -434,7 +431,6 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
     }
 
     /** Create a TermuxTask. */
-    @Nullable
     @Synchronized
     fun createTermuxTask(executionCommand: ExecutionCommand?): AppShell? {
         if (executionCommand == null) return null
@@ -536,7 +532,6 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
      * Create a [TermuxSession].
      * Currently called by [TermuxTerminalSessionActivityClient.addNewSession] to add a new [TermuxSession].
      */
-    @Nullable
     fun createTermuxSession(
         executablePath: String?, arguments: Array<String>?, stdin: String?,
         workingDirectory: String?, isFailSafe: Boolean, sessionName: String?,
@@ -550,7 +545,6 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
     }
 
     /** Create a [TermuxSession] and add it to the sessions list. */
-    @Nullable
     @Synchronized
     fun createTermuxSession(executionCommand: ExecutionCommand): TermuxSession? {
         val newTermuxSession = executeTermuxSession(executionCommand, getTermuxTerminalSessionClient())
@@ -579,7 +573,6 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
      * `terminalSessionClient`, without adding it to the sessions list, updating the
      * notification, or applying activity styling.
      */
-    @Nullable
     @Synchronized
     override fun createFloatSession(terminalSessionClient: TerminalSessionClient): TermuxSession? {
         val executionCommand = ExecutionCommand(
@@ -593,7 +586,7 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
      * Terminates the shell of a dedicated float session. It is not in the sessions list, so nothing
      * else will stop it when the user closes the floating window.
      */
-    override fun finishFloatSession(@NonNull session: TermuxSession) {
+    override fun finishFloatSession(session: TermuxSession) {
         session.terminalSession.finishIfRunning()
     }
 
@@ -601,7 +594,6 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
      * Lazily builds and returns the [FloatController] that owns the in-app floating terminal
      * overlay and its dedicated session, using this service as the [FloatSessionSource].
      */
-    @NonNull
     fun getFloatController(): FloatController {
         var floatController = mFloatController
         if (floatController == null) {
@@ -628,7 +620,6 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
      * `terminalSessionClient`. Does not add the session to the sessions list or fire any
      * notification/styling side effects; those are the caller's responsibility.
      */
-    @Nullable
     private fun executeTermuxSession(
         executionCommand: ExecutionCommand,
         terminalSessionClient: TerminalSessionClient,
@@ -700,7 +691,7 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
     }
 
 
-    private fun processShellCreateMode(@NonNull executionCommand: ExecutionCommand): ShellCreateMode? {
+    private fun processShellCreateMode(executionCommand: ExecutionCommand): ShellCreateMode? {
         if (ShellCreateMode.ALWAYS.equalsMode(executionCommand.shellCreateMode))
             return ShellCreateMode.ALWAYS // Default
         else if (ShellCreateMode.NO_SHELL_WITH_NAME.equalsMode(executionCommand.shellCreateMode))
@@ -867,7 +858,6 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
         return mShellManager.mTermuxSessions
     }
 
-    @Nullable
     @Synchronized
     fun getTermuxSession(index: Int): TermuxSession? {
         return if (index >= 0 && index < mShellManager.mTermuxSessions.size)
@@ -876,7 +866,6 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
             null
     }
 
-    @Nullable
     @Synchronized
     fun getTermuxSessionForTerminalSession(terminalSession: TerminalSession?): TermuxSession? {
         if (terminalSession == null) return null

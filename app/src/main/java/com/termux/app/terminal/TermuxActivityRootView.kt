@@ -12,7 +12,6 @@ import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import androidx.annotation.Nullable
 import androidx.core.view.WindowInsetsCompat
 import com.termux.app.TermuxActivity
 import com.termux.shared.logger.Logger
@@ -81,9 +80,9 @@ class TermuxActivityRootView : LinearLayout, ViewTreeObserver.OnGlobalLayoutList
 
     constructor(context: Context) : super(context)
 
-    constructor(context: Context, @Nullable attrs: AttributeSet?) : super(context, attrs)
+    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
 
-    constructor(context: Context, @Nullable attrs: AttributeSet?, defStyleAttr: Int) : super(context, attrs, defStyleAttr)
+    constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(context, attrs, defStyleAttr)
 
     fun setActivity(activity: TermuxActivity) {
         mActivity = activity
