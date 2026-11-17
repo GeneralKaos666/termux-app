@@ -215,6 +215,23 @@ class TerminalRenderer(
                 val linkId = lineObject.getLinkId(column)
                 val underlineColor = lineObject.getUnderlineColor(column)
                 if (TextStyle.isTerminalBitmap(style)) {
+                    // A bitmap cell is not text: close the pending run at this column, so the cells
+                    // before it are drawn and the run after it starts at the next column.
+                    if (lastRunStartColumn >= 0 && column != lastRunStartColumn) {
+                        val columnWidthSinceLastRun = column - lastRunStartColumn
+                        val charsSinceLastRun = currentCharIndex - lastRunStartIndex
+                        val cursorColor = if (lastRunInsideCursor) mEmulator.mColors.mCurrentColors[TextStyle.COLOR_INDEX_CURSOR] else 0
+                        var invertCursorTextColor = false
+                        if (lastRunInsideCursor && cursorShape == TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK) {
+                            invertCursorTextColor = true
+                        }
+                        drawTextRun(
+                            canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun,
+                            lastRunStartIndex, charsSinceLastRun,
+                            cursorColor, cursorShape, lastRunStyle, reverseVideo || lastRunInsideSelection,
+                            invertCursorTextColor, lastRunLinkId, lastRunUnderlineColor,
+                        )
+                    }
                     val bitmap = mEmulator.screen.getSixelBitmap(style)
                     if (bitmap != null) {
                         val left = column * mFontWidth
@@ -224,14 +241,14 @@ class TerminalRenderer(
                         canvas.drawBitmap(bitmap, bitmapSrcRect, bitmapDestRect, null)
                     }
                     column += 1
+                    currentCharIndex += charsForCodePoint
                     lastRunStyle = 0
                     lastRunLinkId = 0
                     lastRunUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND
                     lastRunInsideCursor = false
-                    lastRunStartColumn = column + 1
-                    lastRunStartIndex = currentCharIndex
                     lastRunFontWidthMismatch = false
-                    currentCharIndex += charsForCodePoint
+                    lastRunStartColumn = column
+                    lastRunStartIndex = currentCharIndex
                     continue
                 }
                 // The emulator stores a whole grapheme cluster in the cell of its base code point, so advance by
