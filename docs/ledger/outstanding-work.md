@@ -547,6 +547,20 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   at `:app:configureNdkBuildDebug` (`ndk-build` host CPU `aarch64` unsupported), unrelated to these
   Java/Kotlin changes.
 
+### 3.3 Post-review hardening — closed 2026-11-17
+
+- `[done 2026-11-17]` the 22 findings (F1–F22) of the `v2.0.0-beta..e3f68eb1` review are fixed in
+  `plans/2026-11-17-post-review-hardening.md`, one commit per finding: received-file name
+  containment and one-shot intent handling, report-info read containment, documents-provider
+  containment, broadcast export flags, sixel capacity clamp, bitmap row walking and resize sizing,
+  renderer run flush and row snapshots, palette paste without an emulator, key-bar focus handback,
+  snippet cap, bounded iTerm import, pending-font cleanup, symlink-safe old-file walk, handle tint
+  clearing, wallpaper error containment, foreground-command cache, and `keycap-visuals` wiring.
+- `[non-goal]` rewriting the seven historical commits whose messages do not use the capitalized
+  conventional types: the messages are in the past and rewriting `master` would break every clone;
+  the rule is enforced from here on.
+- The settings-search defect stays `[open 2026-11-17]` in §3.1; it is independent of this review.
+
 ---
 
 ## 4. Build, platform and dependency upgrades

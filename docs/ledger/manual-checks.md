@@ -41,6 +41,12 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-18 | termux-backup restore on a second device | pending | §18 below |
 | D-19 | termux-backup safety-archive round-trip | pending | §18 below |
 | D-20 | termux-backup behavior with storage permission revoked | pending | §18 below |
+| D-27 | Received file with a hostile display name is refused and nothing is written outside `~/downloads` | pending | §24 below |
+| D-28 | Absurd sixel raster size neither crashes nor stalls the terminal | pending | §24 below |
+| D-29 | Text either side of a sixel cell renders with no missing, doubled or shifted cell | pending | §24 below |
+| D-30 | `keycap-visuals = false` removes the keycap inset and the popup chevron | pending | §24 below |
+| D-31 | A shared file is saved and opened exactly once (no second editor launch on resume) | pending | §24 below |
+| D-32 | The snippet screen stops at 20 rows and shows the limit line | pending | §24 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -730,5 +736,36 @@ which Kotlin resolves to `Enum.name()` (`"TERMINAL_SESSION"`) instead of the cla
 `EXTRA_RUNNER` was therefore rejected as an invalid runner, so `termux-url-opener`,
 `termux-file-editor` and the receive dialog's "open directory" action all did nothing and said
 nothing. The URL and text share checks below are what caught it; both were re-run after the fix.
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 24. D-27 to D-32 — post-review hardening (2026-11-17)
+
+Six device checks for findings whose fix lives in a place the JVM tests can only reach through a
+seam. Everything else in the `v2.0.0-beta..e3f68eb1` review is covered by unit tests in
+`docs/plans/2026-11-17-post-review-hardening.md`.
+
+- [ ] **D-27 Hostile received-file name.** From another app, share a file into Termux with a display
+      name that contains a path separator (`android.intent.extra.TITLE` set to `../escape.sh`, e.g.
+      `adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TITLE
+      '../escape.sh' --eu android.intent.extra.STREAM <content-uri>`). Expect the dialog `File name
+      cannot be empty or contain a path`, and `ls -la ~/downloads` plus `ls -la ~` unchanged: no file
+      created outside the receive directory. A normal share still saves with its own name.
+- [ ] **D-28 Absurd sixel raster.** Run `printf '\033Pq"1;1;100000;100000#0;2;0;100;0#0~~@@\033\\'`.
+      The terminal neither crashes nor stalls; a normal prompt returns and input still echoes. The
+      capacity clamp only limits the bitmap, so no out-of-memory kill either.
+- [ ] **D-29 Text around a sixel cell.** Run a script that prints `before`, one sixel image and
+      `after`, then scroll up and back. `before` and `after` are complete: no missing, doubled or
+      shifted cell at either edge of the bitmap, and the row above/below keeps its own background.
+- [ ] **D-30 `keycap-visuals = false`.** Append `keycap-visuals = false` to
+      `~/.termux/termux.properties`, reload the app, then press and long-press an extra key. The
+      keycap inset (rounded pressed depth) and the popup chevron are gone; the key still types and
+      the popup still shows on long press. Remove the line and reload to restore them.
+- [ ] **D-31 A share is handled once.** Share a file into Termux, pick an editor, then press back and
+      return to Termux. Only one editor was launched and no second save dialog appears; the saved
+      file exists once in `~/downloads`.
+- [ ] **D-32 Snippet cap.** Open the snippets screen and add rows until 20 exist. At 20 the add
+      button is disabled and `At most 20 snippets are kept.` shows; applying keeps exactly 20 rows
+      and the key bar shows no more than 20 chips.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
