@@ -13,63 +13,65 @@
  * See the License for the specific language governing permissions and
  * limitations under the License
  */
-package com.termux.view.support;
+package com.termux.view.support
 
-import android.util.Log;
-import android.widget.PopupWindow;
-
-import java.lang.reflect.Method;
+import android.widget.PopupWindow
+import java.lang.reflect.Method
 
 /**
  * Implementation of PopupWindow compatibility that can call Gingerbread APIs.
  * https://chromium.googlesource.com/android_tools/+/HEAD/sdk/extras/android/support/v4/src/gingerbread/android/support/v4/widget/PopupWindowCompatGingerbread.java
  */
-public class PopupWindowCompatGingerbread {
+object PopupWindowCompatGingerbread {
 
-    private static Method sSetWindowLayoutTypeMethod;
-    private static boolean sSetWindowLayoutTypeMethodAttempted;
-    private static Method sGetWindowLayoutTypeMethod;
-    private static boolean sGetWindowLayoutTypeMethodAttempted;
+    private var sSetWindowLayoutTypeMethod: Method? = null
+    private var sSetWindowLayoutTypeMethodAttempted = false
+    private var sGetWindowLayoutTypeMethod: Method? = null
+    private var sGetWindowLayoutTypeMethodAttempted = false
 
-    public static void setWindowLayoutType(PopupWindow popupWindow, int layoutType) {
+    @JvmStatic
+    fun setWindowLayoutType(popupWindow: PopupWindow, layoutType: Int) {
         if (!sSetWindowLayoutTypeMethodAttempted) {
             try {
-                sSetWindowLayoutTypeMethod = PopupWindow.class.getDeclaredMethod(
-                    "setWindowLayoutType", int.class);
-                sSetWindowLayoutTypeMethod.setAccessible(true);
-            } catch (Exception e) {
+                sSetWindowLayoutTypeMethod = PopupWindow::class.java.getDeclaredMethod(
+                    "setWindowLayoutType",
+                    Integer.TYPE,
+                )
+                sSetWindowLayoutTypeMethod!!.isAccessible = true
+            } catch (e: Exception) {
                 // Reflection method fetch failed. Oh well.
             }
-            sSetWindowLayoutTypeMethodAttempted = true;
+            sSetWindowLayoutTypeMethodAttempted = true
         }
         if (sSetWindowLayoutTypeMethod != null) {
             try {
-                sSetWindowLayoutTypeMethod.invoke(popupWindow, layoutType);
-            } catch (Exception e) {
+                sSetWindowLayoutTypeMethod!!.invoke(popupWindow, layoutType)
+            } catch (e: Exception) {
                 // Reflection call failed. Oh well.
             }
         }
     }
 
-    public static int getWindowLayoutType(PopupWindow popupWindow) {
+    @JvmStatic
+    fun getWindowLayoutType(popupWindow: PopupWindow): Int {
         if (!sGetWindowLayoutTypeMethodAttempted) {
             try {
-                sGetWindowLayoutTypeMethod = PopupWindow.class.getDeclaredMethod(
-                    "getWindowLayoutType");
-                sGetWindowLayoutTypeMethod.setAccessible(true);
-            } catch (Exception e) {
+                sGetWindowLayoutTypeMethod = PopupWindow::class.java.getDeclaredMethod(
+                    "getWindowLayoutType",
+                )
+                sGetWindowLayoutTypeMethod!!.isAccessible = true
+            } catch (e: Exception) {
                 // Reflection method fetch failed. Oh well.
             }
-            sGetWindowLayoutTypeMethodAttempted = true;
+            sGetWindowLayoutTypeMethodAttempted = true
         }
         if (sGetWindowLayoutTypeMethod != null) {
             try {
-                return (Integer) sGetWindowLayoutTypeMethod.invoke(popupWindow);
-            } catch (Exception e) {
+                return sGetWindowLayoutTypeMethod!!.invoke(popupWindow) as Int
+            } catch (e: Exception) {
                 // Reflection call failed. Oh well.
             }
         }
-        return 0;
+        return 0
     }
-
 }
