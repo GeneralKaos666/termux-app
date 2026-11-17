@@ -3,6 +3,7 @@ package com.termux.app.ui.appearance
 import com.termux.app.data.appearance.AppearanceWriteResult
 
 import com.termux.app.domain.appearance.FontValidator
+import com.termux.app.domain.appearance.PendingFontFile
 import com.termux.app.domain.appearance.exportItermColors
 import com.termux.app.domain.appearance.parseItermColors
 import com.termux.app.domain.appearance.readBounded
@@ -38,7 +39,7 @@ class AppearanceActivity : ComponentActivity() {
     private lateinit var preferences: AndroidAppearancePreferences
 
     /** The cache file staged for the last pick, deleted when a newer pick replaces it. */
-    private var pendingFontCandidate: File? = null
+    private val pendingFontCandidate = PendingFontFile()
 
     private val pickFont = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@registerForActivityResult
@@ -54,8 +55,7 @@ class AppearanceActivity : ComponentActivity() {
             else -> {
                 // Each pick gets its own cache file, so the preview reloads the typeface instead of
                 // reusing the one already cached against the previous file's (unchanged) path.
-                pendingFontCandidate?.delete()
-                pendingFontCandidate = candidate
+                pendingFontCandidate.replace(candidate)
                 controller.chooseFont(candidate)
             }
         }
@@ -121,10 +121,19 @@ class AppearanceActivity : ComponentActivity() {
         result.fontError?.let { error ->
             Toast.makeText(this, fontErrorMessage(error), Toast.LENGTH_LONG).show()
         }
+        // The store has already copied the staged file into place, so the cache copy is not needed.
+        pendingFontCandidate.clear()
         // Bump the revision so the terminal reloads when it next resumes; the reload cannot be a
         // broadcast because the terminal is stopped while this screen is on top (see AppearanceStyling).
         AppearanceStyling.bumpRevision(this)
         finish()
+    }
+
+    override fun onDestroy() {
+        // A pick that was never applied must not outlive the screen; without this, every abandoned
+        // pick leaves a cache file behind until the cache is trimmed.
+        pendingFontCandidate.clear()
+        super.onDestroy()
     }
 
     /**
