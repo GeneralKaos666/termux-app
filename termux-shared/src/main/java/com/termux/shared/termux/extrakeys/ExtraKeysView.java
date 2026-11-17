@@ -190,8 +190,8 @@ public final class ExtraKeysView extends GridLayout {
     protected boolean mButtonTextAllCaps = true;
 
     /**
-     * Whether the keycap depth (rounded pressed inset) and the popup chevron are drawn. The
-     * `keycap-visuals` property will feed this once it is read; the default keeps them on.
+     * Whether the keycap depth (rounded pressed inset) and the popup chevron are drawn. Fed from the
+     * `keycap-visuals` property by the activity; the default keeps them on.
      */
     protected boolean mKeycapVisuals = true;
 

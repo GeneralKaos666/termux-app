@@ -602,6 +602,10 @@ public abstract class TermuxSharedProperties {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_TEXT_ALL_CAPS, true);
     }
 
+    public boolean shouldKeycapVisualsBeEnabled() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_KEYCAP_VISUALS, true);
+    }
+
     public boolean shouldSoftKeyboardBeHiddenOnStartup() {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_HIDE_SOFT_KEYBOARD_ON_STARTUP, true);
     }
