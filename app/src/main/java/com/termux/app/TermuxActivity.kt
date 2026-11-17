@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.view.ContextMenu
 import android.view.ContextMenu.ContextMenuInfo
 import android.view.Gravity
@@ -43,7 +44,7 @@ import com.termux.app.domain.palette.PaletteAction
 import com.termux.app.domain.sessions.SessionIdAllocator
 import com.termux.app.domain.sessions.SessionOutputTracker
 import com.termux.app.domain.sessions.SessionSnapshot
-import com.termux.app.domain.sessions.readForegroundCommand
+import com.termux.app.domain.sessions.ForegroundCommandCache
 import com.termux.app.domain.sessions.sessionItems
 import com.termux.app.domain.sessions.starterChips
 import com.termux.app.domain.sessions.tabSubtitle
@@ -194,6 +195,9 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
 
     /** Stable-id marks for sessions that produced output while they were not the active tab. */
     private val mSessionOutputTracker = SessionOutputTracker()
+
+    /** Last foreground-command read per process; the tab bar refreshes faster than `/proc` changes. */
+    private val mForegroundCommands = ForegroundCommandCache(clock = { SystemClock.elapsedRealtime() })
 
     /**
      * Reverse map from the stable session id back to its session, rebuilt on every refresh.
@@ -927,7 +931,7 @@ class TermuxActivity : AppCompatActivity(), ServiceConnection {
             val subtitle = tabSubtitle(
                 terminalSession.getCwd(),
                 TermuxConstants.TERMUX_HOME_DIR_PATH,
-                if (isActive) readForegroundCommand(terminalSession.getPid()) else null,
+                if (isActive) mForegroundCommands.command(terminalSession.getPid()) else null,
             )
             if (subtitle != null) contexts[stableId] = subtitle
         }

@@ -2062,7 +2062,7 @@ git commit -m "Fixed(app): Contain wallpaper decode failures including out-of-me
 
 **Interfaces:**
 - Produces:
-  `internal class ForegroundCommandCache(ttlMillis: Long = 1000L, clock: () -> Long = { SystemClock.elapsedRealtime() }, read: (Int) -> String? = ::readForegroundCommand) { fun command(pid: Int): String? }`.
+  `internal class ForegroundCommandCache(ttlMillis: Long = 1000L, clock: () -> Long, read: (Int) -> String? = ::readForegroundCommand) { fun command(pid: Int): String? }`.
 - Consumes: `readForegroundCommand`.
 
 - [ ] **Step 1: Write the failing test**
@@ -2134,16 +2134,14 @@ Expected: compilation failure.
 ```kotlin
 package com.termux.app.domain.sessions
 
-import android.os.SystemClock
-
 /**
  * Keeps the last foreground-command read per process for a short while. The tab bar refreshes on
  * every session change, and each read walks `/proc`; the label does not need to be fresher than a
- * second.
+ * second. The clock is injected by the caller so the domain layer stays free of Android APIs.
  */
 internal class ForegroundCommandCache(
     private val ttlMillis: Long = 1000L,
-    private val clock: () -> Long = { SystemClock.elapsedRealtime() },
+    private val clock: () -> Long,
     private val read: (Int) -> String? = { readForegroundCommand(it) },
 ) {
     private var pid = -1
@@ -2162,12 +2160,13 @@ internal class ForegroundCommandCache(
 }
 ```
 
-`SystemClock.elapsedRealtime()` in a JVM test is stubbed by Robolectric; the tests inject a clock, so
-they need no runner.
+The clock has no default: `LayeringTest` fails any `android.*` import under `domain/`, so the caller
+supplies `SystemClock.elapsedRealtime`. The tests inject their own clock and need no runner.
 
 - [ ] **Step 4: Use it in `TermuxActivity`**
 
-Add a field `private val mForegroundCommands = ForegroundCommandCache()` and change line 930:
+Add a field `private val mForegroundCommands = ForegroundCommandCache(clock = { SystemClock.elapsedRealtime() })`
+(with `import android.os.SystemClock`) and change the `tabSubtitle` call:
 
 ```kotlin
 if (isActive) mForegroundCommands.command(terminalSession.getPid()) else null,
