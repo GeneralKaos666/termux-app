@@ -12,6 +12,12 @@ object FontValidator {
     /** Fonts larger than this are rejected rather than copied. */
     const val MAX_FONT_BYTES = 8L * 1024 * 1024
 
+    /**
+     * The most of an iTerm2 `.itermcolors` document that is read: a palette is a few kilobytes, and
+     * an unbounded `readText()` lets a shared document exhaust the heap.
+     */
+    const val MAX_ITERM_BYTES = 256L * 1024
+
     private val SIGNATURES = listOf(
         byteArrayOf(0x00, 0x01, 0x00, 0x00), // TrueType
         "true".toByteArray(), // TrueType (Apple)
