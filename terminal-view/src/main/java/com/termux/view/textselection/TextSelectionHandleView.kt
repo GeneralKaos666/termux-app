@@ -60,7 +60,7 @@ class TextSelectionHandleView(
         mHandleLeftDrawable = context.getDrawable(R.drawable.text_select_handle_left_material)
         mHandleRightDrawable = context.getDrawable(R.drawable.text_select_handle_right_material)
 
-        applyHandleTint(terminalView.selectionHandleTint)
+        applyHandleTint(terminalView.getSelectionHandleTint())
         setOrientation(mInitialOrientation)
     }
 

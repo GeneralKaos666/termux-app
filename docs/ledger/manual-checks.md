@@ -625,5 +625,8 @@ search. Everything below is device-only: it is either feel, animation or a platf
       handles across a wide glyph and a ZWJ emoji, copy from the toolbar, then rotate the device and
       confirm the handles still track the finger. Covers `TextSelectionHandleView` and
       `TextSelectionCursorController`.
+- [ ] **TerminalView conversion.** Type text with the soft keyboard open, delete text mid-word with
+      the IME's backspace, paste, and toggle the terminal cursor blink rate to both extremes in
+      Settings.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
