@@ -1,6 +1,7 @@
 package com.termux.view.textselection
 
 import android.annotation.SuppressLint
+import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
@@ -91,7 +92,7 @@ class TextSelectionHandleView(
      * Recolours both handle drawables. The drawables come from shared resources, so each is
      * `mutate()`d first: tinting the shared state would recolour every handle in the process.
      *
-     * @param tint an opaque ARGB colour, or 0 to keep the drawables' own colour.
+     * @param tint an opaque ARGB colour, or 0 to remove the tint and use the drawables' own colour.
      */
     fun setHandleTint(tint: Int) {
         applyHandleTint(tint)
@@ -99,9 +100,11 @@ class TextSelectionHandleView(
     }
 
     private fun applyHandleTint(tint: Int) {
-        if (tint == 0) return
-        mHandleLeftDrawable!!.mutate().setTint(tint)
-        mHandleRightDrawable!!.mutate().setTint(tint)
+        // A zero tint must reach the drawables as a cleared tint list; returning early would leave
+        // the previous colour in place.
+        val tintList = HandleTintList.tintOrNull(tint)?.let { ColorStateList.valueOf(it) }
+        mHandleLeftDrawable!!.mutate().setTintList(tintList)
+        mHandleRightDrawable!!.mutate().setTintList(tintList)
     }
 
     fun setOrientation(orientation: Int) {
