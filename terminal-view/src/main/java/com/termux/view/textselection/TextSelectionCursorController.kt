@@ -194,12 +194,14 @@ class TextSelectionCursorController(private val terminalView: TerminalView) : Cu
 
             override fun onGetContentRect(mode: ActionMode, view: View, outRect: Rect) {
                 var x1 = Math.round(mSelX1 * terminalView.mRenderer!!.getFontWidth())
-                val x2 = Math.round(mSelX2 * terminalView.mRenderer!!.getFontWidth())
+                var x2 = Math.round(mSelX2 * terminalView.mRenderer!!.getFontWidth())
                 val y1 = (mSelY1 - 1 - terminalView.getTopRow()) * terminalView.mRenderer!!.getFontLineSpacing()
                 val y2 = (mSelY2 + 1 - terminalView.getTopRow()) * terminalView.mRenderer!!.getFontLineSpacing()
 
                 if (x1 > x2) {
+                    val tmp = x1
                     x1 = x2
+                    x2 = tmp
                 }
 
                 val terminalBottom = terminalView.bottom

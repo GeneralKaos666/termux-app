@@ -457,6 +457,10 @@ foreground command so the received bytes are visible:
 - [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
       opens the browser, and Back returns through the page history before leaving.
 
+- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
+      start handle: the floating action toolbar stays over the selection, centered rather than
+      collapsed to a zero-width rect at one edge.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 15. D-14 — cursor fade blink, glow and eased bar/underline movement
@@ -551,6 +555,10 @@ Run in a live shell session:
       `termux-environment` is rewritten and nothing crashes.
 - [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
       opens the browser, and Back returns through the page history before leaving.
+
+- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
+      start handle: the floating action toolbar stays over the selection, centered rather than
+      collapsed to a zero-width rect at one edge.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -651,6 +659,10 @@ Run with at least three sessions and the float session available:
       `termux-environment` is rewritten and nothing crashes.
 - [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
       opens the browser, and Back returns through the page history before leaving.
+
+- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
+      start handle: the floating action toolbar stays over the selection, centered rather than
+      collapsed to a zero-width rect at one edge.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -758,6 +770,10 @@ Run with a busy static wallpaper and with a custom image:
 - [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
       opens the browser, and Back returns through the page history before leaving.
 
+- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
+      start handle: the floating action toolbar stays over the selection, centered rather than
+      collapsed to a zero-width rect at one edge.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 18. D-17 to D-20 — termux-backup on a real device
@@ -843,6 +859,10 @@ package manager or a second device yet.
 - [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
       opens the browser, and Back returns through the page history before leaving.
 
+- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
+      start handle: the floating action toolbar stays over the selection, centered rather than
+      collapsed to a zero-width rect at one edge.
+
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 ## 21. D-21 — app layering extraction (domain/data/ui, 2026-11-15)
@@ -923,6 +943,10 @@ surfaces unchanged). Verify companion/plugin integration and service UI behavior
       `termux-environment` is rewritten and nothing crashes.
 - [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
       opens the browser, and Back returns through the page history before leaving.
+
+- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
+      start handle: the floating action toolbar stays over the selection, centered rather than
+      collapsed to a zero-width rect at one edge.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -1034,5 +1058,9 @@ search. Everything below is device-only: it is either feel, animation or a platf
       `termux-environment` is rewritten and nothing crashes.
 - [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
       opens the browser, and Back returns through the page history before leaving.
+
+- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
+      start handle: the floating action toolbar stays over the selection, centered rather than
+      collapsed to a zero-width rect at one edge.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
