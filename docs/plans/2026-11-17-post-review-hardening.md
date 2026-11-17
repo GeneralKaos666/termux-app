@@ -1720,8 +1720,9 @@ internal class PendingFontFile {
 private val pendingFontCandidate = PendingFontFile()
 ```
 
-In `pickFont`: `pendingFontCandidate.replace(candidate)` and `controller.chooseFont(candidate)`; on the
-validation failure path `candidate.delete()` becomes `pendingFontCandidate.clear()`.
+In `pickFont`: on success `pendingFontCandidate.replace(candidate)` then `controller.chooseFont(candidate)`.
+The validation-failure path keeps `candidate.delete()`: that file was never handed to the holder, so
+`clear()` would delete the previous, still-valid pick instead.
 
 In `onAppearanceApplied`: call `pendingFontCandidate.clear()` before `finish()`.
 
