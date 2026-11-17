@@ -444,20 +444,34 @@ public class TerminalBitmap {
 
 
 
+    /**
+     * Bytes needed for an ARGB_8888 bitmap, in long arithmetic so the product cannot wrap.
+     */
+    static long requiredBitmapBytes(int width, int height) {
+        return (long) width * height * 4;
+    }
+
+    /** Number of {@code int} pixels in a {@code width * height} bitmap. */
+    static int pixelBufferLength(int width, int height) {
+        return width * height;
+    }
+
     public static Bitmap resizeBitmap(String logTag, String label, TerminalSessionClient client, Bitmap bitmap,
                                       int bitmapWidth, int bitmapHeight) {
         
         Bitmap newBitmap;
         try {
-            int newBitmapSize = bitmapWidth * bitmapHeight * 4;
-            if (newBitmapSize < 0 || newBitmapSize > MAX_BITMAP_SIZE) {
+            long newBitmapSize = requiredBitmapBytes(bitmapWidth, bitmapHeight);
+            if (newBitmapSize > MAX_BITMAP_SIZE) {
                 Logger.logError(client, logTag, "The new " + label + " bitmap after resize with" +
                     " width " + bitmapWidth + " and height " + bitmapHeight +
                     " has size " + newBitmapSize + " greater than max bitmap size " + MAX_BITMAP_SIZE);
                 return null;
             }
 
-            int[] pixels = new int[bitmap.getAllocationByteCount()];
+            // One int per pixel, not one int per byte: getAllocationByteCount() is four times the
+            // pixel count and made the array 4x larger than the source bitmap.
+            int[] pixels = new int[pixelBufferLength(bitmap.getWidth(), bitmap.getHeight())];
             bitmap.getPixels(pixels, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
 
             newBitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888);
