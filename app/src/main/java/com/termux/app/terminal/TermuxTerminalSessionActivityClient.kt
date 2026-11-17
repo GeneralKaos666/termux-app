@@ -202,8 +202,9 @@ class TermuxTerminalSessionActivityClient(activity: TermuxActivity) : TermuxTerm
         if (!mActivity.isVisible()) return
 
         val text = ShareUtils.getTextStringFromClipboardIfSet(mActivity, true)
-        if (text != null)
-            mActivity.getTerminalView().mEmulator!!.paste(text)
+        // The terminal view has no emulator until the service binds, so a paste from the palette
+        // before then must not dereference it.
+        pasteText(mActivity.getTerminalView().mEmulator, text)
     }
 
     override fun onBell(session: TerminalSession) {
