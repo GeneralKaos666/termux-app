@@ -1868,46 +1868,46 @@ git commit -m "Fixed(termux-shared): Skip symlinked directories when collecting 
 
 **Files:**
 - Create: `terminal-view/src/main/java/com/termux/view/textselection/HandleTintList.kt`
-- Test: `terminal-view/src/test/java/com/termux/view/textselection/HandleTintListTest.java`
+- Test: `terminal-view/src/test/java/com/termux/view/textselection/HandleTintListTest.kt`
 - Modify: `terminal-view/src/main/java/com/termux/view/textselection/TextSelectionHandleView.kt:104-108`
 
 **Interfaces:**
-- Produces: `internal object HandleTintList { fun tintOrNull(tint: Int): Int? }` — pure, so it can be
-  tested in `:terminal-view` without Robolectric.
+- Produces: `internal object HandleTintList { fun tintOrNull(tint: Int): Int? }` — pure Kotlin, so
+  it can be tested in `:terminal-view` without Robolectric.
 - Consumes: `android.content.res.ColorStateList` (only in the view, not in the tested seam).
 
 - [ ] **Step 1: Write the failing test**
 
-```java
-package com.termux.view.textselection;
+```kotlin
+package com.termux.view.textselection
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-
-import org.junit.Test;
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
 
 /** A zero tint must clear a previous tint, not keep it. */
-public class HandleTintListTest {
+class HandleTintListTest {
 
     @Test
-    public void zeroMeansClear() {
-        assertNull(HandleTintList.INSTANCE.tintOrNull(0));
+    fun `zero means clear`() {
+        assertNull(HandleTintList.tintOrNull(0))
     }
 
     @Test
-    public void anOpaqueColourIsKept() {
-        assertEquals(Integer.valueOf(0xFF00FF00), HandleTintList.INSTANCE.tintOrNull(0xFF00FF00));
+    fun `an opaque colour is kept`() {
+        assertEquals(0xFF00FF00.toInt(), HandleTintList.tintOrNull(0xFF00FF00.toInt()))
     }
 }
 ```
 
-`:terminal-view` has no Robolectric, so the seam must not touch `ColorStateList`; keep that call in
-`TextSelectionHandleView`.
+The test is Kotlin: `HandleTintList` is `internal`, and Kotlin mangles the name of an internal
+function, so a Java test cannot call `tintOrNull`. `:terminal-view` has no Robolectric, so the seam
+must not touch `ColorStateList`; keep that call in `TextSelectionHandleView`.
 
 - [ ] **Step 2: Run it and see it fail**
 
-Run: `./gradlew :terminal-view:test --tests "com.termux.view.textselection.HandleTintListTest"`
-Expected: compilation failure.
+Run: `./gradlew :terminal-view:testDebugUnitTest --tests "com.termux.view.textselection.HandleTintListTest"`
+Expected: compilation failure (`HandleTintList` unresolved).
 
 - [ ] **Step 3: Add the seam and use it**
 
@@ -1931,18 +1931,19 @@ private fun applyHandleTint(tint: Int) {
 ```
 
 Add `import android.content.res.ColorStateList`, delete the `if (tint == 0) return` early exit, and
-update the KDoc to say 0 removes the tint.
+update the KDoc to say 0 removes the tint. A cleared tint list (`null`) is what `setTintList` needs;
+keeping the early return is what leaves the previous colour on screen.
 
 - [ ] **Step 4: Run the module suite**
 
-Run: `./gradlew :terminal-view:test`
+Run: `./gradlew :terminal-view:testDebugUnitTest`
 Expected: `BUILD SUCCESSFUL`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add terminal-view/src/main/java/com/termux/view/textselection/ \
-        terminal-view/src/test/java/com/termux/view/textselection/HandleTintListTest.java
+        terminal-view/src/test/java/com/termux/view/textselection/HandleTintListTest.kt
 git commit -m "Fixed(terminal-view): Clear the selection handle tint when the value is zero"
 ```
 
