@@ -47,6 +47,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-30 | `keycap-visuals = false` removes the keycap inset and the popup chevron | pending | §24 below |
 | D-31 | A shared file is saved and opened exactly once (no second editor launch on resume) | pending | §24 below |
 | D-32 | The snippet screen stops at 20 rows and shows the limit line | pending | §24 below |
+| D-33 | Extra keys show their popup text (up to 3 characters) instead of a bare chevron | pending | §25 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -767,5 +768,22 @@ seam. Everything else in the `v2.0.0-beta..e3f68eb1` review is covered by unit t
 - [ ] **D-32 Snippet cap.** Open the snippets screen and add rows until 20 exist. At 20 the add
       button is disabled and `At most 20 snippets are kept.` shows; applying keeps exactly 20 rows
       and the key bar shows no more than 20 chips.
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 25. D-33 — extra-key popup badge (2026-11-17)
+
+`ExtraKeysView` now draws the popup's own display text in the key corner when it is at most three
+code points, and keeps the chevron when the text is longer or blank.
+
+- [ ] **Short popup.** With a key whose popup display is one to three characters (e.g.
+      `{key: ";", popup: {key: "~"}}`), the key shows that text (`~`) in the corner instead of a
+      chevron, and swiping up still opens the same popup.
+- [ ] **Long popup.** With a popup display longer than three characters (e.g. `HOME` or a macro
+      display `CTRL C`), the key keeps the chevron.
+- [ ] **`keycap-visuals = false`.** Append `keycap-visuals = false` to `~/.termux/termux.properties`
+      and reload: neither the badge nor the chevron is drawn.
+- [ ] **Readability.** On a 320dp-wide window the badge does not overlap the main key label, and it
+      remains legible at the default extra-key height and at the smallest configured height.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.

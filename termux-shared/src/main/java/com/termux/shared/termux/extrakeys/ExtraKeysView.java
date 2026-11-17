@@ -9,6 +9,7 @@ import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -445,7 +446,7 @@ public final class ExtraKeysView extends GridLayout {
                     // A compound drawable, not a canvas overlay: the key is a MaterialButton and
                     // still needs its stock ripple background and text baseline.
                     button.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                        null, null, new PopupChevronDrawable(mButtonTextColor, Math.round(dpToPx(6))), null);
+                        null, null, popupAffordanceDrawable(buttonInfo), null);
                     button.setCompoundDrawablePadding(Math.round(dpToPx(1)));
                 }
 
@@ -762,6 +763,70 @@ public final class ExtraKeysView extends GridLayout {
             Math.round(Color.red(color) * factor),
             Math.round(Color.green(color) * factor),
             Math.round(Color.blue(color) * factor));
+    }
+
+    /**
+     * The corner affordance for a key with a popup: the popup's own display text when it is short
+     * enough to read at keycap size, otherwise the chevron that only marks a popup exists.
+     */
+    private Drawable popupAffordanceDrawable(ExtraKeyButton buttonInfo) {
+        String badge = ExtraKeysAffordance.popupBadge(buttonInfo, 3);
+        if (badge != null)
+            return new PopupBadgeDrawable(badge, mButtonTextColor, Math.round(dpToPx(9)));
+        return new PopupChevronDrawable(mButtonTextColor, Math.round(dpToPx(6)));
+    }
+
+    /** The popup's short display text, drawn in the key's end corner. */
+    private static final class PopupBadgeDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final String text;
+        private final int widthPx;
+        private final int heightPx;
+
+        PopupBadgeDrawable(String text, int color, int heightPx) {
+            this.text = text;
+            this.heightPx = Math.max(1, heightPx);
+            paint.setColor(color);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTextSize(this.heightPx * 0.8f);
+            paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+            int padding = Math.max(1, this.heightPx / 5);
+            this.widthPx = Math.max(1, Math.round(paint.measureText(text)) + 2 * padding);
+            setBounds(0, 0, widthPx, this.heightPx);
+        }
+
+        @Override
+        public void draw(@NonNull Canvas canvas) {
+            Rect bounds = getBounds();
+            float baseline = bounds.exactCenterY() - (paint.ascent() + paint.descent()) / 2f;
+            canvas.drawText(text, bounds.exactCenterX(), baseline, paint);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(@Nullable ColorFilter colorFilter) {
+            paint.setColorFilter(colorFilter);
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
+
+        @Override
+        public int getIntrinsicWidth() {
+            return widthPx;
+        }
+
+        @Override
+        public int getIntrinsicHeight() {
+            return heightPx;
+        }
     }
 
     /** A small chevron in the key's end corner, marking a key that opens a popup on swipe up. */
