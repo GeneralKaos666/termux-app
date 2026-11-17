@@ -621,5 +621,9 @@ search. Everything below is device-only: it is either feel, animation or a platf
       surface colour.
 - [ ] **Settings search.** In Settings → Termux, type "colour" and "crash": the list narrows to the
       matching rows, each row opens its screen, and clearing the field restores the full list.
+- [ ] **Text selection after the Kotlin conversion.** Long-press to start a selection, drag both
+      handles across a wide glyph and a ZWJ emoji, copy from the toolbar, then rotate the device and
+      confirm the handles still track the finger. Covers `TextSelectionHandleView` and
+      `TextSelectionCursorController`.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
