@@ -38,7 +38,6 @@ import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.widget.Scroller
-import androidx.annotation.Nullable
 import androidx.annotation.RequiresApi
 import com.termux.terminal.KeyHandler
 import com.termux.terminal.TerminalBuffer
@@ -1066,7 +1065,9 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
     override fun onDraw(canvas: Canvas) {
         val emulator = mEmulator
         if (emulator == null) {
-            canvas.drawColor(0XFF000000)
+            // `.toInt()` matters: Kotlin makes an 8-digit hex literal a Long, which would select the
+            // API 29 `drawColor(long)` overload and crash below it (min is 23).
+            canvas.drawColor(0xFF000000.toInt())
             // The frame that was going to repaint the cursor cell never happened: do not let the flag leak
             // into the first frame after a rebind, which would skip that frame's dirty-state consumption.
             mCursorOnlyFrame = false
@@ -1662,7 +1663,6 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
     }
 
     /** Get the selected text stored before "MORE" button was pressed on the context menu. */
-    @Nullable
     fun getStoredSelectedText(): String? {
         return mTextSelectionCursorController?.storedSelectedText
     }
