@@ -198,8 +198,9 @@ class FileReceiverActivity : AppCompatActivity() {
     fun saveStreamWithName(inputStream: InputStream, attachmentFileName: String?): File? {
         val receiveDir = File(TERMUX_RECEIVEDIR)
 
-        if (DataUtils.isNullOrEmpty(attachmentFileName)) {
-            showErrorDialogAndQuit("File name cannot be null or empty")
+        val fileName = safeReceivedFileName(attachmentFileName)
+        if (fileName == null) {
+            showErrorDialogAndQuit("File name cannot be empty or contain a path")
             return null
         }
 
@@ -208,8 +209,13 @@ class FileReceiverActivity : AppCompatActivity() {
             return null
         }
 
+        val outFile = File(receiveDir, fileName)
+        if (!isDirectChildOf(receiveDir, outFile)) {
+            showErrorDialogAndQuit("File name cannot be empty or contain a path")
+            return null
+        }
+
         try {
-            val outFile = File(receiveDir, attachmentFileName!!)
             FileOutputStream(outFile).use { f ->
                 val buffer = ByteArray(4096)
                 while (true) {
