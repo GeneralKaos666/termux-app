@@ -70,6 +70,27 @@ class BackupScriptProvisionerTest {
     }
 
     @Test
+    fun `missing bin link is repaired on provision`() {
+        val p = BackupScriptProvisioner(source(), install, link)
+        p.provision()
+        link.delete()
+        val dispatcher = File(install, "termux-backup")
+        assertEquals(ProvisionResult.UpToDate, p.provision())
+        assertEquals(dispatcher.absolutePath, Files.readSymbolicLink(link.toPath()).toString())
+    }
+
+    @Test
+    fun `wrong link target is corrected on provision`() {
+        val p = BackupScriptProvisioner(source(), install, link)
+        p.provision()
+        link.delete()
+        link.writeText("not a link")
+        val dispatcher = File(install, "termux-backup")
+        assertEquals(ProvisionResult.UpToDate, p.provision())
+        assertEquals(dispatcher.absolutePath, Files.readSymbolicLink(link.toPath()).toString())
+    }
+
+    @Test
     fun `read only prefix returns failure not an exception`() {
         install.mkdirs(); install.setWritable(false)
         val result = BackupScriptProvisioner(source(), install, link).provision()
