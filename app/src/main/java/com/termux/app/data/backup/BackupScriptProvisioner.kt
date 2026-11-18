@@ -95,7 +95,20 @@ class BackupScriptProvisioner(
      * Never throws: any failure is reported as [ProvisionResult.Failed].
      */
     fun provision(force: Boolean = false): ProvisionResult {
-        if (!force && isCurrent()) return ProvisionResult.UpToDate
+        if (!force && isCurrent()) {
+            // The install itself is fine, but the bin link may have gone missing or
+            // stale (e.g. a deleted or repurposed $PREFIX/bin); re-assert it without
+            // rewriting the install so the command self-heals on the next provision.
+            return try {
+                binLink.absoluteFile.parentFile?.mkdirs()
+                refreshLink(File(installDir, DISPATCHER_ASSET).absolutePath)
+                ProvisionResult.UpToDate
+            } catch (e: IOException) {
+                ProvisionResult.Failed("$binLink: ${e.message}")
+            } catch (e: SecurityException) {
+                ProvisionResult.Failed("$binLink: ${e.message}")
+            }
+        }
         val version = bundledVersion()
             ?: return ProvisionResult.Failed("$installDir: cannot read bundled VERSION asset")
         return try {
