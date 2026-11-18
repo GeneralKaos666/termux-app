@@ -148,10 +148,12 @@ EOF
 
 restore_extract() {
     local dir=$1 archive
+    progress_phase extracting_etc
     for archive in "$dir"/usr_etc.tar.*; do
         [ -f "$archive" ] || continue
         tar -x -f "$archive" -C "$PREFIX" --no-same-owner --no-overwrite-dir || return 1
     done
+    progress_phase extracting_home
     for archive in "$dir"/home.tar.*; do
         [ -f "$archive" ] || continue
         tar -x -f "$archive" -C "$HOME" --no-same-owner --no-overwrite-dir || return 1
@@ -225,8 +227,10 @@ cmd_restore() {
         exit 1
     fi
 
+    progress_phase verifying
     sums_verify "$dir" || die 2 "restore: $(sums_problem "$dir")"
 
+    progress_phase scanning
     for archive in "$dir"/*.tar.*; do
         [ -f "$archive" ] || continue
         archive_scan "$archive" || die 2 "restore: unsafe path in ${archive##*/}"
@@ -248,6 +252,7 @@ cmd_restore() {
 
     local safety=""
     if [ "$OPT_NO_SAFETY" -eq 0 ]; then
+        progress_phase safety
         local compression
         compression=$(manifest_field "$dir/manifest.json" compression 2>/dev/null || true)
         [ -n "$compression" ] || compression=gz
@@ -274,6 +279,7 @@ cmd_restore() {
         else
             requested=$(printf '%s\n' "$missing_names" | awk 'NF { n++ } END { print n + 0 }')
             installed=$requested
+            progress_phase packages
             if ! failed_names=$(packages_install "$dir" 2>&1 >/dev/null); then
                 status=3
                 status_word=packages-failed

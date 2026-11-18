@@ -308,6 +308,7 @@ cmd_verify() {
     backup_name_valid "$name" || die 1 "verify: invalid backup name: $name"
     backup_exists "$root" "$name" || die 1 "verify: no such backup: $name"
 
+    progress_phase verifying
     if ! sums_verify "$root/$name"; then
         if [ "${JSON:-0}" -eq 1 ]; then
             printf '{"name":"%s","root":"%s","valid":false}\n' \
