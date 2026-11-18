@@ -17,6 +17,7 @@ import com.termux.app.data.backup.BackupDefaults
 import com.termux.app.data.backup.BackupRunner
 import com.termux.app.data.backup.BackupScriptProvisioner
 import com.termux.app.ui.theme.TermuxShellTheme
+import com.termux.shared.termux.TermuxConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -84,16 +85,28 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
 
     private fun actions() = BackupActions(
         onCreate = { viewModel.start(it) },
-        onVerify = {},
-        onDelete = {},
-        onPrune = {},
-        onRestore = {},
+        onVerify = { viewModel.onVerify(it) },
+        onDelete = { viewModel.onDelete(it) },
+        onPrune = { viewModel.onPrune(it) },
+        onRestore = { viewModel.onRestore(it) },
         onExport = {},
         onImport = {},
         onCancel = { viewModel.cancel() },
         onRetry = { viewModel.refreshList() },
         onReinstallScript = { viewModel.reinstallScript() },
         onGrantStorage = {},
-        onRestart = {},
+        onRestart = {
+            viewModel.onRestartHandled()
+            sendBroadcast(
+                Intent(TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY.ACTION_RELOAD_STYLE).apply {
+                    setPackage(packageName)
+                    putExtra(TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY.EXTRA_RECREATE_ACTIVITY, false)
+                },
+            )
+            finish()
+        },
+        onConfirmRestore = { entry, safety, packages -> viewModel.onConfirmRestore(entry, safety, packages) },
+        onConfirmDelete = { viewModel.onConfirmDelete(it) },
+        onDismissDialog = { viewModel.onDismissDialog() },
     )
 }

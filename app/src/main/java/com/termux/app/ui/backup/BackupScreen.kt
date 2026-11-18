@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +44,9 @@ data class BackupActions(
     val onPrune: (Int) -> Unit,
     val onRestore: (BackupEntry) -> Unit,
     val onExport: (BackupEntry) -> Unit,
+    val onConfirmRestore: (BackupEntry, Boolean, Boolean) -> Unit,
+    val onConfirmDelete: (BackupEntry) -> Unit,
+    val onDismissDialog: () -> Unit,
     val onImport: () -> Unit,
     val onCancel: () -> Unit,
     val onRetry: () -> Unit,
@@ -85,6 +89,10 @@ fun BackupScreen(
             }
         }
 
+        state.result?.let { result ->
+            item { ResultCard(result) }
+        }
+
         if (state.loading) {
             item {
                 Row(
@@ -120,6 +128,12 @@ fun BackupScreen(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Row {
+                    TextButton(
+                        onClick = { actions.onPrune(state.status?.keep ?: 5) },
+                        enabled = enabled && state.entries.isNotEmpty(),
+                    ) {
+                        Text(stringResource(R.string.backup_prune_action))
+                    }
                     TextButton(onClick = actions.onImport, enabled = enabled) {
                         Text(stringResource(R.string.backup_import_action))
                     }
@@ -156,6 +170,126 @@ fun BackupScreen(
             }
         }
     }
+
+    state.restoreDialog?.let { entry ->
+        RestoreDialog(
+            entry = entry,
+            onConfirm = { safety, packages -> actions.onConfirmRestore(entry, safety, packages) },
+            onDismiss = actions.onDismissDialog,
+        )
+    }
+
+    state.confirmDelete?.let { entry ->
+        ConfirmDeleteDialog(
+            entry = entry,
+            onConfirm = { actions.onConfirmDelete(entry) },
+            onDismiss = actions.onDismissDialog,
+        )
+    }
+
+    if (state.restartRequired) {
+        RestartDialog(
+            onRestart = actions.onRestart,
+            onDismiss = actions.onDismissDialog,
+        )
+    }
+}
+
+@Composable
+private fun ResultCard(result: RunResult) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = when (result) {
+                is RunResult.Success -> result.summary
+                is RunResult.Partial -> result.summary
+                is RunResult.Failure -> stringResource(
+                    R.string.backup_result_failure,
+                    result.exitCode,
+                    result.lastError,
+                )
+                RunResult.Cancelled -> stringResource(R.string.backup_cancel_action)
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(16.dp),
+        )
+    }
+}
+
+@Composable
+private fun RestoreDialog(
+    entry: BackupEntry,
+    onConfirm: (safety: Boolean, packages: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var safety by rememberSaveable { mutableStateOf(true) }
+    var packages by rememberSaveable { mutableStateOf(true) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.backup_restore_dialog_title, entry.name)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(buildString {
+                    append(entry.createdAt)
+                    append(" · ")
+                    append(formatBytes(entry.sizeBytes))
+                    append(" · ")
+                    append(entry.packages)
+                    append(" packages")
+                })
+                SwitchRow(
+                    text = stringResource(R.string.backup_restore_safety),
+                    checked = safety,
+                    enabled = true,
+                    onCheckedChange = { safety = it },
+                )
+                SwitchRow(
+                    text = stringResource(R.string.backup_restore_packages),
+                    checked = packages,
+                    enabled = true,
+                    onCheckedChange = { packages = it },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(safety, packages) }) {
+                Text(stringResource(R.string.backup_restore_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.backup_cancel_action)) }
+        },
+    )
+}
+
+@Composable
+private fun ConfirmDeleteDialog(entry: BackupEntry, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.backup_delete_dialog_title, entry.name)) },
+        text = { Text(stringResource(R.string.backup_delete_dialog_message)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.backup_delete_action)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.backup_cancel_action)) }
+        },
+    )
+}
+
+@Composable
+private fun RestartDialog(onRestart: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.backup_restart_title)) },
+        text = { Text(stringResource(R.string.backup_restart_message)) },
+        confirmButton = {
+            TextButton(onClick = onRestart) { Text(stringResource(R.string.backup_restart_action)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.backup_cancel_action)) }
+        },
+    )
 }
 
 @Composable

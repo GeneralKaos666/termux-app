@@ -465,4 +465,14 @@
     <string name="backup_packages_value">%1$d packages</string>
     <string name="backup_yes">Yes</string>
     <string name="backup_no">No</string>
+    <string name="backup_prune_action">Prune</string>
+    <string name="backup_restore_dialog_title">Restore %1$s?</string>
+    <string name="backup_restore_safety">Create a safety archive first</string>
+    <string name="backup_restore_packages">Reinstall packages</string>
+    <string name="backup_delete_dialog_title">Delete %1$s?</string>
+    <string name="backup_delete_dialog_message">This removes the backup directory and cannot be undone.</string>
+    <string name="backup_restart_title">Restart required</string>
+    <string name="backup_restart_message">Files restored. Restart the app so every session uses them.</string>
+    <string name="backup_restart_action">Restart app</string>
+    <string name="backup_result_failure">Failed (exit %1$d): %2$s</string>
 </resources>
