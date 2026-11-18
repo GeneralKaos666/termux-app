@@ -149,17 +149,21 @@ backup_build_dir() {
 
     if [ "$no_config" -eq 0 ]; then
         archive="$(archive_name_for etc "$compression")"
+        progress_phase archiving_etc
         archive_create_etc "$tmp/$archive" "$compression" || return 1
     fi
     if [ "$no_home" -eq 0 ]; then
         archive="$(archive_name_for home "$compression")"
+        progress_phase archiving_home
         archive_create_home "$tmp/$archive" "$compression" "$excludes" || return 1
     fi
 
+    progress_phase collect_packages
     packages_write "$tmp" || return 1
     rm -f -- "$excludes"
     mv -- "$tmp" "$root/$dir_name" || return 1
     trap - EXIT
+    progress_phase checksums
     sums_write "$root/$dir_name" || {
         rm -rf -- "${root:?}/${dir_name:?}"
         return 1
@@ -281,6 +285,7 @@ cmd_backup() {
     rm -rf -- "$tmp"
 
     if [ "$keep" -gt 0 ]; then
+        progress_phase prune
         backup_prune "$root" "$keep"
     fi
 

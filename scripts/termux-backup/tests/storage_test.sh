@@ -15,7 +15,7 @@ test_status_json_reports_root_and_version() {
     setup_sandbox
     local out
     out=$(bash "$SCRIPT" status --json)
-    assert_contains '"tool_version":"1.0.0"' "$out" "version"
+    assert_contains '"tool_version":"1.1.0"' "$out" "version"
     assert_contains '"root":"'"$TERMUX_BACKUP_ROOT"'"' "$out" "root"
     teardown_sandbox
 }

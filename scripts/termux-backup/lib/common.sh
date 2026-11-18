@@ -2,11 +2,41 @@
 # Shared constants and helpers. Defines functions only.
 
 # shellcheck disable=SC2034 # consumed by sourced libraries
-TOOL_VERSION="1.0.0"
+TOOL_VERSION="1.1.0"
 # shellcheck disable=SC2034
 FORMAT_VERSION=1
 # shellcheck disable=SC2034
 DEFAULT_ROOT="/sdcard/termux-backups"
+# JSONL progress destination; set by the --progress-file flag. Empty disables all progress output.
+# shellcheck disable=SC2034
+PROGRESS_FILE=""
+
+# Progress events are best-effort: an unwritable progress file never fails the command.
+progress_init() {
+    local command=$1 dir
+    [ -n "$PROGRESS_FILE" ] || return 0
+    dir=$(dirname -- "$PROGRESS_FILE")
+    mkdir -p -- "$dir" 2>/dev/null || true
+    printf '{"ts":"%s","event":"run_start","command":"%s","pid":%s}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(json_escape "$command")" "$$" \
+        >"$PROGRESS_FILE" 2>/dev/null || true
+}
+
+progress_phase() {
+    local name=$1
+    [ -n "$PROGRESS_FILE" ] || return 0
+    printf '{"ts":"%s","event":"phase","name":"%s"}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(json_escape "$name")" \
+        >>"$PROGRESS_FILE" 2>/dev/null || true
+}
+
+progress_end() {
+    local code=$1
+    [ -n "$PROGRESS_FILE" ] || return 0
+    printf '{"ts":"%s","event":"run_end","exit_code":%s}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$code" \
+        >>"$PROGRESS_FILE" 2>/dev/null || true
+}
 
 color_init() {
     C_RESET=""
