@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
+import android.view.View
 import androidx.annotation.Keep
 import androidx.appcompat.widget.SearchView
 import androidx.preference.Preference
@@ -34,6 +35,13 @@ class TermuxPreferencesFragment : PreferenceFragmentCompat() {
 
         setHasOptionsMenu(true)
         mAllEntries = settingsIndex(preferenceScreen ?: return)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        // The search view is rebuilt with the view and starts collapsed and empty, so a filtered
+        // screen must not survive a return from a result row; show the real screen again.
+        setPreferencesFromResource(R.xml.termux_preferences, null)
+        super.onViewCreated(view, savedInstanceState)
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
@@ -66,33 +74,43 @@ class TermuxPreferencesFragment : PreferenceFragmentCompat() {
      *
      * A blank query restores the real screen rather than a rebuilt copy: the resource is the one
      * source of the list, and re-inflating it cannot drift from it.
+     *
+     * Matches are rendered into a fresh screen and swapped in whole. Mutating the attached screen
+     * (`removeAll()` plus `addPreference()`) while its list is laid out leaves the preference list
+     * bound to a stale hierarchy; opening a row from that rebuilt screen then crashed with
+     * `PreferenceFragmentCompat.bindPreferences` on a null list.
      */
     private fun showMatches(query: String) {
+        // Collapsing the search view fires one last query change, and that can arrive after the
+        // fragment's view was replaced by the row that was just tapped. Rebuilding then posts a
+        // bind to a destroyed list view (PreferenceFragmentCompat.bindPreferences NPE).
+        if (view == null) return
+
         if (query.trim().isEmpty()) {
             setPreferencesFromResource(R.xml.termux_preferences, null)
             return
         }
 
         val matches = filterSettings(mAllEntries, query)
-        val screen: PreferenceScreen = preferenceScreen ?: return
-        screen.removeAll()
+        val screen: PreferenceScreen = preferenceManager.createPreferenceScreen(requireContext())
 
         if (matches.isEmpty()) {
             val empty = Preference(requireContext())
             empty.setTitle(R.string.settings_search_no_results)
             empty.isSelectable = false
             screen.addPreference(empty)
-            return
+        } else {
+            for (entry in matches) {
+                val row = Preference(requireContext())
+                row.key = entry.key
+                row.title = entry.title
+                row.summary = entry.summary
+                row.fragment = entry.fragment
+                screen.addPreference(row)
+            }
         }
 
-        for (entry in matches) {
-            val row = Preference(requireContext())
-            row.key = entry.key
-            row.title = entry.title
-            row.summary = entry.summary
-            row.fragment = entry.fragment
-            screen.addPreference(row)
-        }
+        setPreferenceScreen(screen)
     }
 
 }
