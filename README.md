@@ -8,6 +8,12 @@ This is [GeneralKaos666's fork](https://github.com/GeneralKaos666/termux-app) of
 [termux/termux-app](https://github.com/termux/termux-app), with the interface rebuilt on
 Kotlin and Jetpack Compose.
 
+## Screenshots
+
+| Terminal | Settings | Appearance |
+|---|---|---|
+| ![Terminal with the sessions bar and extra keys](docs/screenshots/term.png) | ![Settings hub](docs/screenshots/settings.png) | ![Appearance screen with colour schemes and the 256-colour palette](docs/screenshots/appearance.png) |
+
 ## What this fork adds
 
 - **Sessions bar** across the top, about 28dp tall: tap a tab to switch, long-press and drag to
