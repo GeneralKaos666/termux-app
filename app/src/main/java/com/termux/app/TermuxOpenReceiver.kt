@@ -193,10 +193,9 @@ class TermuxOpenReceiver : BroadcastReceiver() {
         override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
             var openMode = mode
             try {
-                // Resolve to a canonical file first: it is the value that is validated below and
+                // Resolve to a canonical path first: it is the value that is validated below and
                 // the one that gets opened.
-                val file = File(uri.path!!).canonicalFile
-                val path = file.path
+                val path = File(uri.path!!).canonicalPath
                 val callingPackageName = callingPackage
                 Logger.logDebug(
                     LOG_TAG,
@@ -225,7 +224,7 @@ class TermuxOpenReceiver : BroadcastReceiver() {
                     openMode = "r"
                 }
 
-                return ParcelFileDescriptor.open(file, ParcelFileDescriptor.parseMode(openMode))
+                return ParcelFileDescriptor.open(File(path), ParcelFileDescriptor.parseMode(openMode))
             } catch (e: IOException) {
                 throw IllegalArgumentException(e)
             }
