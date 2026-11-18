@@ -46,8 +46,13 @@ and shell history; use `--exclude-secrets`, or choose a root inside `$HOME` (for
 | `termux-backup prune` | Keep only the newest N backups |
 | `termux-backup status` | Show root, writability, free space and backup count |
 
-Every command accepts `--json` (one JSON object on stdout, for phase-2 UI use), `--quiet`, and
+Every command accepts `--json` (one JSON object on stdout, for in-app use), `--quiet`, and
 `--path DIR` to override the backup root. `--json` and `--quiet` cannot be combined.
+
+`--progress-file PATH` is a global automation flag used by the Android app: the script truncates the
+file at the start of a run and appends one JSON object per line — `run_start` (with `command` and
+`pid`), a `phase` event whenever a stage begins, and `run_end` with the exit code. Human and `--json`
+output are unchanged, and nothing is written when the flag is absent.
 
 ### backup
 

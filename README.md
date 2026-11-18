@@ -83,6 +83,11 @@ current environment before every restore, and reinstalls missing packages afterw
 [`scripts/termux-backup/README.md`](scripts/termux-backup/README.md) for install, commands and the
 new-device walkthrough.
 
+The same tool is in the app: **Settings → Advanced → Backup & restore** provisions the script into
+`$PREFIX/lib/termux-backup` on first open, creates, verifies, restores, deletes and prunes backups,
+and exports or imports a backup directory through the system file picker. Restores show a
+confirmation, keep a safety archive by default, and ask for an app restart afterwards.
+
 ## Android 12 and above
 
 Android kills background and CPU-hungry processes aggressively, so a shell can die with

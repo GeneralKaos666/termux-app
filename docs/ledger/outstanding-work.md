@@ -823,24 +823,36 @@ blanket `invalidate()`, so a palette-only change still repaints but a no-op colo
 re-applying the same 256-colour palette every prompt) does not. The counter behaviour is unit-tested
 in `TerminalColorsTest`.
 
-### 5.5 termux-backup phase 2 (in-app UI) — `[needs spec]`
+### 5.5 termux-backup phase 2 (in-app UI) — `[done 2026-11-17]`
 
-Phase 1 of the environment backup/restore tool ships as a script only (`scripts/termux-backup`, spec
+Phase 1 shipped the environment backup/restore tool as a script only (`scripts/termux-backup`, spec
 `docs/specs/2026-11-15-termux-backup-restore-design.md`, plan
-`docs/plans/2026-11-15-termux-backup-restore.md`). Phase 2 is a Settings screen that drives the same
-CLI through `TermuxService`, renders progress from its `--json` output, and provisions the script from
-`assets/` into `$PREFIX/lib` on first run. It needs its own spec before any code.
+`docs/plans/2026-11-15-termux-backup-restore.md`). Phase 2 is now in the app, from spec
+`docs/specs/2026-11-17-termux-backup-ui-design.md` and plan
+`docs/plans/2026-11-17-termux-backup-ui.md`: a **Settings → Advanced → Backup & restore** row opens
+`BackupActivity`, which provisions `scripts/termux-backup` from APK assets into
+`$PREFIX/lib/termux-backup`, runs the CLI in a hidden `TermuxService` session (`run.lock` keeps one
+run at a time), polls a JSONL progress file (`--progress-file`), and exposes backup, verify, restore,
+delete, prune and status. Restore is confirmed in-app, keeps a safety archive and reinstalls packages
+by default, and asks for a restart afterwards. SAF export and import copy the same five-file backup
+directory through `ACTION_OPEN_DOCUMENT_TREE`, verifying `SHA256SUMS` in both directions and deleting
+partial output. Commits: scripts/Task 1 `6f5c40e7`, packaging `fb693503`, command model `aa82e8ca`,
+progress parser `524783c4`, JSON results `f1de385b`, provisioner `15c6f214` + `d9c2719d`, settings row
+`2e51eb9d`, hidden runner `ff4ef5f6`, screen + list `2e134192`, restore/verify/delete/prune `1bf4dd4b`,
+SAF validation `0baf950b`, SAF transfer `9f6a9d1c`, coordinator + pickers `1bee3f54`. Unit tests:
+`:app:testDebugUnitTest` green; `scripts/termux-backup/tests/run.sh` green.
 
-Deferred on purpose in phase 1, each a separate decision later:
+Still deferred, each a separate decision later:
 
 - **GitHub / Google Drive backends** — remote storage needs credentials, retention rules and a sync
   story; local-only until then.
 - **Scheduling** — no timer, no `termux-job-scheduler` wiring, no boot hook.
 - **Encryption** — archives with credentials are only as safe as the storage root; `--exclude-secrets`
   is the only mitigation today.
-- **SAF import/export** — sharing a backup through the Storage Access Framework belongs to phase 2.
+- **SAF is directory-based** — the app exports and imports the unarchived backup directory through the
+  system picker; a single-file archive for sharing is still open.
 
-Device checks for phase 1 live in `manual-checks.md` D-17 to D-20.
+Device checks for phase 1 live in `manual-checks.md` D-17 to D-20; phase 2 checks are D-35 to D-42.
 
 ---
 
