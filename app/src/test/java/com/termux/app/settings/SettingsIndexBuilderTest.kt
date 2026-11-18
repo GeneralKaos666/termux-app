@@ -7,6 +7,7 @@ import androidx.preference.PreferenceManager
 import androidx.preference.PreferenceScreen
 import com.termux.R
 import com.termux.app.domain.settings.SettingsEntry
+import com.termux.app.domain.settings.filterSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -89,6 +90,46 @@ class SettingsIndexBuilderTest {
         root.addPreference(preference("about", "About", "Version"))
 
         assertEquals(listOf(SettingsEntry("about", "About", "Version", null)), settingsIndex(root))
+    }
+
+    @Test
+    fun `the hub indexes its three navigation rows`() {
+        val manager = manager()
+        val root = manager.createPreferenceScreen(context)
+        @Suppress("DEPRECATION")
+        manager.inflateFromResource(context, R.xml.termux_preferences, root)
+
+        assertEquals(
+            listOf(
+                SettingsEntry(
+                    "display", "Display", "Colours, font, background and layout",
+                    "com.termux.app.fragments.settings.termux.DisplayPreferencesFragment",
+                ),
+                SettingsEntry(
+                    "keyboard", "Keyboard", "On-screen keyboard and extra keys",
+                    "com.termux.app.fragments.settings.termux.KeyboardPreferencesFragment",
+                ),
+                SettingsEntry(
+                    "advanced", "Advanced", "Logging, notifications and diagnostics",
+                    "com.termux.app.fragments.settings.termux.DebuggingPreferencesFragment",
+                ),
+            ),
+            settingsIndex(root),
+        )
+    }
+
+    @Test
+    fun `a query matching a hub row keeps it`() {
+        val manager = manager()
+        val root = manager.createPreferenceScreen(context)
+        @Suppress("DEPRECATION")
+        manager.inflateFromResource(context, R.xml.termux_preferences, root)
+        val entries = settingsIndex(root)
+
+        assertEquals(listOf("display"), filterSettings(entries, "font").map { it.key })
+        assertEquals(listOf("display"), filterSettings(entries, "COLOUR").map { it.key })
+        assertEquals(listOf("keyboard"), filterSettings(entries, "keyboard").map { it.key })
+        assertEquals(emptyList<SettingsEntry>(), filterSettings(entries, "wallpaper"))
     }
 
     @Test

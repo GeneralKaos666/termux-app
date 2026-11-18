@@ -79,14 +79,15 @@ drag-to-reorder, rename and close have all since shipped.
   `plans/2026-10-16-settings-ia.md`; final review clean.
 - The onboarding and settings checks in `manual-checks.md` D-7 and D-8 are closed (D-7 measured
   2026-11-02; D-8 on the maintainer's verdict, since exercising the edges needs a data wipe).
-- `[open 2026-11-17]` **Settings search matches nothing in the Termux panel.** Typing any query
-  ("font", "keyboard", "colour") shows "No settings match". `SettingsIndexBuilder` only indexes
+- `[fixed 2026-11-18]` **Settings search matches nothing in the Termux panel.** Typing any query
+  ("font", "keyboard", "colour") showed "No settings match". `SettingsIndexBuilder` only indexes
   preferences that have an `app:key`, and the three rows in `res/xml/termux_preferences.xml`
-  (Display / Keyboard / Advanced) have none — they only carry `app:fragment`. Pre-existing on
-  `master`, found while checking the Kotlin conversion on device; clearing the query restores the
-  full list, so nothing is lost. Fix by giving the three rows keys (and freezing them) or by
-  indexing keyless rows on their title/summary; either way add a test that a query matching a
-  row's title keeps it.
+  (Display / Keyboard / Advanced) had none — they only carried `app:fragment`. Fixed by giving the
+  three rows keys (`display`, `keyboard`, `advanced`); they are navigation rows, so no persisted
+  value and no migration. Clearing the query restored the full list, so nothing was lost. Covered by
+  `SettingsIndexBuilderTest.the hub indexes its three navigation rows` and
+  `.a query matching a hub row keeps it` (both red before the fix: an empty index). Device check
+  D-43 in `manual-checks.md`.
 
 ### 1.4 Appearance — shipped, device passes outstanding
 
@@ -559,7 +560,7 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 - `[non-goal]` rewriting the seven historical commits whose messages do not use the capitalized
   conventional types: the messages are in the past and rewriting `master` would break every clone;
   the rule is enforced from here on.
-- The settings-search defect stays `[open 2026-11-17]` in §3.1; it is independent of this review.
+- The settings-search defect (fixed 2026-11-18, §1.3) was independent of this review.
 - `[done 2026-11-17]` the extra-key corner affordance shows the popup's own display text when it is
   at most three code points, and keeps the chevron otherwise (`ExtraKeysAffordance.popupBadge`);
   device check D-33 in `manual-checks.md`.
