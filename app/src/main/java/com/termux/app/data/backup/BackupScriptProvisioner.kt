@@ -62,7 +62,7 @@ class BackupScriptProvisioner(
     private val assets: BackupAssetSource,
     private val installDir: File,
     private val binLink: File,
-) {
+) : BackupProvisioner {
 
     private val versionFile: File get() = File(installDir, VERSION_FILE)
 
@@ -94,7 +94,7 @@ class BackupScriptProvisioner(
      * when [force] is false and the installed version matches the bundled one.
      * Never throws: any failure is reported as [ProvisionResult.Failed].
      */
-    fun provision(force: Boolean = false): ProvisionResult {
+    override fun provision(force: Boolean): ProvisionResult {
         if (!force && isCurrent()) {
             // The install itself is fine, but the bin link may have gone missing or
             // stale (e.g. a deleted or repurposed $PREFIX/bin); re-assert it without
