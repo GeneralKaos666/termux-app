@@ -3,8 +3,8 @@
 - **Status:** approved for planning (design approved 2026-11-17)
 - **Date:** 2026-11-17
 - **Scope:** phase 2 — in-app screen that drives the phase-1 `termux-backup` CLI, plus the script
-  progress protocol and script provisioning the screen needs. SAF export/import and scheduled
-  backups are explicitly out of scope.
+  progress protocol and script provisioning the screen needs, and Storage Access Framework (SAF)
+  export/import of backup directories. Scheduled backups remain out of scope.
 - **Builds on:** `docs/specs/2026-11-15-termux-backup-restore-design.md` (phase 1, script) and
   `docs/plans/2026-11-15-termux-backup-restore.md`.
 - **Ledger entry:** `docs/ledger/outstanding-work.md` §5.5.
@@ -32,6 +32,7 @@ A user who never opens a terminal can:
 - create, verify, delete and prune backups in the default root;
 - see what exists, its size, package count and age;
 - restore a chosen backup after an explicit confirmation, with a safety archive;
+- export a backup directory to a location they pick in the system file picker, and import one back;
 - run all of it on a fresh install, offline, with no `curl` and no manual script install.
 
 Success criteria:
@@ -40,14 +41,21 @@ Success criteria:
   the backup list without a terminal.
 - A backup started from the screen survives the screen closing and reports its phases while it runs.
 - Restore cannot start without a dialog naming the backup and both target paths.
-- No phase is shown that the script did not report, and no percentage is invented.
+- No script phase is shown that the script did not report, and no percentage is invented for a script
+  run.
+- An exported backup directory imports back byte-identical and verified; a corrupted export is
+  refused before it can be listed.
 - The CLI keeps its phase-1 behaviour and output when the new flag is not passed.
 
 ## 3. Decisions
 
 | Decision | Choice | Why |
 |---|---|---|
-| Scope | Full CLI surface minus SAF and scheduling | Backup without restore is half a feature; SAF and scheduling need their own designs. |
+| Scope | Full CLI surface plus SAF export/import | Backup without restore is half a feature; SAF is how a backup leaves the device; scheduling needs its own design for background limits. |
+| SAF shape | `ACTION_OPEN_DOCUMENT_TREE` in both directions, same five-file directory | The on-disk format never changes, and no app-side tar implementation is needed. |
+| SAF implementation | Platform `DocumentsContract` behind a small `SafDocumentTree` interface, no new dependency | The app already uses `DocumentsContract`; a fake interface keeps the logic testable. |
+| SAF copy lifetime | App-scoped coroutine; temp directory swept on next screen open | Survives the screen closing without adding WorkManager or a second notification. |
+| SAF progress | Real bytes and a percentage, per file | Totals are known from `COLUMN_SIZE`; this is the one place where a real bar exists. |
 | Placement | One keyed row at the bottom of the Advanced settings screen | Keeps the shipped three-row hub IA; a key makes it reachable from settings search. |
 | Execution | Hidden `TermuxSession` created by `TermuxService`, not in the tab list | Reuses session lifetime, shell environment and the existing foreground-service notification, without exposing a terminal. |
 | Progress | Script appends JSONL phase events to a file; the screen polls it | Honest phases, attach-after-reopen, no fake byte counts. |
@@ -63,7 +71,6 @@ Success criteria:
 
 ## 4. Non-goals
 
-- SAF export/import of backup directories.
 - Scheduled, boot-triggered or background-unattended backups.
 - Cloud backends (GitHub, Google Drive, rclone).
 - Encryption or password-protected archives.
@@ -85,10 +92,15 @@ app/src/main/java/com/termux/app/
     BackupProgress.kt         JSONL event model, parser, run state machine
     BackupSummary.kt          parser for list / status / backup result objects
     BackupDefaults.kt         root path, config paths, poll interval, phase labels
+    SafBackupName.kt          import/export name derivation and sanitising
+    SafBackupManifest.kt      the five-file set, sums parsing
   data/backup/
     BackupScriptProvisioner.kt   assets -> $PREFIX/lib + symlink + version marker
     BackupRunner.kt              lock, session start/stop, progress tail, state flow
     BackupSessionClient.kt       no-op TerminalSessionClient for the hidden session
+    SafDocumentTree.kt           interface over DocumentsContract; real + fake impls
+    SafBackupTransfer.kt         export/import copy with hashing and temp-then-rename
+    BackupTransferCoordinator.kt  app-scoped owner of the current transfer
   ui/backup/
     BackupActivity.kt         hosts the Compose screen
     BackupScreen.kt           stateless composables by state
@@ -100,7 +112,8 @@ Dependencies:
 
 - `domain/backup` — Kotlin + `org.json` only. No Android type; parser tests run under Robolectric
   because the JVM `org.json` stub throws.
-- `data/backup` — may read assets, call `TermuxService`, use `android.system.Os`.
+- `data/backup` — may read assets, call `TermuxService`, use `android.system.Os` and
+  `DocumentsContract`.
 - `ui/backup` — Compose, ViewModel, `LifecycleService`-free; polls while `STARTED`.
 - The settings fragment only starts `BackupActivity`; it holds no backup logic.
 
@@ -111,7 +124,12 @@ Dependencies:
 - `BackupRunner` answers "start, attach, cancel, and report one run". It owns all I/O and platform
   calls, and exposes a single `StateFlow<BackupProgress.State>`.
 - `BackupScriptProvisioner` answers "is the bundled script installed and current". It never runs it.
-- `BackupViewModel` maps runner state to screen state and invokes one runner at a time.
+- `SafBackupTransfer` answers "copy this backup out, or that one in, and prove it". It never starts a
+  session.
+- `BackupTransferCoordinator` answers "is a copy already running, and what is its progress". It
+  owns the only app-scoped coroutine.
+- `BackupViewModel` maps runner and transfer state to screen state and invokes one operation at a
+  time.
 
 ## 6. Script progress protocol (phase-1 script change)
 
@@ -267,7 +285,11 @@ entry:
 
 - **Verify** — runs `verify --name`; result shown inline as Verified / Corrupt.
 - **Restore** — opens the restore dialog (§11).
+- **Export…** — opens the system tree picker and copies the directory (§17).
 - **Delete** — destructive dialog naming the entry, then `delete --name --yes`.
+
+The screen header also offers **Import backup…**, which opens the tree picker on a backup directory
+and copies it into the current root (§17). Export and Import are available for safety entries too.
 
 Safety entries are labelled and never offered for automatic pruning.
 
@@ -281,6 +303,9 @@ Action "Prune backups" with a keep count (default from `status`), destructive co
 While a run is active: a phase stepper of the phases valid for that command, the elapsed time, and
 Cancel. Phases not reached yet are dimmed; the current phase is highlighted; completed phases are
 checked. No percentage and no time estimate.
+
+SAF transfers are the one exception: because the file sizes are known, they show the current file
+name, bytes copied over total, and a real percentage bar. Script runs still never show a percentage.
 
 When the run ends:
 
@@ -322,6 +347,10 @@ The UI never passes `--force` and never offers a cross-architecture override.
 - A malformed progress line is skipped; one bad line never stops the stepper.
 - A progress file with `run_start` but no `run_end`, and no live PID, renders as Interrupted.
 - A `list`/`status` parse failure shows the raw error and a Retry, and leaves previous data visible.
+- A SAF provider error is shown verbatim with the failing file name; a transfer never reports success
+  unless every copied file matched its checksum.
+- An import that fails validation leaves no destination directory; an export that fails removes the
+  directory it created in the picked tree.
 - The screen never blocks the main thread: all file reads, process checks and session calls that do
   I/O run on `Dispatchers.IO`.
 
@@ -333,6 +362,11 @@ The UI never passes `--force` and never offers a cross-architecture override.
 - Script provisioning writes only under `$PREFIX/lib/termux-backup` and the one symlink.
 - The hidden session runs the bundled script path, never a user-supplied path or argument string;
   arguments are passed as an argv array, not through a shell string.
+- Imported SAF content is untrusted: it is hashed against `SHA256SUMS`, its member names are
+  validated against traversal, and it is not listable until verification passes. `manifest.json` is
+  parsed only for `format_version` and `created_at`, never executed.
+- Export writes only into the tree the user picked and only with names from `SHA256SUMS` plus the
+  three fixed metadata files.
 
 ## 14. Testing
 
@@ -349,6 +383,14 @@ Robolectric like the existing `:app` tests. Everything else is plain JUnit.
   malformed JSON error.
 - `BackupLockTest` — stale PID detection (injected process probe), live PID, missing lock.
 - `BackupViewModelTest` — start blocked while running, attach on open, poll stops on cleared.
+- `SafBackupNameTest` — sanitising, pattern-preserving names, manifest-derived fallback, collision
+  suffixes.
+- `SafBackupManifestTest` — sums parsing, duplicate and traversal names rejected, missing file
+  listed, format-version guard.
+- `SafBackupTransferTest` (fake `SafDocumentTree`) — export copies the exact set and verifies
+  hashes; hash mismatch deletes the created directory; import round-trips, rejects a corrupted file,
+  refuses low free space, sweeps a leftover temp directory, cancel deletes partial output.
+- `BackupTransferCoordinatorTest` — one transfer at a time, refusal while the run lock exists.
 
 ### 14.2 Robolectric tests
 
@@ -366,7 +408,8 @@ Progress-event cases from §6 in `scripts/termux-backup/tests/`; `shellcheck -S 
 New section in `docs/ledger/manual-checks.md` covering: fresh-install provisioning and the row
 appearing in settings search; backup with the screen closed and reopened (attach); cancel; verify on
 a corrupted archive; restore dialog, safety archive and restart prompt; storage permission revoked;
-second device restore.
+second device restore; SAF export into a Downloads tree and import back; a corrupted SAF import
+refused; export cancelled with its directory removed.
 
 ## 15. CI
 
@@ -376,14 +419,85 @@ No new job. `./gradlew test` covers §14.1–14.2; the existing `shell` job cove
 
 ## 16. Documentation and ledger
 
-- `docs/ledger/outstanding-work.md` §5.5: phase 2 recorded as shipped, with the SAF and scheduling
-  deferrals still listed.
+- `docs/ledger/outstanding-work.md` §5.5: phase 2 recorded as shipped, with SAF export/import landed
+  and scheduling still deferred.
 - `scripts/termux-backup/README.md`: document `--progress-file` as an automation flag, note that the
   app uses it, and that the in-app screen exists.
-- Root `README.md`: extend the "Backup and restore" section to mention the Settings screen.
+- Root `README.md`: extend the "Backup and restore" section to mention the Settings screen and SAF
+  export/import.
 - `docs/ledger/manual-checks.md`: the device section from §14.4.
 
-## 17. Risks and open items
+## 17. SAF export and import
+
+### 17.1 Picker and document access
+
+- Export starts from a backup entry and calls `ACTION_OPEN_DOCUMENT_TREE`; the user picks the tree
+  to write into.
+- Import calls `ACTION_OPEN_DOCUMENT_TREE` and the user picks the backup directory itself.
+- No persistable URI permission is taken: the URI is used for the copy and then dropped. A process
+  restart aborts the transfer (see §17.4).
+- Access goes through a small `SafDocumentTree` interface: `children()`, `createDirectory(name)`,
+  `createFile(parent, name)`, `openInput(document)`, `openOutput(document)`, `size(document)`,
+  `delete(document)`. The real implementation uses `DocumentsContract`
+  (`buildChildDocumentsUriUsingTree`, `createDocument`, `openInputStream`/`openOutputStream`,
+  `deleteDocument`, `getTreeDocumentId`); tests use a fake. No new dependency.
+
+### 17.2 Export
+
+1. Run only when the entry is listable (a directory with `SHA256SUMS`) and no script run or transfer
+   is active.
+2. Export set: every file named in `SHA256SUMS`, plus `SHA256SUMS`, `manifest.json` when present and
+   `packages.txt` when present. Files the sums do not name are not exported.
+3. Create a directory named after the backup in the picked tree. If a child with that name already
+   exists, refuse with a message rather than overwriting.
+4. Copy in a fixed order with `SHA256SUMS` last, mirroring the script's rule. Each file is hashed
+   while it is copied and compared with `SHA256SUMS`; a mismatch aborts and deletes the directory
+   this export created.
+5. Progress: current file name, bytes copied over total (the sum of `COLUMN_SIZE` values). A file
+   whose provider reports no size streams without contributing to the total, and the bar stays
+   indeterminate for that file.
+6. After the copy, re-list the created directory and confirm the export set is present. Report the
+   directory name the provider actually assigned, which may differ from the requested name.
+
+### 17.3 Import
+
+1. Enumerate the picked tree's direct children only; never recurse. Require `SHA256SUMS` and every
+   file it names.
+2. Parse `SHA256SUMS` as `<64 hex>  <name>`. Reject empty names, names containing `/`, `..`
+   components and duplicate names: this is the path-traversal guard, because SAF display names are
+   user-controlled.
+3. Destination name: the tree's display name sanitised to `[A-Za-z0-9._-]` (other characters become
+   `-`, surrounding dots and dashes trimmed). If the result does not start with `termux_backup_` or
+   `safety_pre_restore_`, derive `termux_backup_<created_at>` from the manifest when it reads
+   `yyyyMMdd_HHmmss`, else `termux_backup_<now>`. A name collision gets `-2`, `-3`, … appended.
+4. Preflight: free space at the root at least `1.05 × total size + 16 MiB`; otherwise refuse and
+   show both figures.
+5. Copy into `<root>/.tmp-import-<pid>`, hashing while copying. Every file must match
+   `SHA256SUMS`; on any mismatch or I/O error the temp directory is deleted and nothing is listed.
+6. When `manifest.json` is readable, reject a `format_version` other than `1`. Then rename the temp
+   directory to the destination name and refresh the list.
+7. There is no size cap; progress is per file plus bytes over total.
+
+### 17.4 Cancellation and failure
+
+- Cancel deletes the export directory this transfer created, or the import temp directory, then
+  reports Cancelled.
+- Process death during an import leaves a `.tmp-import-*` directory; the coordinator sweeps every
+  such directory on the next screen open. An interrupted export cannot be swept inside a foreign
+  tree; because the coordinator records the created document names in its state file, the next open
+  reports it as an interrupted export and offers to delete those documents.
+- Provider errors are reported verbatim with the failing file name; nothing is retried silently.
+- A SAF transfer and a script run are mutually exclusive. The coordinator refuses to start while the
+  run lock exists, and `BackupRunner` refuses to start while a transfer is active.
+
+### 17.5 Format guarantees
+
+- No on-disk format change: an exported directory is the same five files the CLI produces, and an
+  imported one is an ordinary list entry that can be verified, restored, pruned or exported again.
+- Only data files are copied; no executable mode needs preserving.
+- The script and the app never share a file mid-write: import renames only after all sums match.
+
+## 18. Risks and open items
 
 - **Generated assets under AGP 9** — the only build-shape risk; proven in the first task with an
   `unzip -l` check.
@@ -395,8 +509,15 @@ No new job. `./gradlew test` covers §14.1–14.2; the existing `shell` job cove
   "Reinstall script" is the explicit escape hatch. Documented in the confirmation text.
 - **`org.json` and unit tests** — the Android implementation is required; the JVM stub throws, so
   parser tests use Robolectric. No new dependency.
+- **SAF provider variance** — tree pickers exist on every supported API level, but providers differ:
+  some report no size, some rename documents on creation, some are cloud-backed and slow. The spec
+  handles each explicitly (indeterminate per-file bar, report the assigned name, verbatim provider
+  errors); no provider is special-cased.
+- **Interrupted export** — a foreign tree cannot be swept automatically. The coordinator's state
+  file records what it created so the next open can offer deletion, but a process death between
+  creating the directory and recording it leaves an orphan the user must remove.
 
-## 18. Acceptance criteria
+## 19. Acceptance criteria
 
 1. Fresh install, no terminal: Settings → Advanced → Backup & restore provisions the script and
    lists zero backups.
@@ -407,6 +528,9 @@ No new job. `./gradlew test` covers §14.1–14.2; the existing `shell` job cove
 5. Restore requires the dialog, creates a safety archive by default, and offers Restart app.
 6. Delete and Prune require confirmations; safety archives survive Prune.
 7. Settings search finds "Backup & restore".
-8. `./gradlew test` and the `shell` CI job are green; `--progress-file` absent leaves CLI output
-   unchanged.
-9. No `:terminal-emulator`, `:terminal-view` or published `:termux-shared` API changed.
+8. A backup exports to a picked tree, imports back into a fresh root, and verifies there; a
+   corrupted export is refused on import and leaves no listed entry.
+9. Cancelling an export or import removes what that transfer created.
+10. `./gradlew test` and the `shell` CI job are green; `--progress-file` absent leaves CLI output
+    unchanged.
+11. No `:terminal-emulator`, `:terminal-view` or published `:termux-shared` API changed.
