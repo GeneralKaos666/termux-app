@@ -10,8 +10,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.ConscryptMode
 
 /** The coordinator is the one place that decides whether a transfer may start. */
+@RunWith(RobolectricTestRunner::class)
+@ConscryptMode(ConscryptMode.Mode.OFF)
 class BackupTransferCoordinatorTest {
 
     @get:Rule
@@ -83,6 +88,49 @@ class BackupTransferCoordinatorTest {
         assertNull(coordinator.state.value.operation)
     }
 
+    @Test
+    fun `a transfer that throws is reported and clears running`() {
+        val coordinator = BackupTransferCoordinator.forTest(ThrowingTransfer(), busy = { false })
+
+        coordinator.startExport(root, tree)
+        awaitIdle(coordinator)
+
+        assertTrue(coordinator.state.value.result is TransferResult.Failed)
+        assertFalse(coordinator.state.value.running)
+    }
+
+    @Test
+    fun `the state file marks a transfer and is cleared when it ends`() {
+        val stateFile = File(root, "transfer.json")
+        val transfer = BlockingTransfer()
+        val coordinator = BackupTransferCoordinator.forTest(transfer, busy = { false }, stateFile = stateFile)
+
+        coordinator.startExport(root, tree)
+        assertTrue(transfer.started.await(5, TimeUnit.SECONDS))
+        assertTrue(stateFile.exists())
+
+        transfer.release.countDown()
+        awaitIdle(coordinator)
+        assertFalse(stateFile.exists())
+    }
+
+    @Test
+    fun `an interrupted transfer is recovered on the next open`() {
+        val stateFile = File(root, "transfer.json")
+        stateFile.writeText("""{"operation":"export","started_at":"t"}""")
+        val coordinator = BackupTransferCoordinator.forTest(
+            FixedTransfer(TransferResult.Success("x")),
+            busy = { false },
+            stateFile = stateFile,
+        )
+
+        val failure = coordinator.recoverInterrupted()
+
+        assertTrue(failure != null)
+        assertFalse(stateFile.exists())
+        assertTrue(coordinator.state.value.result is TransferResult.Failed)
+    }
+
     private fun awaitIdle(coordinator: BackupTransferCoordinator) {
         val deadline = System.currentTimeMillis() + 5_000
         while (coordinator.state.value.running && System.currentTimeMillis() < deadline) {
@@ -105,6 +153,14 @@ class BackupTransferCoordinatorTest {
     private class FixedTransfer(private val result: TransferResult) : BackupTransfer {
         override fun export(sourceDir: File, tree: SafDocumentTree) = result
         override fun importInto(tree: SafDocumentTree, destinationRoot: File, takenNames: Set<String>) = result
+    }
+
+    private class ThrowingTransfer : BackupTransfer {
+        override fun export(sourceDir: File, tree: SafDocumentTree): TransferResult =
+            throw IllegalStateException("provider died")
+
+        override fun importInto(tree: SafDocumentTree, destinationRoot: File, takenNames: Set<String>): TransferResult =
+            throw IllegalStateException("provider died")
     }
 
     private class BlockingTransfer : BackupTransfer {

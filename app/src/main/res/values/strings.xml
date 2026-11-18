@@ -475,4 +475,8 @@
     <string name="backup_restart_message">Files restored. Restart the app so every session uses them.</string>
     <string name="backup_restart_action">Restart app</string>
     <string name="backup_result_failure">Failed (exit %1$d): %2$s</string>
+    <string name="backup_restore_targets">Files in $HOME and $PREFIX/etc are overwritten. Nothing is deleted.</string>
+    <string name="backup_restore_safety_off">Without a safety archive this restore cannot be undone.</string>
+    <string name="backup_invalid_label">Use letters, digits, dots, dashes and underscores only.</string>
+    <string name="backup_sdcard_warning">This directory is shared storage: other apps can read the backups, including any secrets they contain.</string>
 </resources>

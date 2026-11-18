@@ -15,6 +15,9 @@ interface BackupSessionRunner {
     /** Re-reads the progress file and publishes it. */
     fun refresh(): BackupProgress
 
+    /** Re-reads the progress file for a screen that just opened and resumes polling a live run. */
+    fun attach(): BackupProgress
+
     /** Starts [command] unless a live run holds the lock. */
     fun start(
         command: BackupCommand,

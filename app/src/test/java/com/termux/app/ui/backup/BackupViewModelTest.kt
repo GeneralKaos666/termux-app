@@ -5,10 +5,12 @@ import com.termux.app.data.backup.BackupSessionClient
 import com.termux.app.data.backup.BackupSessionRunner
 import com.termux.app.data.backup.ProvisionResult
 import com.termux.app.data.backup.StartResult
+import com.termux.app.data.backup.TransferState
 import com.termux.app.domain.backup.BackupCommand
 import com.termux.app.domain.backup.BackupProgress
 import com.termux.app.domain.backup.BackupRunState
 import com.termux.app.domain.backup.BackupStatus
+import com.termux.app.domain.backup.BackupPhase
 import com.termux.app.domain.backup.BackupEntry
 import com.termux.app.domain.backup.BackupKind
 import com.termux.shared.shell.command.ExecutionCommand
@@ -229,6 +231,49 @@ class BackupViewModelTest {
         assertTrue(viewModel.state.value.restartRequired)
     }
 
+    @Test
+    fun `open attaches to a live run instead of reloading status and list`() {
+        val running = BackupProgress(
+            BackupRunState.Running("backup", BackupPhase.ARCHIVING_HOME, "2026-01-01T00:00:00Z"),
+            listOf(BackupPhase.ARCHIVING_HOME),
+            "2026-01-01T00:00:00Z",
+        )
+        val runner = FakeRunner(mapOf("status" to statusJson, "list" to listJson), attachState = running)
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+
+        viewModel.open()
+
+        assertEquals(0, runner.startCount)
+        assertTrue(viewModel.state.value.busy)
+        assertEquals(running.state, viewModel.state.value.run?.state)
+    }
+
+    @Test
+    fun `open reports a run whose process is gone as interrupted`() {
+        val interrupted = BackupProgress(BackupRunState.Interrupted, emptyList(), "2026-01-01T00:00:00Z")
+        val runner = FakeRunner(mapOf("status" to statusJson, "list" to listJson), attachState = interrupted)
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+
+        viewModel.open()
+
+        assertEquals(BackupRunState.Interrupted, viewModel.state.value.run?.state)
+        assertFalse(viewModel.state.value.busy)
+    }
+
+    @Test
+    fun `start is refused while a transfer runs`() {
+        val runner = FakeRunner(mapOf("status" to statusJson, "list" to listJson))
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+        val startsBefore = runner.startCount
+        viewModel.onTransfer(TransferState(running = true, operation = "import"))
+
+        viewModel.start(BackupCommand.Backup(null, "gz", null, false, true, true))
+
+        assertEquals("A transfer is already running", viewModel.state.value.message)
+        assertEquals(startsBefore, runner.startCount)
+    }
+
     private fun viewModel(provisioner: BackupProvisioner, runner: BackupSessionRunner) =
         BackupViewModel(
             provisioner = provisioner,
@@ -251,6 +296,7 @@ class BackupViewModelTest {
         private val refuse: String? = null,
         private val exit: Int = 0,
         private val fixedTranscript: String? = null,
+        private val attachState: BackupProgress = BackupProgress(BackupRunState.Idle, emptyList(), null),
     ) : BackupSessionRunner {
 
         private val mutableState = MutableStateFlow(
@@ -290,6 +336,11 @@ class BackupViewModelTest {
             )
             mutableState.value = progress
             return progress
+        }
+
+        override fun attach(): BackupProgress {
+            mutableState.value = attachState
+            return attachState
         }
 
         override fun cancel() = Unit

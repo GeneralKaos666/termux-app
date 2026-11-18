@@ -7,6 +7,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.security.MessageDigest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -132,6 +133,78 @@ class SafBackupTransferTest {
         assertTrue(result is TransferResult.Failed)
     }
 
+    @Test
+    fun `export refuses a missing summed file`() {
+        val dir = temp.newFolder("termux_backup_missing")
+        File(dir, "manifest.json").writeText("""{"format_version":1}""")
+        writeSums(dir, mapOf("home.tar.gz" to sha("abc")))
+        val tree = FakeTree(sizes = sizes)
+
+        val result = SafBackupTransfer({}, { false }).export(dir, tree)
+
+        assertTrue(result is TransferResult.Failed)
+        assertTrue(tree.children(null).isEmpty())
+    }
+
+    @Test
+    fun `import refuses a missing summed file`() {
+        val tree = FakeTree(sizes = sizes, name = "termux_backup_x")
+        tree.writeRootFile("SHA256SUMS", "${sha("abc")}  home.tar.gz".toByteArray())
+
+        val result = SafBackupTransfer({}, { false }).importInto(tree, root, emptySet())
+
+        assertTrue(result is TransferResult.Failed)
+        assertTrue(root.listFiles().orEmpty().isEmpty())
+    }
+
+    @Test
+    fun `import refuses a provider name that escapes the directory`() {
+        val tree = FakeTree(sizes = sizes, name = "termux_backup_x")
+        tree.writeRootFile("home.tar.gz", "abc".toByteArray())
+        tree.writeRootFile("SHA256SUMS", "${sha("abc")}  home.tar.gz".toByteArray())
+        tree.writeRootFile("../evil", "boom".toByteArray())
+
+        val result = SafBackupTransfer({}, { false }).importInto(tree, root, emptySet())
+
+        assertTrue(result is TransferResult.Failed)
+        assertTrue(root.listFiles().orEmpty().isEmpty())
+        assertFalse(File(root.parentFile, "evil").exists())
+    }
+
+    @Test
+    fun `export reports the name the provider assigned`() {
+        val tree = FakeTree(sizes = sizes)
+        tree.renameOnCreate = "renamed_backup"
+        val dir = backupDirWith(sums = mapOf("home.tar.gz" to sha("abc")))
+
+        val result = SafBackupTransfer({}, { false }).export(dir, tree)
+
+        assertEquals(TransferResult.Success("renamed_backup"), result)
+    }
+
+    @Test
+    fun `import refuses when the destination has too little space`() {
+        val transfer = SafBackupTransfer({}, { false }, freeSpace = { 1024L })
+
+        val result = transfer.importInto(sourceTree(payload = "abc", sumsFor = "abc"), root, emptySet())
+
+        assertTrue(result is TransferResult.Failed)
+        assertTrue((result as TransferResult.Failed).message.contains("free space"))
+        assertTrue(root.listFiles().orEmpty().isEmpty())
+    }
+
+    @Test
+    fun `export survives a provider that throws`() {
+        val tree = FakeTree(sizes = sizes)
+        tree.failOnWrite = true
+        val dir = backupDirWith(sums = mapOf("home.tar.gz" to sha("abc")))
+
+        val result = SafBackupTransfer({}, { false }).export(dir, tree)
+
+        assertTrue(result is TransferResult.Failed)
+        assertTrue(tree.children(null).isEmpty())
+    }
+
     private fun backupDirWith(sums: Map<String, String>, nullSize: Boolean = false): File {
         val dir = temp.newFolder("termux_backup_20260101_000000")
         File(dir, "manifest.json").writeText("""{"format_version":1,"created_at":"2026-01-01T10:15:30Z"}""")
@@ -174,6 +247,9 @@ class SafBackupTransferTest {
         private val name: String = "Backups",
     ) : SafDocumentTree {
 
+        var renameOnCreate: String? = null
+        var failOnWrite: Boolean = false
+
         private class Node(val id: String, val name: String, val size: Long?, val parent: String?) {
             val bytes = ByteArrayOutputStream()
             var isDir = false
@@ -196,7 +272,8 @@ class SafBackupTransferTest {
                 .map { SafDocumentTree.Document(it.id, it.name, it.size) }
 
         override fun createDirectory(name: String): SafDocumentTree.Document {
-            val node = Node("dir-$name", name, null, null)
+            val assigned = renameOnCreate ?: name
+            val node = Node("dir-$assigned", assigned, null, null)
             node.isDir = true
             nodes[node.id] = node
             return SafDocumentTree.Document(node.id, node.name, node.size)
@@ -211,8 +288,10 @@ class SafBackupTransferTest {
         override fun openInput(document: SafDocumentTree.Document): InputStream =
             ByteArrayInputStream(nodes.getValue(document.id).bytes.toByteArray())
 
-        override fun openOutput(document: SafDocumentTree.Document): OutputStream =
-            nodes.getValue(document.id).bytes
+        override fun openOutput(document: SafDocumentTree.Document): OutputStream {
+            if (failOnWrite) throw IllegalStateException("provider refused the write")
+            return nodes.getValue(document.id).bytes
+        }
 
         override fun delete(document: SafDocumentTree.Document): Boolean {
             nodes.remove(document.id)
