@@ -433,4 +433,36 @@
     <string name="msg_bell">Bell</string>
     <string name="settings_search_hint">Search settings</string>
     <string name="settings_search_no_results">No settings match</string>
+
+    <string name="backup_directory_label">Backup directory</string>
+    <string name="backup_writable_label">Writable</string>
+    <string name="backup_storage_label">Shared storage</string>
+    <string name="backup_free_space_label">Free space</string>
+    <string name="backup_count_label">Backups</string>
+    <string name="backup_storage_missing">Shared storage is not accessible. Grant access to write backups to shared storage.</string>
+    <string name="backup_create_header">Create a backup</string>
+    <string name="backup_label_hint">Label (optional)</string>
+    <string name="backup_keep_label">Keep newest</string>
+    <string name="backup_include_home">Include home directory</string>
+    <string name="backup_include_config">Include installed configuration</string>
+    <string name="backup_exclude_secrets">Exclude secrets</string>
+    <string name="backup_create_action">Create backup</string>
+    <string name="backup_list_header">Backups</string>
+    <string name="backup_empty">No backups yet</string>
+    <string name="backup_verify_action">Verify</string>
+    <string name="backup_restore_action">Restore</string>
+    <string name="backup_delete_action">Delete</string>
+    <string name="backup_export_action">Export…</string>
+    <string name="backup_import_action">Import backup…</string>
+    <string name="backup_cancel_action">Cancel</string>
+    <string name="backup_reinstall_action">Reinstall script</string>
+    <string name="backup_grant_storage_action">Grant storage access</string>
+    <string name="backup_refresh_action">Refresh</string>
+    <string name="backup_kind_safety">Safety</string>
+    <string name="backup_kind_backup">Backup</string>
+    <string name="backup_unknown_value">unknown</string>
+    <string name="backup_phase_running">Running: %1$s</string>
+    <string name="backup_packages_value">%1$d packages</string>
+    <string name="backup_yes">Yes</string>
+    <string name="backup_no">No</string>
 </resources>
