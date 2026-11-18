@@ -11,6 +11,9 @@ on:
       - android-10
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   validation:
     name: "Validation"
