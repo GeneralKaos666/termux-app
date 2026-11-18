@@ -48,6 +48,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-31 | A shared file is saved and opened exactly once (no second editor launch on resume) | pending | §24 below |
 | D-32 | The snippet screen stops at 20 rows and shows the limit line | pending | §24 below |
 | D-33 | Extra keys show their popup text (up to 3 characters) instead of a bare chevron | pending | §25 below |
+| D-34 | Release assets are signed by the release key and install as a normal release build | pending | §26 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -785,5 +786,25 @@ code points, and keeps the chevron when the text is longer or blank.
       and reload: neither the badge nor the chevron is drawn.
 - [ ] **Readability.** On a 320dp-wide window the badge does not overlap the main key label, and it
       remains legible at the default extra-key height and at the smallest configured height.
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 26. D-34 — release-key signing of release assets (2026-11-17)
+
+Release workflow now runs `assembleRelease` and signs the APKs with the release key from the
+repository secrets; it refuses to publish when the signature or the secrets are missing.
+
+- [ ] **Signer.** Download a `universal` release APK and run
+      `apksigner verify --print-certs <apk>`. The certificate is the release key, not
+      `testkey_untrusted.jks`.
+- [ ] **Not debuggable.** `aapt dump badging <apk>` shows no `application-debuggable` flag, and
+      `run-as com.termux` fails.
+- [ ] **Clean install.** After uninstalling any older build (different key), install the release
+      APK. The app starts, the bootstrap installs and a package installs.
+- [ ] **In-place upgrade.** Install a second release APK signed with the same key over the first.
+      Android accepts the upgrade and `$HOME` survives.
+- [ ] **Failure path.** Temporarily remove one signing secret in a test fork (or run the workflow
+      with an empty value): the workflow deletes the release and the tag instead of attaching
+      unsigned APKs.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.

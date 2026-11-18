@@ -563,6 +563,9 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 - `[done 2026-11-17]` the extra-key corner affordance shows the popup's own display text when it is
   at most three code points, and keeps the chevron otherwise (`ExtraKeysAffordance.popupBadge`);
   device check D-33 in `manual-checks.md`.
+- `[done 2026-11-17]` release assets are release-signed: the workflow builds `assembleRelease` and
+  reads the release key from the four `TERMUX_RELEASE_*` secrets; `TERMUX_RELEASE_SIGNING_REQUIRED=1`
+  fails the build when any is missing, and `apksigner verify` gates the upload. Device check D-34.
 
 ---
 

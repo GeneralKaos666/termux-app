@@ -13,6 +13,15 @@ ext {
     packageVariant = System.getenv("TERMUX_PACKAGE_VARIANT") ?: "apt-android-7" // Default: "apt-android-7"
 }
 
+// Release assets are signed by the release key supplied by CI; local builds without the four
+// variables stay unsigned unless TERMUX_RELEASE_SIGNING_REQUIRED asks for a signature.
+def releaseKeystorePath = System.getenv("TERMUX_RELEASE_KEYSTORE_PATH")
+def releaseKeystorePassword = System.getenv("TERMUX_RELEASE_KEYSTORE_PASSWORD")
+def releaseKeyAlias = System.getenv("TERMUX_RELEASE_KEY_ALIAS")
+def releaseKeyPassword = System.getenv("TERMUX_RELEASE_KEY_PASSWORD")
+def releaseSigningConfigured = [releaseKeystorePath, releaseKeystorePassword, releaseKeyAlias, releaseKeyPassword]
+    .every { it != null && !it.isEmpty() }
+
 android {
     namespace = "com.termux"
 
@@ -93,6 +102,15 @@ android {
             storePassword 'xrj45yWGLbsO7W0v'
             keyPassword 'xrj45yWGLbsO7W0v'
         }
+
+        if (releaseSigningConfigured) {
+            release {
+                storeFile file(releaseKeystorePath)
+                keyAlias releaseKeyAlias
+                storePassword releaseKeystorePassword
+                keyPassword releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -100,6 +118,7 @@ android {
             minifyEnabled true
             shrinkResources = false // Reproducible builds
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (releaseSigningConfigured) signingConfig = signingConfigs.release
         }
 
         debug {
@@ -153,6 +172,10 @@ android {
         buildConfig = true
         compose = true
     }
+}
+
+if (System.getenv("TERMUX_RELEASE_SIGNING_REQUIRED") == "1" && !releaseSigningConfigured) {
+    throw new GradleException("TERMUX_RELEASE_SIGNING_REQUIRED=1 but the release signing variables are not all set. Set TERMUX_RELEASE_KEYSTORE_PATH, TERMUX_RELEASE_KEYSTORE_PASSWORD, TERMUX_RELEASE_KEY_ALIAS and TERMUX_RELEASE_KEY_PASSWORD.")
 }
 
 dependencies {

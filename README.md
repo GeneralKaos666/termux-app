@@ -64,8 +64,9 @@ Take an APK from the [latest prerelease](https://github.com/GeneralKaos666/termu
    this one.
 4. Allow your browser or file manager to install unknown apps, then open the APK.
 
-The builds are debug-signed and debuggable. Treat APKs from anywhere other than this
-repository's releases and Actions pages as untrusted.
+The release APKs are signed with the fork's release key and are not debuggable. Treat APKs from
+anywhere other than this repository's releases and Actions pages as untrusted. A build signed with
+a different key cannot be upgraded in place: uninstall the previous app first.
 
 ## Using it
 
