@@ -808,3 +808,36 @@ repository secrets; it refuses to publish when the signature or the secrets are 
       unsigned APKs.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 27. D-35 to D-42 — termux-backup in-app screen (2026-11-17)
+
+Spec `docs/specs/2026-11-17-termux-backup-ui-design.md`, plan
+`docs/plans/2026-11-17-termux-backup-ui.md`. Everything here needs a device: the hidden session, the
+`$PREFIX` write path, the SAF picker and the restore flow are not unit-testable.
+
+- [ ] **D-35 Provisioning on a fresh install.** Install a debug APK, open Settings → Advanced →
+      Backup & restore. The script is copied to `$PREFIX/lib/termux-backup`, `which termux-backup`
+      resolves, `termux-backup --version`-style `status` output matches the screen, and the settings
+      search finds "Backup" (the row has a key).
+- [ ] **D-36 Backup from the screen.** Create a backup with a label and `xz`. The progress card shows
+      the phases, the run finishes with a summary, the list shows the new directory with its size and
+      package count, and `termux-backup list` in a terminal agrees.
+- [ ] **D-37 Run survives leaving the screen.** Start a backup, press Home, return: the run either
+      finished (list refreshed) or is still shown as running. No crash, no duplicate lock.
+- [ ] **D-38 Cancel.** Start a backup and cancel. The session ends, `run.lock` is gone, the list is
+      unchanged and a new backup can start immediately.
+- [ ] **D-39 Verify a corrupted backup.** Truncate one archive inside a backup directory with a
+      terminal, then Verify. The screen reports the failure with the CLI's message and the entry is
+      still listed.
+- [ ] **D-40 Restore.** Restore a backup. The dialog names the backup and both target paths, the
+      safety archive appears in the list afterwards, packages reinstall, and the restart prompt
+      appears; after restarting, `$HOME` matches the backup.
+- [ ] **D-41 Revoked storage access.** Revoke the app's storage permission, reopen the screen: the
+      header reports the missing access, the grant button opens the system settings, and no action
+      crashes.
+- [ ] **D-42 SAF export and import.** Export a backup to Downloads through the picker, then import it
+      back into the backup root: the imported directory gets a `termux_backup_` name (collision gets
+      `-2`). Corrupt one byte in the exported copy and import again: the transfer fails and no partial
+      directory is listed. Cancel an export mid-copy: the partial directory is gone.
+
+Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
