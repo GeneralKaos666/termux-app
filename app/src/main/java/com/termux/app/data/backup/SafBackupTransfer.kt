@@ -40,10 +40,10 @@ sealed interface TransferResult {
 class SafBackupTransfer(
     private val progress: (CopyProgress) -> Unit,
     private val cancellation: () -> Boolean,
-) {
+) : BackupTransfer {
 
     /** Copies [sourceDir]'s files into a new directory in [tree]. */
-    fun export(sourceDir: File, tree: SafDocumentTree): TransferResult {
+    override fun export(sourceDir: File, tree: SafDocumentTree): TransferResult {
         val sums = readLocalSums(sourceDir) ?: return TransferResult.Failed(
             "${sourceDir.path}: SHA256SUMS is missing or invalid",
         )
@@ -84,7 +84,7 @@ class SafBackupTransfer(
      * Copies the backup directory in [tree] into [destinationRoot], verifying its checksums and
      * renaming it to a name the CLI lists.
      */
-    fun importInto(
+    override fun importInto(
         tree: SafDocumentTree,
         destinationRoot: File,
         takenNames: Set<String>,

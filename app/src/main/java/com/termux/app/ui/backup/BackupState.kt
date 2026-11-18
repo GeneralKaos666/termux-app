@@ -1,6 +1,7 @@
 package com.termux.app.ui.backup
 
 import com.termux.app.data.backup.ProvisionResult
+import com.termux.app.data.backup.TransferState
 import com.termux.app.domain.backup.BackupEntry
 import com.termux.app.domain.backup.BackupProgress
 import com.termux.app.domain.backup.BackupStatus
@@ -29,6 +30,8 @@ data class BackupUiState(
     val restartRequired: Boolean = false,
     /** Per-backup verification outcome, keyed by backup name. */
     val verified: Map<String, Boolean> = emptyMap(),
+    /** State of the SAF export/import, when one has run. */
+    val transfer: TransferState? = null,
 )
 
 /** Outcome of one command, as the screen reports it. */

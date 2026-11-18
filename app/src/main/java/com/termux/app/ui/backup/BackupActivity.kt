@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.lifecycleScope
@@ -15,7 +16,10 @@ import com.termux.app.TermuxService
 import com.termux.app.data.backup.ApkAssetSource
 import com.termux.app.data.backup.BackupDefaults
 import com.termux.app.data.backup.BackupRunner
+import com.termux.app.data.backup.AndroidSafDocumentTree
 import com.termux.app.data.backup.BackupScriptProvisioner
+import com.termux.app.data.backup.BackupTransferCoordinator
+import com.termux.app.domain.backup.BackupEntry
 import com.termux.app.ui.theme.TermuxShellTheme
 import com.termux.shared.termux.TermuxConstants
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Composition root for the backup screen: binds [TermuxService] so the CLI can run in a hidden
@@ -35,6 +40,26 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
     private lateinit var runner: BackupRunner
     private lateinit var viewModel: BackupViewModel
     private var bound = false
+    private var pendingExport: BackupEntry? = null
+    private var sweptImports = false
+
+    private val coordinator: BackupTransferCoordinator by lazy { BackupTransferCoordinator.get(this) }
+
+    private val exportPicker =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            val entry = pendingExport
+            pendingExport = null
+            val root = viewModel.state.value.status?.root ?: return@registerForActivityResult
+            if (uri == null || entry == null) return@registerForActivityResult
+            coordinator.startExport(File(root, entry.name), AndroidSafDocumentTree(this, uri))
+        }
+
+    private val importPicker =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            val root = viewModel.state.value.status?.root ?: return@registerForActivityResult
+            if (uri == null) return@registerForActivityResult
+            coordinator.startImport(AndroidSafDocumentTree(this, uri), File(root))
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +84,16 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
         }
 
         lifecycleScope.launch { runner.state.collect { viewModel.onProgress(it) } }
+        lifecycleScope.launch {
+            coordinator.state.collect { transfer ->
+                viewModel.onTransfer(transfer)
+                val root = viewModel.state.value.status?.root
+                if (!sweptImports && root != null) {
+                    sweptImports = true
+                    coordinator.sweepStaleImports(File(root))
+                }
+            }
+        }
 
         val intent = Intent(this, TermuxService::class.java)
         startService(intent)
@@ -89,8 +124,11 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
         onDelete = { viewModel.onDelete(it) },
         onPrune = { viewModel.onPrune(it) },
         onRestore = { viewModel.onRestore(it) },
-        onExport = {},
-        onImport = {},
+        onExport = { entry ->
+            pendingExport = entry
+            exportPicker.launch(null)
+        },
+        onImport = { importPicker.launch(null) },
         onCancel = { viewModel.cancel() },
         onRetry = { viewModel.refreshList() },
         onReinstallScript = { viewModel.reinstallScript() },
@@ -108,5 +146,6 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
         onConfirmRestore = { entry, safety, packages -> viewModel.onConfirmRestore(entry, safety, packages) },
         onConfirmDelete = { viewModel.onConfirmDelete(it) },
         onDismissDialog = { viewModel.onDismissDialog() },
+        onCancelTransfer = { coordinator.cancel() },
     )
 }
