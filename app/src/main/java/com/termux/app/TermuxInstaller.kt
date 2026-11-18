@@ -250,7 +250,7 @@ class TermuxInstaller private constructor() {
                                         if (parts.size != 2)
                                             throw RuntimeException("Malformed symlink line: $line")
                                         val oldPath = parts[0]
-                                        val newPath = TERMUX_STAGING_PREFIX_DIR_PATH + "/" + parts[1]
+                                        val newPath = getZipEntryTarget(TERMUX_STAGING_PREFIX_DIR, parts[1]).absolutePath
                                         symlinks.add(Pair.create(oldPath, newPath))
 
                                         val symlinkDirectoryError = ensureDirectoryExists(File(newPath).getParentFile())
@@ -261,7 +261,7 @@ class TermuxInstaller private constructor() {
                                     }
                                 } else {
                                     val zipEntryName = zipEntry.getName()
-                                    val targetFile = File(TERMUX_STAGING_PREFIX_DIR_PATH, zipEntryName)
+                                    val targetFile = getZipEntryTarget(TERMUX_STAGING_PREFIX_DIR, zipEntryName)
                                     val isDirectory = zipEntry.isDirectory
 
                                     val entryDirectoryError = ensureDirectoryExists(if (isDirectory) targetFile else targetFile.getParentFile())
@@ -482,6 +482,25 @@ class TermuxInstaller private constructor() {
 
         private fun ensureDirectoryExists(directory: File): Error? {
             return FileUtils.createDirectoryFile(directory.getAbsolutePath())
+        }
+
+        /**
+         * Resolve a zip entry name against the staging directory and reject entries whose canonical
+         * path escapes it. This blocks "Zip Slip" entries such as `../../some/file`.
+         */
+        @JvmStatic
+        internal fun getZipEntryTarget(stagingDir: File, entryName: String): File {
+            if (entryName.isEmpty())
+                throw RuntimeException("Empty zip entry name")
+            if (entryName.startsWith("/"))
+                throw RuntimeException("Absolute zip entry path: $entryName")
+
+            val stagingPath = stagingDir.canonicalPath
+            val target = File(stagingDir, entryName)
+            if (!target.canonicalPath.startsWith(stagingPath + File.separator))
+                throw RuntimeException("Invalid zip entry path: $entryName")
+
+            return target
         }
 
         @JvmStatic
