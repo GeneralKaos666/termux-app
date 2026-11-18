@@ -19,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,6 +45,8 @@ class BackupViewModelTest {
 
     private val createdJson =
         """{"name":"termux_backup_20260103_000000","root":"/storage/termux-backups","size":12,"packages":3}"""
+
+    private val entry = BackupEntry(ENTRY_NAME, BackupKind.BACKUP, "2026-01-01T00:00:00Z", 10, 2)
 
     @Test
     fun `open provisions then loads status and list`() {
@@ -123,6 +126,109 @@ class BackupViewModelTest {
         assertEquals(2, viewModel.state.value.entries.size)
     }
 
+    @Test
+    fun `restore confirmation maps toggles`() {
+        val runner = FakeRunner(mapOf("status" to statusJson, "list" to listJson))
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+        runner.lastCommand = null
+
+        viewModel.onConfirmRestore(entry, safety = false, packages = true)
+
+        assertEquals(BackupCommand.Restore(ENTRY_NAME, safety = false, packages = true), runner.issued())
+        assertNull(viewModel.state.value.restoreDialog)
+    }
+
+    @Test
+    fun `verify success is shown inline`() {
+        val runner = FakeRunner(
+            mapOf(
+                "status" to statusJson,
+                "list" to listJson,
+                "verify" to """{"name":"$ENTRY_NAME","root":"/r","valid":true}""",
+            ),
+        )
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+
+        viewModel.onVerify(entry)
+
+        assertEquals(true, viewModel.state.value.verified[ENTRY_NAME])
+    }
+
+    @Test
+    fun `delete requires confirmation before the command`() {
+        val runner = FakeRunner(
+            mapOf(
+                "status" to statusJson,
+                "list" to listJson,
+                "delete" to """{"deleted":"$ENTRY_NAME","root":"/r"}""",
+            ),
+        )
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+        runner.lastCommand = null
+
+        viewModel.onDelete(entry)
+        assertNull(runner.lastCommand)
+        assertNotNull(viewModel.state.value.confirmDelete)
+
+        viewModel.onConfirmDelete(entry)
+        assertEquals(BackupCommand.Delete(ENTRY_NAME), runner.issued())
+        assertNull(viewModel.state.value.confirmDelete)
+    }
+
+    @Test
+    fun `prune sends the chosen keep count`() {
+        val runner = FakeRunner(mapOf("status" to statusJson, "list" to listJson))
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+        runner.lastCommand = null
+
+        viewModel.onPrune(0)
+
+        assertEquals(BackupCommand.Prune(0), runner.issued())
+    }
+
+    @Test
+    fun `failure carries the last stderr line`() {
+        val runner = FakeRunner(
+            mapOf("status" to statusJson, "list" to listJson),
+            exit = 2,
+            fixedTranscript = "termux-backup: backup failed; no backup was kept\n",
+        )
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+
+        viewModel.start(BackupCommand.Backup(null, "gz", null, false, true, true))
+
+        val result = viewModel.state.value.result
+        assertTrue(result is RunResult.Failure)
+        assertEquals("termux-backup: backup failed; no backup was kept", (result as RunResult.Failure).lastError)
+    }
+
+    @Test
+    fun `restore exit 3 is reported as partial success`() {
+        val runner = FakeRunner(
+            mapOf(
+                "status" to statusJson,
+                "list" to listJson,
+                "restore" to
+                    """{"name":"$ENTRY_NAME","root":"/r","safety":"safety_pre_restore_20260102_000000",""" +
+                    """"packages_installed":1,"packages_failed":2}""",
+            ),
+            exit = 3,
+        )
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+
+        viewModel.onConfirmRestore(entry, safety = true, packages = true)
+
+        assertTrue(viewModel.state.value.partialSuccess)
+        assertTrue(viewModel.state.value.result is RunResult.Partial)
+        assertTrue(viewModel.state.value.restartRequired)
+    }
+
     private fun viewModel(provisioner: BackupProvisioner, runner: BackupSessionRunner) =
         BackupViewModel(
             provisioner = provisioner,
@@ -143,6 +249,8 @@ class BackupViewModelTest {
     private inner class FakeRunner(
         private val transcripts: Map<String, String> = emptyMap(),
         private val refuse: String? = null,
+        private val exit: Int = 0,
+        private val fixedTranscript: String? = null,
     ) : BackupSessionRunner {
 
         private val mutableState = MutableStateFlow(
@@ -155,6 +263,7 @@ class BackupViewModelTest {
         var listCount = 0
         var statusCount = 0
         var lastCommand: BackupCommand? = null
+        val commands = mutableListOf<BackupCommand>()
 
         override fun start(
             command: BackupCommand,
@@ -162,19 +271,20 @@ class BackupViewModelTest {
         ): StartResult {
             startCount++
             lastCommand = command
+            commands += command
             when (command.subcommand) {
                 "list" -> listCount++
                 "status" -> statusCount++
             }
             refuse?.let { return StartResult.Refused(it) }
-            pending = transcripts[command.subcommand]
+            pending = fixedTranscript ?: transcripts[command.subcommand]
             mutableState.value = BackupProgress(BackupRunState.Running(command.subcommand, null, null), emptyList(), null)
             return StartResult.Started
         }
 
         override fun refresh(): BackupProgress {
             val progress = BackupProgress(
-                BackupRunState.Finished(lastCommand?.subcommand ?: "", 0, true),
+                BackupRunState.Finished(lastCommand?.subcommand ?: "", exit, exit == 0),
                 emptyList(),
                 null,
             )
@@ -187,5 +297,14 @@ class BackupViewModelTest {
         override fun awaitResult(timeoutMs: Long): String? = pending
 
         override fun sweepStaleLock() = Unit
+
+        /** Last command issued by the user, ignoring the status/list reloads. */
+        fun issued(): BackupCommand? = commands.lastOrNull {
+            it !is BackupCommand.Status && it !is BackupCommand.ListBackups
+        }
+    }
+
+    private companion object {
+        const val ENTRY_NAME = "termux_backup_x"
     }
 }
