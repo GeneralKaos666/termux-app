@@ -33,7 +33,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` | pending, only if float is picked up | `outstanding-work.md` §5.2 |
 | D-11 | Obfuscated release APK runs (R8 hardening) | **passed 2026-11-02** (maintainer verdict, not machine-measured) | `outstanding-work.md` §4.1 |
 | D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** (all window, IME, permission and lifecycle checks; three defects fixed) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
-| D-13 | IME text round-trip after the `TerminalView` seam split | deferred to the device phase | §14 below |
+| D-13 | IME text round-trip after the `TerminalView` seam split | **partial 2026-11-18** — ASCII + Enter wiring passed; soft-keyboard umlaut/emoji/composition/Ctrl-C/Alt-B/Tab rows not yet run | §14 below |
 | D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
 | D-15 | Shell UI motion (tween chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
 | D-16 | Acrylic background (blur, opacity, live-wallpaper fallback colour) | **passed 2026-11-14** on NX769J / API 34 (12 of 12; the live-wallpaper rows needed the `getWallpaperInfo()` fix) | §17 below |
@@ -41,15 +41,15 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-18 | termux-backup restore on a second device | pending | §18 below |
 | D-19 | termux-backup safety-archive round-trip | pending | §18 below |
 | D-20 | termux-backup behavior with storage permission revoked | pending | §18 below |
-| D-27 | Received file with a hostile display name is refused and nothing is written outside `~/downloads` | pending | §24 below |
-| D-28 | Absurd sixel raster size neither crashes nor stalls the terminal | pending | §24 below |
+| D-27 | Received file with a hostile display name is refused and nothing is written outside `~/downloads` | **passed 2026-11-18** | §24 below |
+| D-28 | Absurd sixel raster size neither crashes nor stalls the terminal | **passed 2026-11-18** | §24 below |
 | D-29 | Text either side of a sixel cell renders with no missing, doubled or shifted cell | pending | §24 below |
 | D-30 | `keycap-visuals = false` removes the keycap inset and the popup chevron | pending | §24 below |
-| D-31 | A shared file is saved and opened exactly once (no second editor launch on resume) | pending | §24 below |
-| D-32 | The snippet screen stops at 20 rows and shows the limit line | pending | §24 below |
+| D-31 | A shared file is saved and opened exactly once (no second editor launch on resume) | **passed 2026-11-18** | §24 below |
+| D-32 | The snippet screen stops at 20 rows and shows the limit line | **passed 2026-11-18** (20 injected rows; add disabled) | §24 below |
 | D-33 | Extra keys show their popup text (up to 3 characters) instead of a bare chevron | pending | §25 below |
 | D-34 | Release assets are signed by the release key and install as a normal release build | pending | §26 below |
-| D-43 | Settings search on the Termux hub finds Display / Keyboard / Advanced by title or summary | pending | §28 below |
+| D-43 | Settings search on the Termux hub finds Display / Keyboard / Advanced by title or summary | **passed 2026-11-18** (three defects fixed during the check) | §28 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -410,6 +410,10 @@ foreground command so the received bytes are visible:
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
+*2026-11-18:* row 1's wiring was verified without a soft keyboard — typed `touch d13marker` + Enter
+over `input keyevent` and the marker appeared in `~/` — so the line arrives and Enter submits. The
+UTF-8, composition, `Ctrl-C`, `Alt-B` and `Tab` rows need a real soft keyboard and stay open.
+
 ## 15. D-14 — cursor fade blink, glow and eased bar/underline movement
 
 The cursor now fades along a triangular envelope instead of toggling on and off, carries a halo, and a
@@ -750,13 +754,13 @@ Six device checks for findings whose fix lives in a place the JVM tests can only
 seam. Everything else in the `v2.0.0-beta..e3f68eb1` review is covered by unit tests in
 `docs/plans/2026-11-17-post-review-hardening.md`.
 
-- [ ] **D-27 Hostile received-file name.** From another app, share a file into Termux with a display
+- [x] **D-27 Hostile received-file name.** From another app, share a file into Termux with a display
       name that contains a path separator (`android.intent.extra.TITLE` set to `../escape.sh`, e.g.
       `adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TITLE
       '../escape.sh' --eu android.intent.extra.STREAM <content-uri>`). Expect the dialog `File name
       cannot be empty or contain a path`, and `ls -la ~/downloads` plus `ls -la ~` unchanged: no file
       created outside the receive directory. A normal share still saves with its own name.
-- [ ] **D-28 Absurd sixel raster.** Run `printf '\033Pq"1;1;100000;100000#0;2;0;100;0#0~~@@\033\\'`.
+- [x] **D-28 Absurd sixel raster.** Run `printf '\033Pq"1;1;100000;100000#0;2;0;100;0#0~~@@\033\\'`.
       The terminal neither crashes nor stalls; a normal prompt returns and input still echoes. The
       capacity clamp only limits the bitmap, so no out-of-memory kill either.
 - [ ] **D-29 Text around a sixel cell.** Run a script that prints `before`, one sixel image and
@@ -766,10 +770,10 @@ seam. Everything else in the `v2.0.0-beta..e3f68eb1` review is covered by unit t
       `~/.termux/termux.properties`, reload the app, then press and long-press an extra key. The
       keycap inset (rounded pressed depth) and the popup chevron are gone; the key still types and
       the popup still shows on long press. Remove the line and reload to restore them.
-- [ ] **D-31 A share is handled once.** Share a file into Termux, pick an editor, then press back and
+- [x] **D-31 A share is handled once.** Share a file into Termux, pick an editor, then press back and
       return to Termux. Only one editor was launched and no second save dialog appears; the saved
       file exists once in `~/downloads`.
-- [ ] **D-32 Snippet cap.** Open the snippets screen and add rows until 20 exist. At 20 the add
+- [x] **D-32 Snippet cap.** Open the snippets screen and add rows until 20 exist. At 20 the add
       button is disabled and `At most 20 snippets are kept.` shows; applying keeps exactly 20 rows
       and the key bar shows no more than 20 chips.
 
@@ -845,15 +849,22 @@ Spec `docs/specs/2026-11-17-termux-backup-ui-design.md`, plan
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
+*2026-11-18:* D-27, D-28, D-31 and D-32 passed; evidence in
+`~/.tmp/opencode/device-checks-2026-11-18.md`.
+
 ## 28. D-43 — settings search on the Termux hub (2026-11-18)
 
 The hub rows were the only rows in the search index without keys, so every query returned
 "No settings match". Fixed by keying them `display`, `keyboard` and `advanced`; covered by
-`SettingsIndexBuilderTest`.
+`SettingsIndexBuilderTest`. Running the check then exposed two follow-on defects, both fixed:
+tapping a result crashed the hub (`PreferenceFragmentCompat.bindPreferences` NPE, because collapsing
+the `SearchView` fires a last empty-query rebuild after the view was replaced), and returning from a
+result kept the filtered rows while the search view came back collapsed. Evidence:
+`~/.tmp/opencode/device-checks-2026-11-18.md`.
 
-- [ ] **Search finds a hub row.** Open Settings → Termux, type `font`: only *Display* remains, with
+- [x] **Search finds a hub row.** Open Settings → Termux, type `font`: only *Display* remains, with
       its summary. Repeat with `keyboard` (*Keyboard*) and `colour` (*Display*). Opening a result
       navigates to that screen.
-- [ ] **No match.** Type `zzz`: the single "No settings match" row shows and is not selectable.
-- [ ] **Clearing the query.** Deleting the query restores all three rows in Display / Keyboard /
+- [x] **No match.** Type `zzz`: the single "No settings match" row shows and is not selectable.
+- [x] **Clearing the query.** Deleting the query restores all three rows in Display / Keyboard /
       Advanced order.

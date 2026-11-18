@@ -87,7 +87,13 @@ drag-to-reorder, rename and close have all since shipped.
   value and no migration. Clearing the query restored the full list, so nothing was lost. Covered by
   `SettingsIndexBuilderTest.the hub indexes its three navigation rows` and
   `.a query matching a hub row keeps it` (both red before the fix: an empty index). Device check
-  D-43 in `manual-checks.md`.
+  D-43 passed 2026-11-18, and running it exposed two follow-on defects, both fixed in
+  `TermuxPreferencesFragment`: tapping a result crashed with
+  `PreferenceFragmentCompat.bindPreferences` on a null `RecyclerView` (a collapsing `SearchView`
+  fired a last empty-query rebuild after the view was replaced, so the rebuild now ignores query
+  changes once `view == null`), and the filtered list survived a return from a result while the
+  search view came back empty (the real screen is re-inflated in `onViewCreated`). Neither has a
+  unit test: the shape is fragment lifecycle, and `:app` has no fragment host test infrastructure.
 
 ### 1.4 Appearance — shipped, device passes outstanding
 
