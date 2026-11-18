@@ -19,6 +19,10 @@ local.properties
 
 # Signing files
 .signing/
+# Release keys never enter the repository; the untrusted debug key is the one exception.
+*.jks
+*.keystore
+!app/testkey_untrusted.jks
 
 # Intellij
 .idea/
