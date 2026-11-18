@@ -1,1 +1,0 @@
-../../plans/2026-10-17-renderer-dirty-region.md
