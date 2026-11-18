@@ -223,7 +223,8 @@ Command shape:
   --json --progress-file <progress path>
 ```
 
-`--path` is passed only when the user set a custom root. Restore adds `--yes` and, per toggles,
+`--path` is never passed: the CLI resolves its own root from its config file, environment or default,
+and the screen shows the resolved root from `status`. Restore adds `--yes` and, per toggles,
 `--no-packages` / `--no-safety`. `--json` is required for the result summary; progress comes from the
 file.
 
