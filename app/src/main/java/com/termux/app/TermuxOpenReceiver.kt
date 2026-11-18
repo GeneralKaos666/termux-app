@@ -204,8 +204,10 @@ class TermuxOpenReceiver : BroadcastReceiver() {
                 )
                 val storagePath = Environment.getExternalStorageDirectory().getCanonicalPath()
                 // See https://support.google.com/faqs/answer/7496913:
-                if (!(path.startsWith(TermuxConstants.TERMUX_FILES_DIR_PATH) || path.startsWith(storagePath))) {
-                    throw IllegalArgumentException("Invalid path: $path")
+                if (!path.startsWith(TermuxConstants.TERMUX_FILES_DIR_PATH)) {
+                    if (!path.startsWith(storagePath)) {
+                        throw IllegalArgumentException("Invalid path: $path")
+                    }
                 }
 
                 // If TermuxConstants.PROP_ALLOW_EXTERNAL_APPS property to not set to "true", then throw exception
