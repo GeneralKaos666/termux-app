@@ -107,7 +107,10 @@ internal object LayerRules {
                 "TermuxAppSharedPreferences",
                 "TermuxPreferenceConstants",
             ),
-            allowedFiles = setOf("com/termux/app/ui/appearance/AppearanceActivity.kt"),
+            allowedFiles = setOf(
+                "com/termux/app/ui/appearance/AppearanceActivity.kt",
+                "com/termux/app/ui/backup/BackupActivity.kt",
+            ),
         ),
     )
 }
