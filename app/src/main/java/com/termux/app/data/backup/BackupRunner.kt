@@ -52,20 +52,20 @@ class BackupRunner(
     private val scriptPath: File,
     private val pidAlive: (Int) -> Boolean = ::defaultPidAlive,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-) {
+) : BackupSessionRunner {
 
     private val progressFile: File = File(configDir, "progress.jsonl")
     private val lockFile: File = File(configDir, "run.lock")
 
     private val mutableState = MutableStateFlow(BackupProgressParser.parseFile(progressFile))
-    val state: StateFlow<BackupProgress> = mutableState.asStateFlow()
+    override val state: StateFlow<BackupProgress> = mutableState.asStateFlow()
 
     private var session: TerminalSession? = null
     private var client: BackupSessionClient? = null
     private var pollJob: Job? = null
 
     /** Clears a lock whose pid is dead or whose contents cannot be parsed. */
-    fun sweepStaleLock() {
+    override fun sweepStaleLock() {
         val lock = readLock() ?: run {
             if (lockFile.exists()) lockFile.delete()
             return
@@ -74,7 +74,7 @@ class BackupRunner(
     }
 
     /** Re-reads the progress file and publishes the state, mapping a dead run to [BackupRunState.Interrupted]. */
-    fun refresh(): BackupProgress {
+    override fun refresh(): BackupProgress {
         val progress = BackupProgressParser.parseFile(progressFile)
         val resolved = if (progress.state is BackupRunState.Running) {
             val lock = readLock()
@@ -95,7 +95,7 @@ class BackupRunner(
      *
      * @param startSession creates the hidden session; returns the terminal session or null on failure
      */
-    fun start(
+    override fun start(
         command: BackupCommand,
         startSession: (ExecutionCommand, BackupSessionClient) -> TerminalSession?,
     ): StartResult {
@@ -131,7 +131,7 @@ class BackupRunner(
     }
 
     /** Stops the running command and releases the lock. */
-    fun cancel() {
+    override fun cancel() {
         pollJob?.cancel()
         pollJob = null
         lockFile.delete()
@@ -144,7 +144,7 @@ class BackupRunner(
      * Blocks until the started session ends and returns its transcript, or null on timeout or when
      * no session was started.
      */
-    fun awaitResult(timeoutMs: Long = DEFAULT_TIMEOUT_MS): String? {
+    override fun awaitResult(timeoutMs: Long): String? {
         val active = client ?: return null
         return runBlocking {
             withTimeoutOrNull(timeoutMs) { active.finished.await() }
@@ -207,7 +207,6 @@ class BackupRunner(
         private const val SUBCOMMAND_SHELL_NAME = "backup"
         private const val SHELL_PID_TIMEOUT_MS = 2_000L
         private const val SHELL_PID_POLL_MS = 20L
-        private const val DEFAULT_TIMEOUT_MS = 3_600_000L
 
         /** Default probe: true when [pid] names a live process. */
         fun defaultPidAlive(pid: Int): Boolean {
