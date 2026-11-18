@@ -1,14 +1,17 @@
 package com.termux.app.fragments.settings.termux
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.annotation.Keep
 import androidx.preference.ListPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceManager
 import com.termux.R
+import com.termux.app.ui.backup.BackupActivity
 import com.termux.shared.logger.Logger
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences
 
@@ -24,6 +27,16 @@ class DebuggingPreferencesFragment : PreferenceFragmentCompat() {
         setPreferencesFromResource(R.xml.termux_debugging_preferences, rootKey)
 
         configureLoggingPreferences(context)
+        configureBackupPreferences(context)
+    }
+
+    private fun configureBackupPreferences(context: Context) {
+        val backup = findPreference<Preference>("backup_restore") ?: return
+
+        backup.setOnPreferenceClickListener {
+            startActivity(Intent(context, BackupActivity::class.java))
+            true
+        }
     }
 
     private fun configureLoggingPreferences(context: Context) {

@@ -5,8 +5,11 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceManager
 import androidx.preference.PreferenceScreen
+import com.termux.R
 import com.termux.app.domain.settings.SettingsEntry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -86,5 +89,21 @@ class SettingsIndexBuilderTest {
         root.addPreference(preference("about", "About", "Version"))
 
         assertEquals(listOf(SettingsEntry("about", "About", "Version", null)), settingsIndex(root))
+    }
+
+    @Test
+    fun `the advanced screen indexes the backup row`() {
+        // The ListPreference in that screen reads its persisted value on attach, so inflate against
+        // a file of this test's own instead of whatever earlier tests left in the default one.
+        val preferencesName = "settings-index-builder-test"
+        val manager = manager().apply { sharedPreferencesName = preferencesName }
+        context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE).edit().clear().commit()
+        val root = manager.createPreferenceScreen(context)
+        @Suppress("DEPRECATION")
+        manager.inflateFromResource(context, R.xml.termux_debugging_preferences, root)
+
+        val row = settingsIndex(root).single { it.key == "backup_restore" }
+        assertTrue("backup row title was '${row.title}'", row.title.contains("Backup"))
+        assertNull(row.fragment)
     }
 }

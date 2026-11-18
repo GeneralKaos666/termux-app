@@ -2,6 +2,7 @@ package com.termux.app.settings
 
 import com.termux.R
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -101,6 +102,7 @@ class SettingsPreferencesXmlTest {
                 "terminal_view_key_logging_enabled",
                 "plugin_error_notifications_enabled",
                 "crash_report_notifications_enabled",
+                "backup_restore",
             ),
             elements.filter { it.tag != "PreferenceCategory" }.mapNotNull { it.key }.toSet(),
         )
@@ -116,6 +118,13 @@ class SettingsPreferencesXmlTest {
             setOf("plugin_error_notifications_enabled", "crash_report_notifications_enabled"),
             afterNotifications.toSet(),
         )
+    }
+
+    @Test
+    fun `backup row opens the backup activity`() {
+        val row = parsePreferenceScreen(R.xml.termux_debugging_preferences).single { it.key == "backup_restore" }
+        assertEquals("Backup & restore", resolveString(row.title))
+        assertNull(row.fragment)
     }
 
     @Test
@@ -167,7 +176,7 @@ class SettingsPreferencesXmlTest {
                 "soft_keyboard_enabled_only_if_no_hardware", "extra_keys_preset",
                 "extra_keys_page2_preset", "extra_keys_preset_note", "key_layouts",
                 "log_level", "terminal_view_key_logging_enabled", "plugin_error_notifications_enabled",
-                "crash_report_notifications_enabled",
+                "crash_report_notifications_enabled", "backup_restore",
             ),
             all.toSet(),
         )
