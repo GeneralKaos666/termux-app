@@ -178,6 +178,38 @@ if (System.getenv("TERMUX_RELEASE_SIGNING_REQUIRED") == "1" && !releaseSigningCo
     throw new GradleException("TERMUX_RELEASE_SIGNING_REQUIRED=1 but the release signing variables are not all set. Set TERMUX_RELEASE_KEYSTORE_PATH, TERMUX_RELEASE_KEYSTORE_PASSWORD, TERMUX_RELEASE_KEY_ALIAS and TERMUX_RELEASE_KEY_PASSWORD.")
 }
 
+// scripts/termux-backup/ is the source of truth for the CLI tool; the APK carries it as assets
+// rooted at termux-backup/ so runtime code can copy it into $PREFIX/lib/termux-backup from
+// context.assets. Nothing is committed under app/src/main/assets/.
+def backupToolSource = rootProject.file("scripts/termux-backup")
+def backupAssetsDir = layout.buildDirectory.dir("generated/backupAssets")
+
+tasks.register("syncBackupAssets", Sync) {
+    from(backupToolSource) {
+        include "termux-backup"
+    }
+    from(new File(backupToolSource, "lib")) {
+        into "lib"
+    }
+    into backupAssetsDir.map { it.dir("termux-backup") }
+
+    doLast {
+        // The VERSION asset must carry the tool version from lib/common.sh so the app can detect
+        // a stale tool in $PREFIX. Fail the build when the marker is missing instead of packaging
+        // an empty VERSION.
+        def commonSh = new File(backupToolSource, "lib/common.sh").text
+        def matcher = commonSh =~ /(?m)^TOOL_VERSION="([^"]+)"/
+        if (!matcher.find()) {
+            throw new GradleException("TOOL_VERSION not found in scripts/termux-backup/lib/common.sh; cannot generate the termux-backup VERSION asset.")
+        }
+        new File(destinationDir, "VERSION").text = matcher.group(1) + "\n"
+    }
+}
+
+// AGP 9 rejects a Provider here (android.sourceset.disallowProvider), and we wire the task
+// dependency through preBuild anyway, so a plain file path is used.
+android.sourceSets.main.assets.srcDir(backupAssetsDir.get().asFile)
+
 dependencies {
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.robolectric:robolectric:4.17"
@@ -270,5 +302,6 @@ afterEvaluate {
     // before javaCompile, so wiring downloadBootstraps to javaCompile left a window where the NDK
     // build ran without the zips (release builds failed with "Could not find incbin file"). Anchor it
     // on preBuild, the earliest task, so the zips exist before any native or Java compilation.
-    tasks.named('preBuild').configure { dependsOn downloadBootstraps }
+    // The backup assets sync must also land before mergeAssets consumes the generated dir.
+    tasks.named('preBuild').configure { dependsOn downloadBootstraps, 'syncBackupAssets' }
 }
