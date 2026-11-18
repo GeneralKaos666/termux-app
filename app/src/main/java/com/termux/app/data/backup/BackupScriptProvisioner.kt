@@ -1,6 +1,9 @@
 package com.termux.app.data.backup
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
+import android.system.Os
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -172,23 +175,42 @@ class BackupScriptProvisioner(
         }
     }
 
-    /** Replaces [binLink] with a symlink to [target], removing any stale link first. */
+    /**
+     * Replaces [binLink] with a symlink to [target], removing any stale link first.
+     *
+     * `java.nio.file` arrived in API 26, so older devices use [android.system.Os] instead.
+     */
+    @SuppressLint("NewApi")
     private fun refreshLink(target: String) {
-        Files.deleteIfExists(binLink.toPath())
-        Files.createSymbolicLink(binLink.toPath(), java.nio.file.Path.of(target))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Files.deleteIfExists(binLink.toPath())
+            Files.createSymbolicLink(binLink.toPath(), File(target).toPath())
+        } else {
+            if (!binLink.delete() && binLink.exists()) {
+                throw IOException("${binLink.path}: cannot remove the old link")
+            }
+            Os.symlink(target, binLink.path)
+        }
     }
 
+    /** Makes [file] mode 755: owner rwx, group and other r-x. */
+    @SuppressLint("NewApi")
     private fun makeExecutable(file: File) {
-        try {
-            // 755: owner rwx, group and other r-x.
-            Files.setPosixFilePermissions(
-                file.toPath(),
-                java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x"),
-            )
-        } catch (_: UnsupportedOperationException) {
-            file.setReadable(true, false)
-            file.setExecutable(true, false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                Files.setPosixFilePermissions(
+                    file.toPath(),
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x"),
+                )
+                return
+            } catch (_: UnsupportedOperationException) {
+                // Fall through to the portable calls below.
+            }
+        } else if (runCatching { Os.chmod(file.path, 0x1ED) }.isSuccess) {
+            return
         }
+        file.setReadable(true, false)
+        file.setExecutable(true, false)
     }
 
     private fun suffix(): String = UUID.randomUUID().toString()
