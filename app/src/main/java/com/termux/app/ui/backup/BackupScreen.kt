@@ -34,6 +34,8 @@ import com.termux.app.domain.backup.BackupCommand
 import com.termux.app.domain.backup.BackupEntry
 import com.termux.app.domain.backup.BackupKind
 import com.termux.app.domain.backup.BackupRunState
+import com.termux.app.data.backup.TransferResult
+import com.termux.app.data.backup.TransferState
 import com.termux.app.domain.backup.BackupStatus
 
 /** Actions the screen offers; the activity wires them to the view model and the transfer pickers. */
@@ -47,6 +49,7 @@ data class BackupActions(
     val onConfirmRestore: (BackupEntry, Boolean, Boolean) -> Unit,
     val onConfirmDelete: (BackupEntry) -> Unit,
     val onDismissDialog: () -> Unit,
+    val onCancelTransfer: () -> Unit,
     val onImport: () -> Unit,
     val onCancel: () -> Unit,
     val onRetry: () -> Unit,
@@ -91,6 +94,10 @@ fun BackupScreen(
 
         state.result?.let { result ->
             item { ResultCard(result) }
+        }
+
+        state.transfer?.let { transfer ->
+            item { TransferCard(transfer, onCancel = actions.onCancelTransfer) }
         }
 
         if (state.loading) {
@@ -290,6 +297,57 @@ private fun RestartDialog(onRestart: () -> Unit, onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.backup_cancel_action)) }
         },
     )
+}
+
+@Composable
+private fun TransferCard(transfer: TransferState, onCancel: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val progress = transfer.progress
+            Text(
+                text = transfer.operation?.uppercase().orEmpty(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            when {
+                transfer.running && progress != null && progress.indeterminate -> {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Text(progress.fileName, style = MaterialTheme.typography.bodySmall)
+                }
+                transfer.running && progress != null && progress.bytesTotal > 0 -> {
+                    LinearProgressIndicator(
+                        progress = { (progress.bytesDone.toFloat() / progress.bytesTotal).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(progress.fileName, style = MaterialTheme.typography.bodySmall)
+                }
+                transfer.running -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            when (val result = transfer.result) {
+                is TransferResult.Success -> Text(
+                    text = result.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                is TransferResult.Failed -> Text(
+                    text = result.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                TransferResult.Cancelled -> Text(
+                    text = stringResource(R.string.backup_cancel_action),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                null -> Unit
+            }
+            if (transfer.running) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onCancel) {
+                        Text(stringResource(R.string.backup_cancel_action))
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
