@@ -4,9 +4,9 @@
 **Scope:** correct the craft and frame-timing problems found in the 2026-11-14 motion work, in both the
 `:app` Compose shell (`theme/Motion.kt`, `ShellHost.kt`, `sessions/SessionsBar.kt`, `theme/Theme.kt`)
 and the `:terminal-view` cursor loop (`CursorFx`, `TerminalView`).
-**Status:** design drafted 2026-11-15 from an animation review of the whole app; **not yet approved**.
-Two items reverse decisions recorded in the 2026-11-14 designs (see §9); they need explicit sign-off
-before implementation.
+**Status:** approved and implemented 2026-11-15. The two reversals in §9 were confirmed before coding
+and the work shipped (ledger §1.4 records it as `[shipped 2026-11-14]`, `[corrected 2026-11-15]`);
+device checks D-14 and D-15 remain in the device phase.
 **Ledger item:** amends §1.4 entries `[shipped 2026-11-14]`; updates device checks D-14 and D-15.
 
 ## 1. Why

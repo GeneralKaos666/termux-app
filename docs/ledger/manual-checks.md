@@ -486,6 +486,8 @@ Run with at least three sessions and the float session available:
       fade, slide or overshoot.
 - [ ] Remove animations is live: turn the setting on while the app runs — every transition above
       becomes instant without restarting the app.
+- [ ] Remove animations mid-enter: open the float overlay and turn the setting on while it is still
+      growing (~300 ms). The enter snaps to its settled state at once instead of finishing the pop.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 

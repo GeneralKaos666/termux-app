@@ -128,16 +128,17 @@ drag-to-reorder, rename and close have all since shipped.
   colour. Live wallpapers are detected with `WallpaperManager.getWallpaperInfo()` because some
   devices return a stale static frame through `getDrawable()` instead of none, which would freeze the
   previous wallpaper behind the terminal.
-- `[deferred]` float enter does not react to "remove animations" mid-flight. `Motion.kt`'s
-  `LaunchedEffect` is keyed on `progress` alone, so turning the setting off during the overlay's
-  ~300 ms enter lets that one pop finish instead of snapping. Raised as Finding 2 by the
-  2026-11-15 motion-craft review and left unfixed: the effect is one-shot and self-terminating, so
-  nothing keeps animating afterwards. Next step: key the effect on `animationsEnabled` and set
-  `progress` to `1f` when it turns false.
-- `[deferred]` the 2026-11-15 motion-craft spec still carries a "not yet approved / needs sign-off"
-  status line although the three §9 reversals were confirmed and the work shipped
+- `[fixed 2026-11-18]` float enter now reacts to "remove animations" mid-flight. `Motion.kt`'s
+  `LaunchedEffect` was keyed on `progress` alone, so turning the setting off during the overlay's
+  ~300 ms enter let that one pop finish instead of snapping. Raised as Finding 2 by the
+  2026-11-15 motion-craft review. The effect is now keyed on `animationsEnabled` and calls
+  `snapTo(1f)` when it turns false (an `animateTo(1f)` from `1f` is a no-op if it turns back on).
+  No unit test: the module has no Compose composition test and adding one is a dependency change;
+  device row added to `manual-checks.md` D-15.
+- `[fixed 2026-11-18]` the 2026-11-15 motion-craft spec carried a stale "not yet approved / needs
+  sign-off" status line although the three §9 reversals were confirmed and the work shipped
   (`docs/specs/2026-11-15-motion-craft-design.md`, head of file). Raised as Finding 3 by the same
-  review. Next step: correct the status line to record the approval date.
+  review. The status line now records the approval and the shipped state.
 - `[device checks pending]` **UI appeal program** (`docs/plans/2026-11-16-ui-appeal-program.md`,
   written 2026-11-16 from the chat brainstorm). Seven workstreams, 21 tasks: app UI preference store,
   session tab context + unseen-output badges, overflow fade + drag lift, starter prompt, command

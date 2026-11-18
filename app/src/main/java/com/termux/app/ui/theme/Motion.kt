@@ -24,14 +24,16 @@ fun <T> shellSpringSpec(): SpringSpec<T> = spring(
  * it, so the overlay grows and fades as one instead of popping into place.
  *
  * The value is remembered, so recomposition does not replay it; a new overlay gets a new
- * `ComposeView` and therefore a new animation.
+ * `ComposeView` and therefore a new animation. The effect is keyed on the setting as well as the
+ * value, so turning "remove animations" on mid-flight cancels the spring and snaps to the end
+ * instead of letting that one pop finish.
  */
 @Composable
 fun floatEnterProgress(): Float {
     val animationsEnabled = shellAnimationsEnabled()
     val progress = remember { Animatable(if (animationsEnabled) 0f else 1f) }
-    LaunchedEffect(progress) {
-        if (animationsEnabled) progress.animateTo(1f, shellSpringSpec())
+    LaunchedEffect(animationsEnabled) {
+        if (animationsEnabled) progress.animateTo(1f, shellSpringSpec()) else progress.snapTo(1f)
     }
     return progress.value
 }
