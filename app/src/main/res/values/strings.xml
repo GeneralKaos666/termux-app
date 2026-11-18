@@ -254,6 +254,11 @@
                 <string name="termux_crash_report_notifications_enabled_off">Disable notifications for crash reports.</string>
                 <string name="termux_crash_report_notifications_enabled_on">Show notifications for crash reports. (Default)</string>
 
+                <!-- Backup Preferences -->
+                <string name="termux_backup_preferences_title">Backup &amp; restore</string>
+                <string name="termux_backup_preferences_summary">Create, restore and export backups of this Termux environment</string>
+                <string name="title_activity_backup">Backup &amp; restore</string>
+
 
         <!-- Display Preferences -->
         <string name="termux_display_preferences_title">Display</string>

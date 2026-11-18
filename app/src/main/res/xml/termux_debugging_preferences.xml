@@ -36,4 +36,15 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        app:key="backup"
+        app:title="@string/termux_backup_preferences_title">
+
+        <Preference
+            app:key="backup_restore"
+            app:title="@string/termux_backup_preferences_title"
+            app:summary="@string/termux_backup_preferences_summary" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>
