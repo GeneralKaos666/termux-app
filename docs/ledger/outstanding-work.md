@@ -892,12 +892,17 @@ Fixed in code:
   (`debug_build`, `gradle-wrapper-validation`, `run_tests`, `trigger_library_builds_on_jitpack`).
 - `TermuxInstaller.getZipEntryTarget` rejects empty, absolute and escaping zip entry names and checks
   canonical containment in the staging directory (covered by `TermuxInstallerTest`).
-- `TermuxOpenReceiver.openFile` opens the canonical path it validated, not the raw URI path.
+- `TermuxOpenReceiver.openFile` canonicalizes the URI path, checks it against resolved Termux-files
+  and external-storage roots, and opens a file built from that canonical path.
 - `FileReceiverActivity` resolves a `file://` share to its canonical path and rejects anything under
   `/data/`, so an external app cannot make Termux read its own private files.
 
-Dismissed as false positives (the `/data/` guard above follows CodeQL's own blocklist-sanitizer shape,
-so that alert should clear on its own):
+Final state: 12 alerts fixed, 24 dismissed, 0 open. Quirk worth remembering: CodeQL rejects a
+`startsWith` guard whose argument is a compile-time constant containing `/data` (it treats that as a
+blocklist), so the file-provider check only sanitizes when the allowed root is resolved at runtime
+(`File(...).getCanonicalPath()`).
+
+Dismissed as false positives:
 - 22 `java/path-injection` in `FileUtils`' permission helpers. They are generic library functions that
   must accept a caller-chosen path; CodeQL only accepts a sanitizer when the path is proven under a
   fixed trusted root, which such an API cannot have. The only user-controlled callers are
