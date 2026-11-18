@@ -201,9 +201,10 @@ class TermuxOpenReceiver : BroadcastReceiver() {
                     LOG_TAG,
                     "Open file request received from $callingPackageName for \"$path\" with mode \"$openMode\"",
                 )
+                val termuxFilesPath = File(TermuxConstants.TERMUX_FILES_DIR_PATH).getCanonicalPath()
                 val storagePath = Environment.getExternalStorageDirectory().getCanonicalPath()
                 // See https://support.google.com/faqs/answer/7496913:
-                if (!path.startsWith(TermuxConstants.TERMUX_FILES_DIR_PATH)) {
+                if (!path.startsWith(termuxFilesPath)) {
                     if (!path.startsWith(storagePath)) {
                         throw IllegalArgumentException("Invalid path: $path")
                     }
