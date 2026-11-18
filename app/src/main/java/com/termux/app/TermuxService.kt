@@ -583,6 +583,17 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
     }
 
     /**
+     * Starts [executionCommand] in a hidden session that is never added to the sessions list and
+     * never updates the notification. The backup runner reports on it through its own client.
+     */
+    fun createBackupSession(
+        executionCommand: ExecutionCommand,
+        terminalSessionClient: TerminalSessionClient,
+    ): TermuxSession? {
+        return executeTermuxSession(executionCommand, terminalSessionClient)
+    }
+
+    /**
      * Terminates the shell of a dedicated float session. It is not in the sessions list, so nothing
      * else will stop it when the user closes the floating window.
      */
