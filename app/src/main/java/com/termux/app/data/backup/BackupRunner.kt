@@ -36,7 +36,13 @@ sealed interface StartResult {
 }
 
 /** Identity of the run that currently holds the lock. */
-data class RunLock(val command: String, val pid: Int, val startedAt: String)
+data class RunLock(
+    val command: String,
+    val pid: Int,
+    val startedAt: String,
+    /** Process start time, so a reused pid is not mistaken for the same run. */
+    val startTime: String? = null,
+)
 
 /**
  * Starts `termux-backup` in a hidden terminal session, holds the single-run lock, and polls the
@@ -51,6 +57,7 @@ class BackupRunner(
     private val configDir: File,
     private val scriptPath: File,
     private val pidAlive: (Int) -> Boolean = ::defaultPidAlive,
+    private val pidStart: (Int) -> String? = ::defaultPidStart,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) : BackupSessionRunner {
 
@@ -70,7 +77,17 @@ class BackupRunner(
             if (lockFile.exists()) lockFile.delete()
             return
         }
-        if (!pidAlive(lock.pid)) lockFile.delete()
+        if (!isLockLive(lock)) lockFile.delete()
+    }
+
+    /**
+     * Re-reads the progress file for a screen that just opened. When the file shows a run in flight,
+     * polling resumes so the screen follows it instead of freezing at the first snapshot.
+     */
+    override fun attach(): BackupProgress {
+        val progress = refresh()
+        if (progress.state is BackupRunState.Running) startPolling()
+        return progress
     }
 
     /** Re-reads the progress file and publishes the state, mapping a dead run to [BackupRunState.Interrupted]. */
@@ -78,7 +95,7 @@ class BackupRunner(
         val progress = BackupProgressParser.parseFile(progressFile)
         val resolved = if (progress.state is BackupRunState.Running) {
             val lock = readLock()
-            if (lock != null && !pidAlive(lock.pid)) {
+            if (lock != null && !isLockLive(lock)) {
                 BackupProgress(BackupRunState.Interrupted, progress.phasesSeen, progress.startedAt)
             } else {
                 progress
@@ -100,7 +117,7 @@ class BackupRunner(
         startSession: (ExecutionCommand, BackupSessionClient) -> TerminalSession?,
     ): StartResult {
         readLock()?.let { lock ->
-            if (pidAlive(lock.pid)) return StartResult.Refused("A backup is already running")
+            if (isLockLive(lock)) return StartResult.Refused("A backup is already running")
             lockFile.delete()
         }
 
@@ -125,7 +142,8 @@ class BackupRunner(
 
         session = newSession
         client = newClient
-        writeLock(RunLock(command.subcommand, newClient.shellPid, java.time.Instant.now().toString()))
+        val pid = newClient.shellPid
+        writeLock(RunLock(command.subcommand, pid, java.time.Instant.now().toString(), pidStart(pid)))
         startPolling()
         return StartResult.Started
     }
@@ -169,6 +187,13 @@ class BackupRunner(
         }
     }
 
+    /** True when the lock's pid is alive and, when recorded, is still the same process. */
+    private fun isLockLive(lock: RunLock): Boolean {
+        if (!pidAlive(lock.pid)) return false
+        val recorded = lock.startTime ?: return true
+        return pidStart(lock.pid) == recorded
+    }
+
     private fun awaitShellPid(target: BackupSessionClient): Boolean {
         val deadline = System.currentTimeMillis() + SHELL_PID_TIMEOUT_MS
         while (System.currentTimeMillis() < deadline) {
@@ -186,6 +211,7 @@ class BackupRunner(
                 json.optString("command"),
                 json.optInt("pid"),
                 json.optString("started_at"),
+                json.optString("start_time").takeIf { it.isNotEmpty() },
             )
         }.getOrNull()
     }
@@ -198,6 +224,7 @@ class BackupRunner(
                     put("command", lock.command)
                     put("pid", lock.pid)
                     put("started_at", lock.startedAt)
+                    lock.startTime?.let { put("start_time", it) }
                 }.toString(),
             )
         }
@@ -207,6 +234,16 @@ class BackupRunner(
         private const val SUBCOMMAND_SHELL_NAME = "backup"
         private const val SHELL_PID_TIMEOUT_MS = 2_000L
         private const val SHELL_PID_POLL_MS = 20L
+
+        /** Start time of [pid] from `/proc`, used to detect a reused pid. */
+        fun defaultPidStart(pid: Int): String? {
+            if (pid <= 0) return null
+            return runCatching {
+                val stat = File("/proc/$pid/stat").readText()
+                // Fields after the parenthesised command name start at field 3; starttime is field 22.
+                stat.substringAfterLast(')').trim().split(' ')[19]
+            }.getOrNull()
+        }
 
         /** Default probe: true when [pid] names a live process. */
         fun defaultPidAlive(pid: Int): Boolean {

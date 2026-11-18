@@ -49,6 +49,13 @@ class BackupViewModel(
             return@async
         }
         runner.sweepStaleLock()
+        val progress = runner.attach()
+        mutableState.update { it.copy(run = progress) }
+        if (progress.state is BackupRunState.Running) {
+            // The run already in flight owns the lock; status and list would only be refused.
+            mutableState.update { it.copy(busy = true) }
+            return@async
+        }
         loadStatusNow()
         loadListNow()
         mutableState.update { it.copy(busy = false) }
@@ -58,7 +65,13 @@ class BackupViewModel(
     fun refreshList() = async { loadListNow() }
 
     /** Runs [command] and reloads the list when it finishes. */
-    fun start(command: BackupCommand) = runCommand(command)
+    fun start(command: BackupCommand) {
+        if (state.value.transfer?.running == true) {
+            mutableState.update { it.copy(message = "A transfer is already running") }
+            return
+        }
+        runCommand(command)
+    }
 
     /** Opens the restore confirmation for [entry]. */
     fun onRestore(entry: BackupEntry) {

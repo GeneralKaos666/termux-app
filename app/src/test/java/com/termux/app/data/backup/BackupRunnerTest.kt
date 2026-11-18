@@ -105,6 +105,61 @@ class BackupRunnerTest {
     }
 
     @Test
+    fun `a reused pid is treated as a stale lock`() {
+        File(dir, "run.lock").writeText(
+            """{"command":"backup","pid":4242,"started_at":"t","start_time":"100"}""",
+        )
+        val runner = BackupRunner(dir, scriptPath, pidAlive = { true }, pidStart = { "200" })
+
+        runner.sweepStaleLock()
+
+        assertFalse(File(dir, "run.lock").exists())
+    }
+
+    @Test
+    fun `a matching pid and start time keeps the lock`() {
+        File(dir, "run.lock").writeText(
+            """{"command":"backup","pid":4242,"started_at":"t","start_time":"100"}""",
+        )
+        val runner = BackupRunner(dir, scriptPath, pidAlive = { true }, pidStart = { "100" })
+
+        runner.sweepStaleLock()
+
+        assertTrue(File(dir, "run.lock").exists())
+    }
+
+    @Test
+    fun `a lock without a start time still counts as live`() {
+        File(dir, "run.lock").writeText("""{"command":"backup","pid":4242,"started_at":"t"}""")
+        val runner = BackupRunner(dir, scriptPath, pidAlive = { true }, pidStart = { "100" })
+
+        runner.sweepStaleLock()
+
+        assertTrue(File(dir, "run.lock").exists())
+    }
+
+    @Test
+    fun `attach publishes the run that is already in flight`() {
+        File(dir, "progress.jsonl").writeText(
+            """{"event":"run_start","command":"backup","ts":"t"}
+        {"event":"phase","name":"archiving_home"}""",
+        )
+        File(dir, "run.lock").writeText(
+            """{"command":"backup","pid":4242,"started_at":"t","start_time":"100"}""",
+        )
+        val runner = BackupRunner(dir, scriptPath, pidAlive = { true }, pidStart = { "100" })
+
+        val progress = runner.attach()
+
+        assertEquals(
+            BackupRunState.Running("backup", com.termux.app.domain.backup.BackupPhase.ARCHIVING_HOME, "t"),
+            progress.state,
+        )
+        assertEquals(progress.state, runner.state.value.state)
+        runner.cancel()
+    }
+
+    @Test
     fun `a failed dispatch reports failure and leaves no lock`() {
         val runner = BackupRunner(dir, scriptPath, pidAlive = { false })
 

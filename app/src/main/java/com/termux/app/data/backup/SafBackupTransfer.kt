@@ -3,13 +3,13 @@ package com.termux.app.data.backup
 import com.termux.app.domain.backup.InvalidBackupException
 import com.termux.app.domain.backup.SafBackupManifest
 import com.termux.app.domain.backup.SafBackupName
+import com.termux.app.domain.backup.SumEntry
 import java.io.File
-import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
-import java.security.MessageDigest
 
 /** Progress of one file being copied, in bytes; [indeterminate] when the provider reports no size. */
 data class CopyProgress(
@@ -34,19 +34,35 @@ sealed interface TransferResult {
 
 /**
  * Copies a backup directory to and from a SAF tree, verifying `SHA256SUMS` on both directions.
+ *
+ * The checksum set, not the directory listing, decides which files must exist and which are
+ * verified, so an incomplete backup is refused instead of silently exported. Destination names are
+ * always the validated names from the sums file, never a provider-supplied display name.
  * Destinations that already exist are never overwritten, and any failure deletes what this class
  * created, so a half-written backup never becomes listable.
+ *
+ * @param freeSpace free bytes at the destination root; injectable for tests
  */
 class SafBackupTransfer(
     private val progress: (CopyProgress) -> Unit,
     private val cancellation: () -> Boolean,
+    private val freeSpace: (File) -> Long = { it.usableSpace },
 ) : BackupTransfer {
 
-    /** Copies [sourceDir]'s files into a new directory in [tree]. */
+    /** Copies [sourceDir]'s summed files into a new directory in [tree]. */
     override fun export(sourceDir: File, tree: SafDocumentTree): TransferResult {
-        val sums = readLocalSums(sourceDir) ?: return TransferResult.Failed(
-            "${sourceDir.path}: SHA256SUMS is missing or invalid",
-        )
+        val sums = try {
+            SafBackupManifest.parseSums(File(sourceDir, SUMS_FILE).readText())
+        } catch (e: Exception) {
+            return TransferResult.Failed("${sourceDir.path}: $SUMS_FILE is missing or invalid")
+        }
+
+        val localFiles = sourceDir.listFiles()?.filter { it.isFile }.orEmpty()
+        val byName = localFiles.associateBy { it.name }
+        for (entry in sums) {
+            if (entry.name !in byName) return TransferResult.Failed("missing file: ${entry.name}")
+        }
+
         val name = SafBackupName.sanitize(sourceDir.name)
         if (tree.children(null).any { it.name == name }) {
             return TransferResult.Failed("$name already exists in ${tree.displayName()}")
@@ -58,26 +74,26 @@ class SafBackupTransfer(
             return TransferResult.Failed("could not create $name: ${e.message}")
         }
 
-        val expected = sums.associate { it.name to it.sha256 }
-        val files = sourceDir.listFiles()?.filter { it.isFile }?.sortedBy { it.name }.orEmpty()
-        for (file in files) {
-            if (cancellation()) return abort(tree, directory)
-            val digest = try {
+        val toCopy = orderedCopySet(sums, byName, localFiles, METADATA_FILES + SUMS_FILE) { it.name }
+        try {
+            for ((entry, file) in toCopy) {
+                if (cancellation()) return abort(tree, directory)
                 val document = tree.createFile(directory, file.name)
-                file.inputStream().use { input ->
+                val digest = file.inputStream().use { input ->
                     tree.openOutput(document).use { output ->
                         copy(input, output, file.name, document.size)
                     }
+                } ?: return abort(tree, directory)
+                if (entry != null && digest != entry.sha256) {
+                    return abort(tree, directory, "checksum mismatch: ${file.name}")
                 }
-            } catch (e: IOException) {
-                return abort(tree, directory, e.message)
             }
-            val wanted = expected[file.name] ?: continue
-            if (digest != wanted) {
-                return abort(tree, directory, "checksum mismatch: ${file.name}")
-            }
+        } catch (e: Exception) {
+            return abort(tree, directory, "export failed: ${e.message}")
         }
-        return TransferResult.Success(name)
+
+        val assigned = tree.children(null).firstOrNull { it.id == directory.id }?.name ?: directory.name
+        return TransferResult.Success(assigned)
     }
 
     /**
@@ -90,19 +106,35 @@ class SafBackupTransfer(
         takenNames: Set<String>,
     ): TransferResult {
         val rootChildren = tree.children(null)
-        val sumsDocument = rootChildren.firstOrNull { it.name == SUMS_FILE }
+        for (child in rootChildren) {
+            if (!isSafeName(child.name)) return TransferResult.Failed("illegal file name: ${child.name}")
+        }
+
+        val byName = rootChildren.associateBy { it.name }
+        val sumsDocument = byName[SUMS_FILE]
             ?: return TransferResult.Failed("$SUMS_FILE is missing in ${tree.displayName()}")
         val sums = try {
             SafBackupManifest.parseSums(readText(tree, sumsDocument))
         } catch (e: InvalidBackupException) {
             return TransferResult.Failed(e.message ?: "invalid checksums")
         }
+        for (entry in sums) {
+            if (entry.name !in byName) return TransferResult.Failed("missing file: ${entry.name}")
+        }
 
-        val manifest = rootChildren.firstOrNull { it.name == MANIFEST_FILE }
-            ?.let { readText(tree, it) }
+        val manifest = byName[MANIFEST_FILE]?.let { readText(tree, it) }
         val version = SafBackupManifest.formatVersion(manifest)
         if (version != null && version != FORMAT_VERSION) {
             return TransferResult.Failed("unsupported backup format: $version")
+        }
+
+        val needed = sums.sumOf { byName.getValue(it.name).size ?: 0L }
+        val required = needed + needed / 20 + FREE_SPACE_MARGIN
+        val available = freeSpace(destinationRoot)
+        if (available in 0 until required) {
+            return TransferResult.Failed(
+                "not enough free space in ${destinationRoot.path}: $available bytes, $required needed",
+            )
         }
 
         val name = SafBackupName.collision(
@@ -117,28 +149,23 @@ class SafBackupTransfer(
         val staging = File(destinationRoot, "$TEMP_PREFIX${UUID.randomUUID()}")
         if (!staging.mkdirs()) return TransferResult.Failed("could not create ${staging.path}")
 
-        val expected = sums.associate { it.name to it.sha256 }
-        for (child in rootChildren.filter { it.name != SUMS_FILE }) {
-            if (cancellation()) return abortDirectory(staging)
-            val digest = try {
-                tree.openInput(child).use { input ->
-                    File(staging, child.name).outputStream().use { output ->
-                        copy(input, output, child.name, child.size)
-                    }
-                }
-            } catch (e: IOException) {
-                return abortDirectory(staging, e.message)
-            }
-            val wanted = expected[child.name] ?: continue
-            if (digest != wanted) {
-                return abortDirectory(staging, "checksum mismatch: ${child.name}")
-            }
-        }
-        // SHA256SUMS itself is part of the directory the CLI verifies later.
+        val toCopy = orderedCopySet(sums, byName, rootChildren, METADATA_FILES) { it.name }
         try {
+            for ((entry, document) in toCopy) {
+                if (cancellation()) return abortDirectory(staging)
+                val digest = tree.openInput(document).use { input ->
+                    File(staging, document.name).outputStream().use { output ->
+                        copy(input, output, document.name, document.size)
+                    }
+                } ?: return abortDirectory(staging)
+                if (entry != null && digest != entry.sha256) {
+                    return abortDirectory(staging, "checksum mismatch: ${document.name}")
+                }
+            }
+            // SHA256SUMS itself is part of the directory the CLI verifies later.
             File(staging, SUMS_FILE).writeText(readText(tree, sumsDocument))
-        } catch (e: IOException) {
-            return abortDirectory(staging, e.message)
+        } catch (e: Exception) {
+            return abortDirectory(staging, "import failed: ${e.message}")
         }
 
         val destination = File(destinationRoot, name)
@@ -148,14 +175,23 @@ class SafBackupTransfer(
         return TransferResult.Success(name)
     }
 
-    private fun readLocalSums(sourceDir: File): List<com.termux.app.domain.backup.SumEntry>? {
-        return try {
-            SafBackupManifest.parseSums(File(sourceDir, SUMS_FILE).readText())
-        } catch (e: IOException) {
-            null
-        } catch (e: InvalidBackupException) {
-            null
-        }
+    /**
+     * The summed files in sums order, followed by the metadata files the script also writes. An
+     * entry is null for metadata that is not covered by `SHA256SUMS`.
+     */
+    private fun <T> orderedCopySet(
+        sums: List<SumEntry>,
+        byName: Map<String, T>,
+        all: List<T>,
+        extras: Set<String>,
+        nameOf: (T) -> String,
+    ): List<Pair<SumEntry?, T>> {
+        val copied = sums.map { it to byName.getValue(it.name) }
+        val metadata = all.filter { item ->
+            val name = nameOf(item)
+            name in extras && sums.none { it.name == name }
+        }.map { null to it }
+        return copied + metadata
     }
 
     private fun readText(tree: SafDocumentTree, document: SafDocumentTree.Document): String {
@@ -200,11 +236,17 @@ class SafBackupTransfer(
         return if (message == null) TransferResult.Cancelled else TransferResult.Failed(message)
     }
 
+    private fun isSafeName(name: String): Boolean =
+        name.isNotEmpty() && name != "." && name != ".." && '/' !in name && '\\' !in name
+
     private companion object {
         const val SUMS_FILE = "SHA256SUMS"
         const val MANIFEST_FILE = "manifest.json"
+        const val PACKAGES_FILE = "packages.txt"
+        val METADATA_FILES = setOf(MANIFEST_FILE, PACKAGES_FILE)
         const val FORMAT_VERSION = 1
         const val TEMP_PREFIX = ".tmp-import-"
         const val BUFFER_SIZE = 8 * 1024
+        const val FREE_SPACE_MARGIN = 16L * 1024 * 1024
     }
 }

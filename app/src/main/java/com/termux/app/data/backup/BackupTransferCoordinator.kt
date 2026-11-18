@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /** State of the in-flight (or last) SAF export or import. */
 data class TransferState(
@@ -23,10 +24,14 @@ data class TransferState(
 /**
  * Runs one SAF transfer at a time, in an app-scoped coroutine that survives the activity, and
  * refuses to start while a script run holds the backup lock.
+ *
+ * A provider that throws is reported as a failure and never leaves the coordinator stuck in
+ * "running"; `transfer.json` records the transfer so the next open can report an interrupted one.
  */
 class BackupTransferCoordinator private constructor(
     private val busy: () -> Boolean,
     private val scope: CoroutineScope,
+    private val stateFile: File?,
     transferFactory: (onProgress: (CopyProgress) -> Unit, isCancelled: () -> Boolean) -> BackupTransfer,
 ) {
 
@@ -34,6 +39,7 @@ class BackupTransferCoordinator private constructor(
     val state: StateFlow<TransferState> = mutableState.asStateFlow()
 
     private val cancelled = AtomicBoolean(false)
+    private val starting = AtomicBoolean(false)
 
     private val transfer: BackupTransfer = transferFactory(
         { copyProgress -> mutableState.update { it.copy(progress = copyProgress) } },
@@ -60,23 +66,62 @@ class BackupTransferCoordinator private constructor(
         }
     }
 
+    /** Reports and clears a transfer recorded by a process that died mid-copy. */
+    fun recoverInterrupted(): TransferResult.Failed? {
+        val file = stateFile ?: return null
+        if (!file.exists()) return null
+        file.delete()
+        val failure = TransferResult.Failed(
+            "The last transfer was interrupted; remove any partial directory it created",
+        )
+        mutableState.update { it.copy(result = failure) }
+        return failure
+    }
+
     private fun start(operation: String, job: () -> TransferResult) {
-        if (mutableState.value.running) {
-            mutableState.update {
-                it.copy(result = TransferResult.Failed("A transfer is already running"))
+        if (!starting.compareAndSet(false, true)) return refuse("A transfer is already running")
+        try {
+            if (mutableState.value.running) return refuse("A transfer is already running")
+            if (busy()) return refuse("A backup is already running")
+
+            cancelled.set(false)
+            writeState(operation)
+            mutableState.value = TransferState(running = true, operation = operation)
+            scope.launch {
+                val result = try {
+                    job()
+                } catch (e: Exception) {
+                    TransferResult.Failed(e.message ?: "the transfer failed")
+                }
+                clearState()
+                mutableState.update {
+                    it.copy(running = false, operation = null, result = result, progress = null)
+                }
             }
-            return
+        } finally {
+            starting.set(false)
         }
-        if (busy()) {
-            mutableState.update { it.copy(result = TransferResult.Failed("A backup is already running")) }
-            return
+    }
+
+    private fun refuse(message: String) {
+        mutableState.update { it.copy(result = TransferResult.Failed(message)) }
+    }
+
+    private fun writeState(operation: String) {
+        val file = stateFile ?: return
+        runCatching {
+            file.parentFile?.mkdirs()
+            file.writeText(
+                JSONObject().apply {
+                    put("operation", operation)
+                    put("started_at", java.time.Instant.now().toString())
+                }.toString(),
+            )
         }
-        cancelled.set(false)
-        mutableState.value = TransferState(running = true, operation = operation)
-        scope.launch {
-            val result = job()
-            mutableState.update { it.copy(running = false, operation = null, result = result, progress = null) }
-        }
+    }
+
+    private fun clearState() {
+        runCatching { stateFile?.delete() }
     }
 
     companion object {
@@ -91,18 +136,24 @@ class BackupTransferCoordinator private constructor(
                 instance ?: BackupTransferCoordinator(
                     busy = { BackupDefaults.lockFile.exists() },
                     scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+                    stateFile = BackupDefaults.transferStateFile,
                 ) { onProgress, isCancelled -> SafBackupTransfer(onProgress, isCancelled) }
-                    .also { instance = it }
+                    .also {
+                        instance = it
+                        it.recoverInterrupted()
+                    }
             }
         }
 
-        /** Test seam: a fixed transfer and a fixed busy check, on an unconfined scope. */
+        /** Test seam: a fixed transfer, a fixed busy check and an optional state file. */
         fun forTest(
             transfer: BackupTransfer,
             busy: () -> Boolean,
+            stateFile: File? = null,
         ): BackupTransferCoordinator = BackupTransferCoordinator(
             busy = busy,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            stateFile = stateFile,
         ) { _, _ -> transfer }
     }
 }
