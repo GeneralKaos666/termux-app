@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.lifecycleScope
+import com.termux.app.TermuxInstaller
 import com.termux.app.TermuxService
 import com.termux.app.data.backup.ApkAssetSource
 import com.termux.app.data.backup.BackupDefaults
@@ -52,6 +53,14 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
             val root = viewModel.state.value.status?.root ?: return@registerForActivityResult
             if (uri == null || entry == null) return@registerForActivityResult
             coordinator.startExport(File(root, entry.name), AndroidSafDocumentTree(this, uri))
+        }
+
+    private val storagePermission =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+            if (grants.values.any { it }) {
+                TermuxInstaller.setupStorageSymlinks(this)
+            }
+            viewModel.open()
         }
 
     private val importPicker =
@@ -118,6 +127,16 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
         super.onDestroy()
     }
 
+    /** Asks for legacy storage access, then re-reads status so the header reflects the grant. */
+    private fun requestStorageAccess() {
+        storagePermission.launch(
+            arrayOf(
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                android.Manifest.permission.READ_EXTERNAL_STORAGE,
+            ),
+        )
+    }
+
     private fun actions() = BackupActions(
         onCreate = { viewModel.start(it) },
         onVerify = { viewModel.onVerify(it) },
@@ -130,9 +149,9 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
         },
         onImport = { importPicker.launch(null) },
         onCancel = { viewModel.cancel() },
-        onRetry = { viewModel.refreshList() },
+        onRetry = { viewModel.open() },
         onReinstallScript = { viewModel.reinstallScript() },
-        onGrantStorage = {},
+        onGrantStorage = { requestStorageAccess() },
         onRestart = {
             viewModel.onRestartHandled()
             sendBroadcast(

@@ -68,7 +68,7 @@ fun BackupScreen(
     actions: BackupActions,
     modifier: Modifier = Modifier,
 ) {
-    val enabled = !state.busy && state.loading.not()
+    val enabled = !state.busy && !state.loading && state.transfer?.running != true
 
     LazyColumn(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -244,12 +244,20 @@ private fun RestoreDialog(
                     append(entry.packages)
                     append(" packages")
                 })
+                Text(stringResource(R.string.backup_restore_targets))
                 SwitchRow(
                     text = stringResource(R.string.backup_restore_safety),
                     checked = safety,
                     enabled = true,
                     onCheckedChange = { safety = it },
                 )
+                if (!safety) {
+                    Text(
+                        text = stringResource(R.string.backup_restore_safety_off),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 SwitchRow(
                     text = stringResource(R.string.backup_restore_packages),
                     checked = packages,
@@ -361,7 +369,15 @@ private fun StatusCard(status: BackupStatus?, onGrantStorage: () -> Unit) {
             LabeledValue(R.string.backup_directory_label, status.root)
             LabeledValue(R.string.backup_count_label, status.backups.toString())
             LabeledValue(R.string.backup_free_space_label, formatBytes(status.freeSpaceBytes))
+            LabeledValue(R.string.backup_writable_label, yesNo(status.writable))
             LabeledValue(R.string.backup_storage_label, yesNo(status.storageAccess))
+            if (status.root.startsWith("/sdcard") || status.root.startsWith("/storage/")) {
+                Text(
+                    text = stringResource(R.string.backup_sdcard_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (!status.storageAccess) {
                 Text(
                     text = stringResource(R.string.backup_storage_missing),
@@ -407,9 +423,11 @@ private fun CreateCard(
     var includeHome by rememberSaveable { mutableStateOf(true) }
     var includeConfig by rememberSaveable { mutableStateOf(true) }
     var excludeSecrets by rememberSaveable { mutableStateOf(false) }
+    var labelError by rememberSaveable { mutableStateOf<String?>(null) }
 
     val compression = compressionOverride ?: state.status?.compression ?: "gz"
     val keepText = keepOverride ?: (state.status?.keep ?: 5).toString()
+    val invalidLabel = stringResource(R.string.backup_invalid_label)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -419,14 +437,19 @@ private fun CreateCard(
             )
             OutlinedTextField(
                 value = label,
-                onValueChange = { label = it },
+                onValueChange = {
+                    label = it
+                    labelError = null
+                },
+                isError = labelError != null,
+                supportingText = labelError?.let { { Text(it) } },
                 label = { Text(stringResource(R.string.backup_label_hint)) },
                 singleLine = true,
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth(),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("gz", "xz", "none").forEach { option ->
+                listOf("gz", "bz2", "xz").forEach { option ->
                     FilterChip(
                         selected = compression == option,
                         onClick = { compressionOverride = option },
@@ -463,9 +486,15 @@ private fun CreateCard(
             )
             Button(
                 onClick = {
+                    val trimmed = label.trim()
+                    val error = if (trimmed.isEmpty()) null else BackupCommand.labelError(trimmed)
+                    if (error != null) {
+                        labelError = invalidLabel
+                        return@Button
+                    }
                     onCreate(
                         BackupCommand.Backup(
-                            label = label.ifBlank { null },
+                            label = trimmed.ifBlank { null },
                             compression = compression,
                             keep = keepText.toIntOrNull(),
                             excludeSecrets = excludeSecrets,
