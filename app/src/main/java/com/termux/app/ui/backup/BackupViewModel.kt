@@ -5,6 +5,8 @@ import com.termux.app.data.backup.BackupSessionClient
 import com.termux.app.data.backup.BackupSessionRunner
 import com.termux.app.data.backup.ProvisionResult
 import com.termux.app.data.backup.StartResult
+import com.termux.app.data.backup.TransferResult
+import com.termux.app.data.backup.TransferState
 import com.termux.app.domain.backup.BackupCommand
 import com.termux.app.domain.backup.BackupEntry
 import com.termux.app.domain.backup.BackupJson
@@ -119,6 +121,12 @@ class BackupViewModel(
                 message = (provision as? ProvisionResult.Failed)?.message,
             )
         }
+    }
+
+    /** Publishes a transfer snapshot and reloads the list when one succeeds. */
+    fun onTransfer(transfer: TransferState) {
+        mutableState.update { it.copy(transfer = transfer) }
+        if (transfer.result is TransferResult.Success) refreshList()
     }
 
     /** Publishes a progress snapshot, called from the activity's collector. */
