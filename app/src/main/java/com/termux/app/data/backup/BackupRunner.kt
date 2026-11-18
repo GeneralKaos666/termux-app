@@ -1,0 +1,224 @@
+package com.termux.app.data.backup
+
+import com.termux.app.domain.backup.BackupCommand
+import com.termux.app.domain.backup.BackupProgress
+import com.termux.app.domain.backup.BackupProgressParser
+import com.termux.app.domain.backup.BackupRunState
+import com.termux.shared.shell.command.ExecutionCommand
+import com.termux.shared.termux.TermuxConstants
+import com.termux.shared.termux.shell.TermuxShellManager
+import com.termux.terminal.TerminalSession
+import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONObject
+
+/** Outcome of asking the runner to start a command. */
+sealed interface StartResult {
+    /** The session started and the lock is held. */
+    data object Started : StartResult
+
+    /** Another run holds the lock. */
+    data class Refused(val reason: String) : StartResult
+
+    /** The session could not be started. */
+    data class Failed(val message: String) : StartResult
+}
+
+/** Identity of the run that currently holds the lock. */
+data class RunLock(val command: String, val pid: Int, val startedAt: String)
+
+/**
+ * Starts `termux-backup` in a hidden terminal session, holds the single-run lock, and polls the
+ * progress file into [state].
+ *
+ * @param configDir directory holding `progress.jsonl` and `run.lock`
+ * @param scriptPath the provisioned script to execute
+ * @param pidAlive process probe for stale-lock detection; tests pass a fake
+ * @param scope scope used for the polling coroutine
+ */
+class BackupRunner(
+    private val configDir: File,
+    private val scriptPath: File,
+    private val pidAlive: (Int) -> Boolean = ::defaultPidAlive,
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+) {
+
+    private val progressFile: File = File(configDir, "progress.jsonl")
+    private val lockFile: File = File(configDir, "run.lock")
+
+    private val mutableState = MutableStateFlow(BackupProgressParser.parseFile(progressFile))
+    val state: StateFlow<BackupProgress> = mutableState.asStateFlow()
+
+    private var session: TerminalSession? = null
+    private var client: BackupSessionClient? = null
+    private var pollJob: Job? = null
+
+    /** Clears a lock whose pid is dead or whose contents cannot be parsed. */
+    fun sweepStaleLock() {
+        val lock = readLock() ?: run {
+            if (lockFile.exists()) lockFile.delete()
+            return
+        }
+        if (!pidAlive(lock.pid)) lockFile.delete()
+    }
+
+    /** Re-reads the progress file and publishes the state, mapping a dead run to [BackupRunState.Interrupted]. */
+    fun refresh(): BackupProgress {
+        val progress = BackupProgressParser.parseFile(progressFile)
+        val resolved = if (progress.state is BackupRunState.Running) {
+            val lock = readLock()
+            if (lock != null && !pidAlive(lock.pid)) {
+                BackupProgress(BackupRunState.Interrupted, progress.phasesSeen, progress.startedAt)
+            } else {
+                progress
+            }
+        } else {
+            progress
+        }
+        mutableState.value = resolved
+        return resolved
+    }
+
+    /**
+     * Starts [command] unless another run holds a live lock.
+     *
+     * @param startSession creates the hidden session; returns the terminal session or null on failure
+     */
+    fun start(
+        command: BackupCommand,
+        startSession: (ExecutionCommand, BackupSessionClient) -> TerminalSession?,
+    ): StartResult {
+        readLock()?.let { lock ->
+            if (pidAlive(lock.pid)) return StartResult.Refused("A backup is already running")
+            lockFile.delete()
+        }
+
+        val argv = command.argv(scriptPath.path, progressFile.path)
+        val executionCommand = ExecutionCommand(
+            TermuxShellManager.getNextShellId(),
+            scriptPath.path,
+            argv.drop(1).toTypedArray(),
+            null,
+            TermuxConstants.TERMUX_HOME_DIR_PATH,
+            ExecutionCommand.Runner.TERMINAL_SESSION.getName(),
+            false,
+        ).apply { shellName = SUBCOMMAND_SHELL_NAME }
+
+        val newClient = BackupSessionClient()
+        val newSession = startSession(executionCommand, newClient)
+            ?: return StartResult.Failed("Could not start the backup session")
+        if (!awaitShellPid(newClient)) {
+            newSession.finishIfRunning()
+            return StartResult.Failed("The backup session did not start")
+        }
+
+        session = newSession
+        client = newClient
+        writeLock(RunLock(command.subcommand, newClient.shellPid, java.time.Instant.now().toString()))
+        startPolling()
+        return StartResult.Started
+    }
+
+    /** Stops the running command and releases the lock. */
+    fun cancel() {
+        pollJob?.cancel()
+        pollJob = null
+        lockFile.delete()
+        session?.finishIfRunning()
+        session = null
+        client = null
+    }
+
+    /**
+     * Blocks until the started session ends and returns its transcript, or null on timeout or when
+     * no session was started.
+     */
+    fun awaitResult(timeoutMs: Long = DEFAULT_TIMEOUT_MS): String? {
+        val active = client ?: return null
+        return runBlocking {
+            withTimeoutOrNull(timeoutMs) { active.finished.await() }
+            active.transcript
+        }
+    }
+
+    private fun startPolling() {
+        pollJob?.cancel()
+        pollJob = scope.launch {
+            while (isActive) {
+                val progress = refresh()
+                when (progress.state) {
+                    is BackupRunState.Finished -> {
+                        lockFile.delete()
+                        return@launch
+                    }
+                    BackupRunState.Interrupted -> return@launch
+                    else -> delay(BackupDefaults.pollIntervalMs)
+                }
+            }
+        }
+    }
+
+    private fun awaitShellPid(target: BackupSessionClient): Boolean {
+        val deadline = System.currentTimeMillis() + SHELL_PID_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            if (target.shellPid > 0) return true
+            Thread.sleep(SHELL_PID_POLL_MS)
+        }
+        return target.shellPid > 0
+    }
+
+    private fun readLock(): RunLock? {
+        val text = runCatching { lockFile.readText() }.getOrNull() ?: return null
+        return runCatching {
+            val json = JSONObject(text)
+            RunLock(
+                json.optString("command"),
+                json.optInt("pid"),
+                json.optString("started_at"),
+            )
+        }.getOrNull()
+    }
+
+    private fun writeLock(lock: RunLock) {
+        runCatching {
+            lockFile.parentFile?.mkdirs()
+            lockFile.writeText(
+                JSONObject().apply {
+                    put("command", lock.command)
+                    put("pid", lock.pid)
+                    put("started_at", lock.startedAt)
+                }.toString(),
+            )
+        }
+    }
+
+    companion object {
+        private const val SUBCOMMAND_SHELL_NAME = "backup"
+        private const val SHELL_PID_TIMEOUT_MS = 2_000L
+        private const val SHELL_PID_POLL_MS = 20L
+        private const val DEFAULT_TIMEOUT_MS = 3_600_000L
+
+        /** Default probe: true when [pid] names a live process. */
+        fun defaultPidAlive(pid: Int): Boolean {
+            if (pid <= 0) return false
+            return try {
+                android.system.Os.kill(pid, 0)
+                true
+            } catch (_: android.system.ErrnoException) {
+                // EPERM means the process exists but belongs to someone else.
+                false
+            }
+        }
+    }
+}
