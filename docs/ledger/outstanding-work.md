@@ -882,7 +882,32 @@ Device checks for phase 1 live in `manual-checks.md` D-17 to D-20; phase 2 check
   IME. A deterministic redo would drive `TerminalView.setTopRow()` through an instrumentation test
   instead of synthetic swipes. No user-visible change follows.
 
-### 6.2 Non-goals — decided against, recorded so they are not mistaken for gaps
+### 6.2 GitHub code scanning — 33 alerts, resolved 2026-11-17
+
+The GitHub security tab held 33 open alerts (24 `java/path-injection`, 6 `actions/missing-workflow-permissions`,
+2 `java/android/unsafe-content-uri-resolution`, 1 `java/zipslip`).
+
+Fixed in code:
+- The four workflows that lacked a token scope now declare `permissions: contents: read`
+  (`debug_build`, `gradle-wrapper-validation`, `run_tests`, `trigger_library_builds_on_jitpack`).
+- `TermuxInstaller.getZipEntryTarget` rejects empty, absolute and escaping zip entry names and checks
+  canonical containment in the staging directory (covered by `TermuxInstallerTest`).
+- `TermuxOpenReceiver.openFile` opens the canonical path it validated, not the raw URI path.
+- `FileReceiverActivity` resolves a `file://` share to its canonical path and rejects anything under
+  `/data/`, so an external app cannot make Termux read its own private files.
+
+Dismissed as false positives (the `/data/` guard above follows CodeQL's own blocklist-sanitizer shape,
+so that alert should clear on its own):
+- 22 `java/path-injection` in `FileUtils`' permission helpers. They are generic library functions that
+  must accept a caller-chosen path; CodeQL only accepts a sanitizer when the path is proven under a
+  fixed trusted root, which such an API cannot have. The only user-controlled callers are
+  `RunCommandService` (working directories are restricted to `TERMUX_FILES_DIR` paths, and a client
+  holding `RUN_COMMAND` plus `allow-external-apps` already has arbitrary command execution).
+- 2 `java/android/unsafe-content-uri-resolution`: the system picker URI in
+  `DisplayPreferencesFragment` is produced by this app's own intent, and the `ACTION_SEND` URI in
+  `FileReceiverActivity` is the documented share target — the sending app granted the read.
+
+### 6.3 Non-goals — decided against, recorded so they are not mistaken for gaps
 
 From the shell/sessions spec: no rewrite of terminal emulation, input or scrollback; no change to the
 package or applicationId; no `:termux-shared` public API change; `:terminal-emulator` and

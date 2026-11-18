@@ -102,10 +102,23 @@ class FileReceiverActivity : AppCompatActivity() {
                     return
                 }
 
-                val file = File(path!!)
+                val file = try {
+                    File(path!!).canonicalFile
+                } catch (e: IOException) {
+                    showErrorDialogAndQuit("Cannot resolve file path: " + e.message + ".")
+                    return
+                }
+
+                // A file:// URI comes from another app and is read with this app's privileges, so
+                // never let it point into /data, where all app-private storage lives.
+                if (file.path.startsWith("/data/")) {
+                    showErrorDialogAndQuit("Cannot receive a file from app-private storage.")
+                    return
+                }
+
                 try {
                     val inputStream = FileInputStream(file)
-                    promptNameAndSave(inputStream, file.getName())
+                    promptNameAndSave(inputStream, file.name)
                 } catch (e: FileNotFoundException) {
                     showErrorDialogAndQuit("Cannot open file: " + e.message + ".")
                 }

@@ -192,9 +192,11 @@ class TermuxOpenReceiver : BroadcastReceiver() {
         @Throws(FileNotFoundException::class)
         override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
             var openMode = mode
-            val file = File(uri.path!!)
+            var file = File(uri.path!!)
             try {
                 val path = file.getCanonicalPath()
+                // Open the canonical path that was validated below, not the raw URI path.
+                file = File(path)
                 val callingPackageName = callingPackage
                 Logger.logDebug(
                     LOG_TAG,
