@@ -49,6 +49,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-32 | The snippet screen stops at 20 rows and shows the limit line | pending | §24 below |
 | D-33 | Extra keys show their popup text (up to 3 characters) instead of a bare chevron | pending | §25 below |
 | D-34 | Release assets are signed by the release key and install as a normal release build | pending | §26 below |
+| D-43 | Settings search on the Termux hub finds Display / Keyboard / Advanced by title or summary | pending | §28 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -841,3 +842,16 @@ Spec `docs/specs/2026-11-17-termux-backup-ui-design.md`, plan
       directory is listed. Cancel an export mid-copy: the partial directory is gone.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+## 28. D-43 — settings search on the Termux hub (2026-11-18)
+
+The hub rows were the only rows in the search index without keys, so every query returned
+"No settings match". Fixed by keying them `display`, `keyboard` and `advanced`; covered by
+`SettingsIndexBuilderTest`.
+
+- [ ] **Search finds a hub row.** Open Settings → Termux, type `font`: only *Display* remains, with
+      its summary. Repeat with `keyboard` (*Keyboard*) and `colour` (*Display*). Opening a result
+      navigates to that screen.
+- [ ] **No match.** Type `zzz`: the single "No settings match" row shows and is not selectable.
+- [ ] **Clearing the query.** Deleting the query restores all three rows in Display / Keyboard /
+      Advanced order.
