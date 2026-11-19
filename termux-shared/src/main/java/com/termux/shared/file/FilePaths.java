@@ -131,15 +131,12 @@ final class FilePaths {
             return false;
         }
 
-        boolean isPathInDirPaths;
-
         for (String dirPath : dirPaths) {
             String normalizedDirPath = normalizePath(dirPath);
+            if (normalizedDirPath == null) continue;
 
-            if (ensureUnder)
-                isPathInDirPaths = !path.equals(normalizedDirPath) && path.startsWith(normalizedDirPath + "/");
-            else
-                isPathInDirPaths = path.startsWith(normalizedDirPath + "/");
+            boolean isPathInDirPaths = path.equals(normalizedDirPath) || path.startsWith(normalizedDirPath + "/");
+            if (ensureUnder) isPathInDirPaths = isPathInDirPaths && !path.equals(normalizedDirPath);
 
             if (isPathInDirPaths) return true;
         }

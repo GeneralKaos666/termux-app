@@ -1,7 +1,9 @@
 package com.termux.shared.file;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -18,6 +20,18 @@ public class FilePathsTest {
         assertEquals("/data", FilePaths.normalizePath("//data//"));
         assertEquals("/data/file", FilePaths.normalizePath("/data/./file"));
         assertEquals("/data/file", FilePaths.normalizePath("/data/file/"));
+    }
+
+    @Test
+    public void testPathEqualOrUnderDirPath() {
+        // Without ensureUnder the directory itself counts as inside it.
+        assertTrue(FilePaths.isPathInDirPath("/a/b", "/a/b", false));
+        assertFalse(FilePaths.isPathInDirPath("/a/b", "/a/b", true));
+        assertTrue(FilePaths.isPathInDirPath("/a/b/c", "/a/b", false));
+        assertTrue(FilePaths.isPathInDirPath("/a/b/c", "/a/b", true));
+        // A sibling whose name merely starts with the same characters is outside.
+        assertFalse(FilePaths.isPathInDirPath("/a/bc", "/a/b", false));
+        assertFalse(FilePaths.isPathInDirPath("/a/bc", "/a/b", true));
     }
 
     @Test
