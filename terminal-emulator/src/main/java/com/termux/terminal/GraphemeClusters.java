@@ -95,11 +95,11 @@ public final class GraphemeClusters {
      * following it are consumed in one step.
      */
     public static int clusterEnd(char[] text, int index, int spaceUsed) {
-        int end = index + charCountAt(text, index);
-        if (end >= spaceUsed) return end;
-        int precedingCodePoint = codePointAt(text, index);
+        int end = index + charCountAt(text, index, spaceUsed);
+        if (end >= spaceUsed) return Math.min(end, spaceUsed);
+        int precedingCodePoint = codePointAt(text, index, spaceUsed);
         while (end < spaceUsed) {
-            int codePoint = codePointAt(text, end);
+            int codePoint = codePointAt(text, end, spaceUsed);
             if (!isContinuation(precedingCodePoint, codePoint)) break;
             precedingCodePoint = codePoint;
             end += Character.charCount(codePoint);
@@ -113,17 +113,18 @@ public final class GraphemeClusters {
      */
     public static int clusterWidth(char[] text, int index, int spaceUsed) {
         if (index < 0 || index >= spaceUsed) return 0;
-        return baseWidth(codePointAt(text, index));
+        return baseWidth(codePointAt(text, index, spaceUsed));
     }
 
-    private static int charCountAt(char[] text, int index) {
+    private static int charCountAt(char[] text, int index, int spaceUsed) {
         char c = text[index];
-        return Character.isHighSurrogate(c) ? 2 : 1;
+        return (Character.isHighSurrogate(c) && index + 1 < spaceUsed) ? 2 : 1;
     }
 
-    private static int codePointAt(char[] text, int index) {
+    private static int codePointAt(char[] text, int index, int spaceUsed) {
         char c = text[index];
-        return Character.isHighSurrogate(c) ? Character.toCodePoint(c, text[index + 1]) : c;
+        if (!Character.isHighSurrogate(c) || index + 1 >= spaceUsed) return c;
+        return Character.toCodePoint(c, text[index + 1]);
     }
 
 }
