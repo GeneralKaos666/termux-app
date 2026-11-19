@@ -81,6 +81,15 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
     /** Half-life of the eased cursor glide: the remaining distance halves every this many milliseconds. */
     private val mCursorEasingHalfLifeMs = 26f
 
+    /**
+     * The system animator duration scale, multiplied into the blink period and the glide half-life.
+     * `0` means "remove animations" is on. Read here and refreshed when the setting changes, so the
+     * cursor follows a 0.5x or 2x scale the way the Compose shell does, without a settings lookup on
+     * every frame.
+     */
+    @Volatile
+    private var mAnimatorDurationScale = readAnimatorDurationScale()
+
     /** Cursor opacity of the current frame, from the fade-blink envelope. */
     @Volatile
     private var mCursorAlpha = 1f
@@ -1150,11 +1159,16 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
      * gliding, so no frame loop is started at all.
      */
     private fun animationsEnabled(): Boolean {
+        return mAnimatorDurationScale > 0f
+    }
+
+    /** Reads the system animator duration scale; `0` means "remove animations" is on. */
+    private fun readAnimatorDurationScale(): Float {
         return Settings.Global.getFloat(
             context.contentResolver,
             Settings.Global.ANIMATOR_DURATION_SCALE,
             1f,
-        ) > 0f
+        )
     }
 
     /**
@@ -1163,6 +1177,9 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
      * cell. Mirrors the Compose shell's observer so both follow the setting live, with no restart.
      */
     private fun onAnimatorScaleChanged() {
+        // Refresh the scale first: a change from one non-zero scale to another (0.5x to 2x) does not
+        // restart the cursor, it only changes the speed the running frame loop uses.
+        mAnimatorDurationScale = readAnimatorDurationScale()
         val emulator = mEmulator ?: return
         if (animationsEnabled()) {
             if (!mCursorBlinkRunning) setTerminalCursorBlinkerState(true, true)
@@ -1590,17 +1607,22 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
                     // callback paints the next frame, which is what keeps the animation running.
                     val oldRow = if (mDisplayCursorRow >= 0f) mDisplayCursorRow else emulator.cursorRow.toFloat()
                     val oldCol = if (mDisplayCursorCol >= 0f) mDisplayCursorCol else emulator.cursorCol.toFloat()
+                    // Both effects follow the system animator duration scale: 0.5x halves their
+                    // duration, 2x doubles it, matching the Compose chrome.
+                    val durationScale = mAnimatorDurationScale
+                    val blinkPeriodMs = (2.0 * mBlinkRate * durationScale).toLong().coerceAtLeast(1L)
                     mCursorAlpha =
                         if (mCursorBlinkRunning) {
-                            CursorFx.blinkAlpha(SystemClock.uptimeMillis() - mBlinkStartUptimeMs, 2L * mBlinkRate)
+                            CursorFx.blinkAlpha(SystemClock.uptimeMillis() - mBlinkStartUptimeMs, blinkPeriodMs)
                         } else {
                             1f
                         }
                     if (mCursorEasing) {
                         val targetRow = emulator.cursorRow.toFloat()
                         val targetCol = emulator.cursorCol.toFloat()
-                        mDisplayCursorRow = CursorFx.easeTowards(mDisplayCursorRow, targetRow, dtMs, mCursorEasingHalfLifeMs)
-                        mDisplayCursorCol = CursorFx.easeTowards(mDisplayCursorCol, targetCol, dtMs, mCursorEasingHalfLifeMs)
+                        val halfLifeMs = mCursorEasingHalfLifeMs * durationScale
+                        mDisplayCursorRow = CursorFx.easeTowards(mDisplayCursorRow, targetRow, dtMs, halfLifeMs)
+                        mDisplayCursorCol = CursorFx.easeTowards(mDisplayCursorCol, targetCol, dtMs, halfLifeMs)
                         if (Math.abs(mDisplayCursorRow - targetRow) < 0.05f) mDisplayCursorRow = targetRow
                         if (Math.abs(mDisplayCursorCol - targetCol) < 0.05f) mDisplayCursorCol = targetCol
                         if (mDisplayCursorRow == targetRow && mDisplayCursorCol == targetCol) mCursorEasing = false
@@ -1706,7 +1728,9 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
         }
 
         // Follow the "remove animations" setting while the view is on screen: toggling it stops or
-        // resumes the cursor without the activity being recreated.
+        // resumes the cursor without the activity being recreated. Re-read the current scale now,
+        // since the observer only reports later changes.
+        mAnimatorDurationScale = readAnimatorDurationScale()
         if (mAnimatorScaleObserver == null) {
             mAnimatorScaleObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
                 override fun onChange(selfChange: Boolean) {

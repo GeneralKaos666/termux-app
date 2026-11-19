@@ -27,6 +27,14 @@ public class CursorFxTest {
     }
 
     @Test
+    public void blinkAlphaHoldsNearFullAwayFromHalfPeriod() {
+        // 10% into the cycle the triangle is at 0.8; smoothstep lifts it to 0.896 so the cursor
+        // reads solid instead of washed out for most of the blink.
+        assertEquals(0.896f, CursorFx.blinkAlpha(100, 1000), 0.0001f);
+        assertEquals(0.896f, CursorFx.blinkAlpha(900, 1000), 0.0001f);
+    }
+
+    @Test
     public void blinkAlphaHandlesNegativeElapsed() {
         assertEquals(0.5f, CursorFx.blinkAlpha(-250, 1000), 0.0001f);
         assertEquals(1f, CursorFx.blinkAlpha(-1000, 1000), 0.0001f);
