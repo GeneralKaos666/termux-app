@@ -35,7 +35,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** (all window, IME, permission and lifecycle checks; three defects fixed) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
 | D-13 | IME text round-trip after the `TerminalView` seam split | **partial 2026-11-18** — ASCII + Enter wiring passed; soft-keyboard umlaut/emoji/composition/Ctrl-C/Alt-B/Tab rows not yet run | §14 below |
 | D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
-| D-15 | Shell UI motion (tween chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
+| D-15 | Shell UI motion (fade chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
 | D-16 | Acrylic background (blur, opacity, live-wallpaper fallback colour) | **passed 2026-11-14** on NX769J / API 34 (12 of 12; the live-wallpaper rows needed the `getWallpaperInfo()` fix) | §17 below |
 | D-17 | termux-backup writes and lists on real shared storage | pending | §18 below |
 | D-18 | termux-backup restore on a second device | pending | §18 below |
@@ -416,19 +416,26 @@ UTF-8, composition, `Ctrl-C`, `Alt-B` and `Tab` rows need a real soft keyboard a
 
 ## 15. D-14 — cursor fade blink, glow and eased bar/underline movement
 
-The cursor now fades along a triangular envelope instead of toggling on and off, carries a halo, and a
-bar or underline cursor glides to its new cell. A block cursor still snaps, because its text inversion
-lives in the cell itself. All of this is in `:terminal-view` (`CursorFx`, `TerminalRenderer`,
-`TerminalView`); the engine is untouched. **Deferred to the device phase**, per the ledger work order.
+The cursor now fades along a smoothed blink envelope instead of toggling on and off, carries a halo,
+and a bar or underline cursor glides to its new cell. A block cursor still snaps, because its text
+inversion lives in the cell itself. All of this is in `:terminal-view` (`CursorFx`,
+`TerminalRenderer`, `TerminalView`); the engine is untouched. **Deferred to the device phase**, per
+the ledger work order.
 
 Corrected 2026-11-15: the frame loop runs on `Choreographer` frame callbacks (vsync-aligned) and the
 easing is time-based (a 26 ms half-life), so the glide speed no longer depends on the frame cadence.
 With the system "remove animations" setting on, the cursor is static (no fade, no glide).
 
+Corrected 2026-11-18: the blink envelope is passed through smoothstep, so the cursor holds near full
+opacity around the ends of each half-cycle and fades quickly through the middle instead of sitting
+half transparent; the blink period and the glide half-life are multiplied by the system animator
+duration scale (0.5x is twice as fast, 2x twice as slow), so the cursor matches the Compose chrome.
+
 Run in a live shell session:
 
-- [ ] Blink fade: with the default block cursor and blinking on, the cursor fades down and back up with
-      no hard on/off snap and no flicker.
+- [ ] Blink fade: with the default block cursor and blinking on, the cursor stays close to fully solid
+      for most of each cycle and fades quickly through the middle, with no hard on/off snap, no
+      flicker, and no washed-out half-alpha look.
 - [ ] Glow: the cursor carries a visible halo in its own colour; neighbouring glyphs stay crisp and are
       not tinted or smeared by it. Check at the smallest and a mid font size.
 - [ ] Bar cursor glide: `printf '\033[6 q'` then move with the arrow keys/hold them. The bar slides
@@ -444,6 +451,9 @@ Run in a live shell session:
       caret with no visible lag or trail.
 - [ ] Glide speed is refresh-rate independent: on a 120 Hz panel a bar/underline glide takes the same
       wall-clock time as on 60 Hz (it does not finish in fewer frames).
+- [ ] Animator duration scale is respected: set `ANIMATOR_DURATION_SCALE` to `2` — the blink and the
+      glide slow down; set it to `0.5` — they speed up. The cursor must change speed without a
+      restart, matching the Compose chrome.
 - [ ] Remove animations, cursor static: with the system "remove animations" setting on, the cursor is
       steady and fully opaque and a bar/underline cursor snaps to its cell instead of gliding.
 - [ ] Remove animations is live: turn the setting on (or set `ANIMATOR_DURATION_SCALE` to 0) while a
@@ -451,26 +461,38 @@ Run in a live shell session:
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
-## 16. D-15 — shell UI motion (tween chrome, animated tabs, float enter)
+## 16. D-15 — shell UI motion (fade chrome, animated tabs, float enter)
 
-The Compose shell now moves: both chrome bars tween open and closed, session tabs slide/fade on add,
-close and reorder, the active tab's surface fades in and a rounded pill glides between tabs, and the
-float bubble/window grows and fades in on first composition. Everything is in `:app` Compose
-(`ShellHost.kt`, `SessionsBar.kt`, `FloatingWindow.kt`, `FloatingBubble.kt`, `theme/Motion.kt`);
-`TerminalView` and the float `WindowManager` maths are untouched. **Deferred to the device phase**,
-per the ledger work order.
+The Compose shell now moves: both chrome bars fade in and out, session tabs slide/fade on add, close
+and reorder, the active tab's surface fades in and a rounded pill glides between tabs, and the float
+bubble/window grows and fades in on first composition. Everything is in `:app` Compose
+(`ShellHost.kt`, `SessionsBar.kt`, `ExtraKeysBar.kt`, `FloatingWindow.kt`, `FloatingBubble.kt`,
+`theme/Motion.kt`); `TerminalView` and the float `WindowManager` maths are untouched. **Deferred to
+the device phase**, per the ledger work order.
 
 Corrected 2026-11-15: the chrome bars expand/collapse on a tween (no height or alpha overshoot), the
 float overlay enters from 92 % instead of a point, and `shellAnimationsEnabled()` follows the setting
 while the app runs.
 
+Corrected 2026-11-18: the bars now fade only and their height changes in one frame (an animated
+height resized the terminal, and therefore the pty, on every frame); the sessions bar scrolls just
+enough to reveal the active tab instead of aligning it to the leading edge; every tween uses the
+shared ease-out (`theme/Motion.kt#ShellEaseOut`). Second pass, same day: the active-tab pill and the
+drag-release offset use a critically damped spring (`shellSettleSpec`) so neither overshoots; the
+restore handle fades in only after the sessions bar has left; the first-run welcome types at a
+per-character cadence (32 ms, clamped 240–900 ms) instead of one fixed 420 ms for any string length.
+
 Run with at least three sessions and the float session available:
 
-- [ ] Sessions bar tween: collapse it with the chevron and expand it with the floating handle. It
-      grows and shrinks smoothly with no overshoot past its final height, and the terminal resizes
-      cleanly underneath.
-- [ ] Extra-keys bar tween: hide and show the key grid with its handle. Same motion, no overshoot; no
-      clipped or jumping rows.
+- [ ] Sessions bar fade: collapse it with the chevron and expand it with the floating handle. The bar
+      fades, the terminal changes height once per toggle (not repeatedly during the fade), and no
+      running program reflows more than once. Run a full-screen app in a session (e.g. `vim` or
+      `tmux`) while toggling: its layout settles after one resize, not several.
+- [ ] Extra-keys bar: hide and show the key grid with its handle. Same fade; collapsing the keys snaps
+      the terminal height once while the key content fades, with no clipped or jumping rows.
+- [ ] Tab switch without travel: with the row scrolled to the start, tap a tab that is already fully
+      visible. The strip does not move. Switch to a tab scrolled out of view: the strip scrolls only
+      far enough to reveal it and does not align it to the leading edge.
 - [ ] Tab add/close: open a new tab and close one. The new tab slides/fades in and the closing one
       slides/fades out; the remaining tabs close the gap smoothly.
 - [ ] Tab reorder: long-press a tab and drag it past another. Nothing reorders under the finger; on
@@ -478,8 +500,13 @@ Run with at least three sessions and the float session available:
       slide over to close the gap.
 - [ ] Active indicator: switch tabs (tap and the session menu). The surface colour fades in and the
       pill glides to the newly active tab, including while the row is scrolled; it never trails
-      behind a scroll fling. Scroll the active tab out of view: the pill is clipped to the row and
-      does not draw over the chevron or the "+" button.
+      behind a scroll fling and never slides past or grows wider than the target tab (no overshoot).
+      Scroll the active tab out of view: the pill is clipped to the row and does not draw over the
+      chevron or the "+" button.
+- [ ] Restore handle: collapse the sessions bar. The handle fades into the corner only after the bar
+      has finished leaving, not while it is still on screen. Tapping it brings the bar back at once.
+- [ ] First-run typing: on a locale with a long welcome string, the title types at a readable
+      per-character speed and finishes within ~0.9 s; it does not blur past or crawl.
 - [ ] Float enter: collapse the window to the bubble and expand it again. Both grow from ~92 % and
       fade in instead of popping; the terminal content is sharp once settled, and the overlay is never
       a zero-size point on its first frame.

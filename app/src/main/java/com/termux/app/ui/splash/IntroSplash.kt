@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.termux.app.ui.theme.ShellEaseOut
 import com.termux.app.ui.theme.shellAnimationsEnabled
 import kotlinx.coroutines.delay
 
@@ -49,8 +50,8 @@ fun IntroSplash(visible: Boolean, onDone: () -> Unit) {
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(120)),
-        exit = fadeOut(tween(if (animationsEnabled) 180 else 0)),
+        enter = fadeIn(tween(120, easing = ShellEaseOut)),
+        exit = fadeOut(tween(if (animationsEnabled) 180 else 0, easing = ShellEaseOut)),
     ) {
         var typedCount by remember { mutableIntStateOf(if (duration == 0) WORD.length else 0) }
 

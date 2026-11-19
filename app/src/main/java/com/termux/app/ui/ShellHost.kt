@@ -5,11 +5,8 @@ import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,20 +62,22 @@ import com.termux.app.ui.palette.PaletteState
 import com.termux.app.ui.sessions.SessionsBar
 import com.termux.app.ui.sessions.SessionsRestoreHandle
 import com.termux.app.ui.sessions.SessionsState
+import com.termux.app.ui.theme.ShellEaseOut
 import com.termux.app.ui.theme.TermuxShellTheme
 import com.termux.app.ui.theme.shellAnimationsEnabled
 import com.termux.shared.termux.extrakeys.ExtraKeysView
 
 /**
- * The chrome bars expand/collapse on a tween rather than the shared spring. The size stays a layout
- * animation because collapsing a bar reflows the terminal, so the layout change is what the motion
- * communicates; the tween (not the spring) avoids a bar-height overshoot and a clamped alpha
- * overshoot. Enter is slower than exit: showing a bar is the deliberate act, hiding is a response.
+ * The chrome bars show and hide on a fade only; their height is not animated. A bar shares the
+ * `Column` with the terminal, so an animated height resizes the terminal on every frame, and every
+ * size change runs `TerminalView.updateSize` → `TerminalSession.updateSize` → `JNI.setPtyWindowSize`
+ * plus a full emulator repaint, so a running shell reflows several times per toggle. A fade keeps
+ * the height change to one frame (at the start when a bar appears, at the end when it leaves) and
+ * still avoids a hard pop. Enter is slower than exit: showing a bar is the deliberate act, hiding is
+ * a response.
  */
-private val ChromeSizeIn = tween<IntSize>(durationMillis = 220, easing = FastOutSlowInEasing)
-private val ChromeSizeOut = tween<IntSize>(durationMillis = 180, easing = FastOutSlowInEasing)
-private val ChromeFadeIn = tween<Float>(durationMillis = 150)
-private val ChromeFadeOut = tween<Float>(durationMillis = 120)
+private val ChromeFadeIn = tween<Float>(durationMillis = 150, easing = ShellEaseOut)
+private val ChromeFadeOut = tween<Float>(durationMillis = 120, easing = ShellEaseOut)
 
 /**
  * Callbacks from the Compose shell back to the hosting Java activity, so the Compose tree never has
@@ -291,8 +290,8 @@ private fun TerminalShellHost(
                 if (!firstRunOverlayVisible) {
                     AnimatedVisibility(
                         visible = sessionsBarExpanded,
-                        enter = if (animationsEnabled) expandVertically(ChromeSizeIn) + fadeIn(ChromeFadeIn) else EnterTransition.None,
-                        exit = if (animationsEnabled) shrinkVertically(ChromeSizeOut) + fadeOut(ChromeFadeOut) else ExitTransition.None,
+                        enter = if (animationsEnabled) fadeIn(ChromeFadeIn) else EnterTransition.None,
+                        exit = if (animationsEnabled) fadeOut(ChromeFadeOut) else ExitTransition.None,
                     ) {
                         SessionsBar(
                             sessions = sessionsState.sessions,
@@ -347,8 +346,8 @@ private fun TerminalShellHost(
 
                 AnimatedVisibility(
                     visible = extraKeysState.visible,
-                    enter = if (animationsEnabled) expandVertically(ChromeSizeIn) + fadeIn(ChromeFadeIn) else EnterTransition.None,
-                    exit = if (animationsEnabled) shrinkVertically(ChromeSizeOut) + fadeOut(ChromeFadeOut) else ExitTransition.None,
+                    enter = if (animationsEnabled) fadeIn(ChromeFadeIn) else EnterTransition.None,
+                    exit = if (animationsEnabled) fadeOut(ChromeFadeOut) else ExitTransition.None,
                 ) {
                     ExtraKeysBar(
                         snippets = snippetChipsState.items,
@@ -369,15 +368,24 @@ private fun TerminalShellHost(
             }
 
             // While the sessions bar is collapsed, a small floating handle at the top corner
-            // restores it. Hidden with the bar under the first-run overlay.
-            if (!firstRunOverlayVisible && !sessionsBarExpanded) {
+            // restores it. Hidden with the bar under the first-run overlay. It fades in only after
+            // the bar has finished leaving, so a control does not pop into the corner while the bar
+            // is still on screen; expanding is immediate, since the user just asked for the bar.
+            AnimatedVisibility(
+                visible = !firstRunOverlayVisible && !sessionsBarExpanded,
+                enter = if (animationsEnabled) {
+                    fadeIn(tween(120, delayMillis = 120, easing = ShellEaseOut))
+                } else {
+                    EnterTransition.None
+                },
+                exit = if (animationsEnabled) fadeOut(tween(80, easing = ShellEaseOut)) else ExitTransition.None,
+                modifier = Modifier.align(Alignment.TopEnd),
+            ) {
                 SessionsRestoreHandle(
                     onExpand = { sessionsBarExpanded = true },
                     backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
                     bellFlash = shellChromeState.bellFlash,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp),
+                    modifier = Modifier.padding(4.dp),
                 )
             }
 

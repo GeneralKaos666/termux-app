@@ -1,6 +1,8 @@
 package com.termux.app.ui.theme
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
@@ -9,14 +11,32 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 
 /**
- * The shell's shared spring, used by the chrome transitions and the float enter animation so they
- * read as one motion language. Generic over the animated type because Compose sizes
- * `expandVertically` with [androidx.compose.ui.unit.IntSize] and fades with [Float].
+ * The shell's spring for things that pop: the float overlay's enter and the session tab's lift and
+ * placement. Low bounce (about 3 % overshoot) — a terminal is a tool, not a toy, and a 16 %
+ * overshoot on MediumBouncy read as wobble.
  */
 fun <T> shellSpringSpec(): SpringSpec<T> = spring(
-    dampingRatio = Spring.DampingRatioMediumBouncy,
+    dampingRatio = Spring.DampingRatioLowBouncy,
     stiffness = Spring.StiffnessMedium,
 )
+
+/**
+ * The shell's spring for anything that has to land exactly on a target: the active-tab indicator and
+ * the residual drag offset after a drop. Critically damped, so it settles without sliding past the
+ * slot or the tab edge. Same stiffness as [shellSpringSpec], so both settle on the same beat.
+ */
+fun <T> shellSettleSpec(): SpringSpec<T> = spring(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMedium,
+)
+
+/**
+ * The shell's ease for anything that appears or settles: a strong ease-out, so the change starts
+ * fast and the user sees it at once. Compose's default `tween` easing is `FastOutSlowIn`, which
+ * starts slow and delays exactly that first moment; `cubic-bezier(0.23, 1, 0.32, 1)` is the
+ * standard strong UI ease-out.
+ */
+val ShellEaseOut: Easing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 
 /**
  * Drives the float overlay's enter animation: `0f` on first composition, animated to `1f` with the
