@@ -479,4 +479,19 @@
     <string name="backup_restore_safety_off">Without a safety archive this restore cannot be undone.</string>
     <string name="backup_invalid_label">Use letters, digits, dots, dashes and underscores only.</string>
     <string name="backup_sdcard_warning">This directory is shared storage: other apps can read the backups, including any secrets they contain.</string>
+    <string name="backup_transfer_running">A transfer is already running</string>
+    <string name="backup_created">Backup created</string>
+    <string name="backup_created_detail">Created %1$s (%2$s, %3$d packages)</string>
+    <string name="backup_restored">Backup restored</string>
+    <string name="backup_restored_detail">Restored %1$s</string>
+    <string name="backup_restored_safety">Restored %1$s; safety archive %2$s</string>
+    <string name="backup_deleted">Backup deleted</string>
+    <string name="backup_deleted_detail">Deleted %1$s</string>
+    <string name="backup_pruned">Backups pruned</string>
+    <string name="backup_pruned_detail">Removed %1$d, kept %2$d</string>
+    <string name="backup_verified">Backup verified</string>
+    <string name="backup_verified_detail">Verified %1$s</string>
+    <string name="backup_verification_failed">Verification failed: %1$s</string>
+    <string name="backup_command_failed">The command failed</string>
+    <string name="backup_done">Done</string>
 </resources>

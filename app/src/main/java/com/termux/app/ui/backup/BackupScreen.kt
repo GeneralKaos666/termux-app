@@ -37,6 +37,7 @@ import com.termux.app.domain.backup.BackupRunState
 import com.termux.app.data.backup.TransferResult
 import com.termux.app.data.backup.TransferState
 import com.termux.app.domain.backup.BackupStatus
+import com.termux.app.domain.backup.formatBytes
 
 /** Actions the screen offers; the activity wires them to the view model and the transfer pickers. */
 data class BackupActions(
@@ -588,15 +589,4 @@ private fun LabeledValue(labelRes: Int, value: String) {
 private fun yesNo(value: Boolean): String =
     stringResource(if (value) R.string.backup_yes else R.string.backup_no)
 
-/** Compact byte size for cards; exact numbers stay in the CLI output. */
-private fun formatBytes(bytes: Long): String {
-    if (bytes < 1024) return "$bytes B"
-    val units = listOf("KiB", "MiB", "GiB", "TiB")
-    var value = bytes.toDouble() / 1024
-    var unit = 0
-    while (value >= 1024 && unit < units.lastIndex) {
-        value /= 1024
-        unit++
-    }
-    return String.format("%.1f %s", value, units[unit])
-}
+
