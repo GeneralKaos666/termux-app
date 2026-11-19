@@ -285,21 +285,32 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
                     mScroller.fling(0, mTopRow, 0, -(velocityY * scale).toInt(), 0, 0, -mEmulator!!.screen.activeTranscriptRows, 0)
                 }
 
+                // The frame loop outlives this dispatch, and the framework recycles the dispatched event
+                // as soon as it returns, so scroll with our own copy and recycle it when the loop ends.
+                val flingEvent = MotionEvent.obtain(e)
                 post(object : Runnable {
                     private var mLastY = 0
 
                     override fun run() {
-                        if (mouseTrackingAtStartOfFling != mEmulator!!.isMouseTrackingActive) {
-                            mScroller.abortAnimation()
-                            return
+                        try {
+                            val emulator = mEmulator ?: return
+                            if (mouseTrackingAtStartOfFling != emulator.isMouseTrackingActive) {
+                                mScroller.abortAnimation()
+                                return
+                            }
+                            if (mScroller.isFinished) return
+                            val more = mScroller.computeScrollOffset()
+                            val newY = mScroller.currY
+                            val diff = if (mouseTrackingAtStartOfFling) newY - mLastY else newY - mTopRow
+                            doScroll(flingEvent, diff)
+                            mLastY = newY
+                            if (more) post(this)
+                        } finally {
+                            // Both this return and the abort above finish the scroller, which is the
+                            // single point where the copy is no longer needed. A gone emulator also
+                            // ends the loop.
+                            if (mScroller.isFinished || mEmulator == null) flingEvent.recycle()
                         }
-                        if (mScroller.isFinished) return
-                        val more = mScroller.computeScrollOffset()
-                        val newY = mScroller.currY
-                        val diff = if (mouseTrackingAtStartOfFling) newY - mLastY else newY - mTopRow
-                        doScroll(e, diff)
-                        mLastY = newY
-                        if (more) post(this)
                     }
                 })
 
@@ -590,6 +601,7 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
             if (mRenderer == null) Typeface.MONOSPACE else mRenderer!!.mTypeface, mLigaturesEnabled,
         )
         updateSize()
+        invalidate()
     }
 
     fun setTypeface(newTypeface: Typeface?) {
@@ -1181,6 +1193,8 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
         // Refresh the scale first: a change from one non-zero scale to another (0.5x to 2x) does not
         // restart the cursor, it only changes the speed the running frame loop uses.
         mAnimatorDurationScale = readAnimatorDurationScale()
+        // Re-base the running envelope before it reads the new scale, so the fade does not jump.
+        mTerminalCursorBlinkerRunnable?.setBlinkScale(mAnimatorDurationScale)
         val emulator = mEmulator ?: return
         if (animationsEnabled()) {
             if (!mCursorBlinkRunning) setTerminalCursorBlinkerState(true, true)
@@ -1566,7 +1580,10 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
         var mEmulator: TerminalEmulator? = emulator
 
         /** Start of the blink envelope, so the cursor is fully visible on the first frame after starting. */
-        private val mBlinkStartUptimeMs = SystemClock.uptimeMillis()
+        private var mBlinkStartUptimeMs = SystemClock.uptimeMillis()
+
+        /** The animator duration scale this runnable times its blink and glide with. */
+        private var mBlinkScale = mAnimatorDurationScale
 
         /** Frame time of the previous callback, in nanos; negative until the first frame so its delta is 0. */
         private var mLastFrameNanos = -1L
@@ -1593,6 +1610,20 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
             return mCancelled
         }
 
+        /**
+         * Takes a new animator duration scale, keeping the cursor at the same point of the fade: the
+         * envelope start moves so the elapsed phase keeps its ratio to the new period. Without this a
+         * scale change mid-blink jumps the alpha to whatever the old start time says in the new period.
+         */
+        fun setBlinkScale(scale: Float) {
+            val now = SystemClock.uptimeMillis()
+            val oldPeriod = (2.0 * mBlinkRate * mBlinkScale).toLong().coerceAtLeast(1L)
+            val newPeriod = (2.0 * mBlinkRate * scale).toLong().coerceAtLeast(1L)
+            val phase = ((now - mBlinkStartUptimeMs) % oldPeriod + oldPeriod) % oldPeriod
+            mBlinkStartUptimeMs = now - (phase.toFloat() / oldPeriod * newPeriod).toLong()
+            mBlinkScale = scale
+        }
+
         override fun doFrame(frameTimeNanos: Long) {
             try {
                 if (mCancelled) return
@@ -1610,7 +1641,7 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
                     val oldCol = if (mDisplayCursorCol >= 0f) mDisplayCursorCol else emulator.cursorCol.toFloat()
                     // Both effects follow the system animator duration scale: 0.5x halves their
                     // duration, 2x doubles it, matching the Compose chrome.
-                    val durationScale = mAnimatorDurationScale
+                    val durationScale = mBlinkScale
                     val blinkPeriodMs = (2.0 * mBlinkRate * durationScale).toLong().coerceAtLeast(1L)
                     mCursorAlpha =
                         if (mCursorBlinkRunning) {
@@ -1748,6 +1779,10 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+
+        // A detached view still gets its frame callbacks, so stop the loop rather than fade a cursor
+        // that nobody draws.
+        stopTerminalCursorBlinker()
 
         if (mAnimatorScaleObserver != null) {
             context.contentResolver.unregisterContentObserver(mAnimatorScaleObserver!!)
