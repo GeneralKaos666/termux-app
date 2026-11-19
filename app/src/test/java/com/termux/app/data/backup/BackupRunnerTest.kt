@@ -2,6 +2,7 @@ package com.termux.app.data.backup
 
 import com.termux.app.domain.backup.BackupCommand
 import com.termux.app.domain.backup.BackupRunState
+import com.termux.shared.termux.TermuxConstants
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -183,7 +184,8 @@ class BackupRunnerTest {
 
         val expected = BackupCommand.Backup("pre-upgrade", "xz", 2, true, true, false)
             .argv(scriptPath.path, File(dir, "progress.jsonl").path)
-        assertEquals(scriptPath.path, seenExecutable)
-        assertEquals(expected.drop(1), seenArguments)
+        // Android has no /usr/bin/env, so the script is handed to bash instead of being exec'd.
+        assertEquals(File(TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH, "bash").absolutePath, seenExecutable)
+        assertEquals(listOf(scriptPath.path) + expected.drop(1), seenArguments)
     }
 }

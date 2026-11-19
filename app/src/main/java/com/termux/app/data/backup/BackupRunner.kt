@@ -122,10 +122,14 @@ class BackupRunner(
         }
 
         val argv = command.argv(scriptPath.path, progressFile.path)
+        // Android has no /usr/bin/env, so the script's "#!/usr/bin/env bash" shebang cannot exec it
+        // directly: execve resolves the interpreter, does not find it and reports ENOENT for the
+        // script. Hand the script to the Termux bash instead.
+        val bash = File(TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH, "bash").absolutePath
         val executionCommand = ExecutionCommand(
             TermuxShellManager.getNextShellId(),
-            scriptPath.path,
-            argv.drop(1).toTypedArray(),
+            bash,
+            (listOf(scriptPath.path) + argv.drop(1)).toTypedArray(),
             null,
             TermuxConstants.TERMUX_HOME_DIR_PATH,
             ExecutionCommand.Runner.TERMINAL_SESSION.getName(),
