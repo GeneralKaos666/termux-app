@@ -9,22 +9,22 @@ android {
     ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
 
     dependencies {
-        implementation "androidx.appcompat:appcompat:1.8.0"
-        implementation "androidx.annotation:annotation:1.11.0"
-        implementation "androidx.core:core:1.19.1"
-        implementation "com.google.android.material:material:1.14.0"
-        implementation "com.google.guava:guava:33.8.0-android"
-        implementation "io.noties.markwon:core:$markwonVersion"
-        implementation "io.noties.markwon:ext-strikethrough:$markwonVersion"
-        implementation "io.noties.markwon:linkify:$markwonVersion"
-        implementation "io.noties.markwon:recycler:$markwonVersion"
-        implementation "org.lsposed.hiddenapibypass:hiddenapibypass:6.2"
+        implementation libs.androidx.appcompat
+        implementation libs.androidx.annotation
+        implementation libs.androidx.core
+        implementation libs.material
+        implementation libs.guava
+        implementation libs.markwon.core
+        implementation libs.markwon.ext.strikethrough
+        implementation libs.markwon.linkify
+        implementation libs.markwon.recycler
+        implementation libs.hiddenapibypass
 
-        implementation "androidx.window:window:1.5.1"
+        implementation libs.androidx.window
 
-        implementation project(":terminal-view")
-
-        implementation "com.termux:termux-am-library:v2.0.0"
+        // Both are part of this library's public API, so consumers need them at compile time.
+        api project(":terminal-view")
+        api libs.termux.am.library
     }
 
     defaultConfig {
@@ -81,16 +81,11 @@ android {
 }
 
 dependencies {
-    testImplementation "junit:junit:4.13.2"
+    testImplementation libs.junit
     androidTestImplementation "androidx.test:runner:1.7.0"
     androidTestImplementation "androidx.test.ext:junit:1.3.0"
     androidTestImplementation 'com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava'
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.5"
-}
-
-task sourceJar(type: Jar) {
-    from android.sourceSets.main.java.srcDirs
-    archiveClassifier = "sources"
 }
 
 afterEvaluate {
@@ -102,7 +97,6 @@ afterEvaluate {
                 groupId = 'com.termux'
                 artifactId = 'termux-shared'
                 version = System.getenv("VERSION") ?: '0.118.0'
-                artifact(sourceJar)
             }
         }
     }
