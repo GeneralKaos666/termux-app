@@ -1,6 +1,7 @@
 package com.termux.app.data.backup
 
 import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermission
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -50,6 +51,20 @@ class BackupScriptProvisionerTest {
         assertEquals(File(root, "lib/termux-backup/termux-backup").absolutePath,
             Files.readSymbolicLink(File(root, "bin/termux-backup").toPath()).toString())
         assertEquals("1.1.0", File(root, "lib/termux-backup/.app-version").readText())
+    }
+
+    @Test
+    fun `installed script is owner-only`() {
+        val p = BackupScriptProvisioner(source(), install, link)
+        p.provision()
+        assertEquals(
+            setOf(
+                PosixFilePermission.OWNER_READ,
+                PosixFilePermission.OWNER_WRITE,
+                PosixFilePermission.OWNER_EXECUTE,
+            ),
+            Files.getPosixFilePermissions(File(install, "termux-backup").toPath()),
+        )
     }
 
     @Test

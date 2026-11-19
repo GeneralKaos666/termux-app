@@ -193,24 +193,27 @@ class BackupScriptProvisioner(
         }
     }
 
-    /** Makes [file] mode 755: owner rwx, group and other r-x. */
+    /**
+     * Makes [file] mode 700: owner rwx only. The shell runs under this app's own uid, so group and
+     * other bits buy nothing and would only widen what the script exposes.
+     */
     @SuppressLint("NewApi")
     private fun makeExecutable(file: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 Files.setPosixFilePermissions(
                     file.toPath(),
-                    java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x"),
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"),
                 )
                 return
             } catch (_: UnsupportedOperationException) {
                 // Fall through to the portable calls below.
             }
-        } else if (runCatching { Os.chmod(file.path, 0x1ED) }.isSuccess) {
+        } else if (runCatching { Os.chmod(file.path, 0x1C0) }.isSuccess) {
             return
         }
-        file.setReadable(true, false)
-        file.setExecutable(true, false)
+        file.setReadable(true, true)
+        file.setExecutable(true, true)
     }
 
     private fun suffix(): String = UUID.randomUUID().toString()
