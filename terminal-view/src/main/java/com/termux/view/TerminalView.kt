@@ -304,7 +304,7 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
                             val diff = if (mouseTrackingAtStartOfFling) newY - mLastY else newY - mTopRow
                             doScroll(flingEvent, diff)
                             mLastY = newY
-                            if (more) post(this)
+                            if (FlingLoop.continues(more, mScroller.isFinished)) post(this)
                         } finally {
                             // Both this return and the abort above finish the scroller, which is the
                             // single point where the copy is no longer needed. A gone emulator also
