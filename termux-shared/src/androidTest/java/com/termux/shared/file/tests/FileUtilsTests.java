@@ -7,11 +7,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.termux.shared.errors.Errno;
+import com.termux.shared.errors.Error;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.file.FileUtilsErrno;
 import com.termux.shared.logger.Logger;
-import com.termux.shared.errors.Error;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -20,336 +22,242 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Instrumented tests for {@link FileUtils}. Every test gets its own empty root directory, so the
+ * order they run in does not matter and a failure leaves the others meaningful.
+ */
 @RunWith(AndroidJUnit4.class)
 public class FileUtilsTests {
 
     private static final String LOG_TAG = "FileUtilsTests";
 
-    @Test
-    public void testFileUtils() throws Exception {
+    private String testRootDirectoryPath;
+
+    /**
+     * - dir1
+     *  - sub_dir1
+     *  - sub_reg1
+     *  - sub_sym1 (absolute symlink to dir2)
+     *  - sub_sym2 (copy of sub_sym1 for symlink to dir2)
+     * - dir2
+     *  - sub_reg1
+     *  - sub_reg2 (copy of dir2/sub_reg1)
+     * - dir3 (copy of dir2)
+     * - dir4 (moved from dir3)
+     */
+    private String dir1Path;
+    private String dir1SubDir1Path;
+    private String dir1SubReg1Path;
+    private String dir1SubSym1Path;
+    private String dir1SubSym2Path;
+    private String dir2Path;
+    private String dir2SubReg1Path;
+    private String dir2SubReg2Path;
+    private String dir3Path;
+    private String dir4Path;
+
+    @Before
+    public void setUp() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        String testRootDirectoryPath = context.getFilesDir().getAbsolutePath() + "/FileUtilsTests";
-        Logger.logInfo(LOG_TAG, "Running tests");
+        testRootDirectoryPath = context.getFilesDir().getAbsolutePath() + "/FileUtilsTests";
         Logger.logInfo(LOG_TAG, "testRootDirectoryPath: \"" + testRootDirectoryPath + "\"");
 
-        String fileUtilsTestsDirectoryCanonicalPath = FileUtils.getCanonicalPath(testRootDirectoryPath, null);
-        assertEqual("FileUtilsTests directory path is not a canonical path", testRootDirectoryPath, fileUtilsTestsDirectoryCanonicalPath);
+        assertEqual("FileUtilsTests directory path is not a canonical path", testRootDirectoryPath,
+            FileUtils.getCanonicalPath(testRootDirectoryPath, null));
+        assertEqual("Failed to create the test root directory file", null,
+            FileUtils.clearDirectory("testRootDirectoryPath", testRootDirectoryPath));
+        if (!FileUtils.directoryFileExists(testRootDirectoryPath, false))
+            throwException("The test root directory file does not exist after creation");
 
-        runTestsInner(testRootDirectoryPath);
-        Logger.logInfo(LOG_TAG, "All tests successful");
+        dir1Path = testRootDirectoryPath + "/dir1";
+        dir1SubDir1Path = dir1Path + "/sub_dir1";
+        dir1SubReg1Path = dir1Path + "/sub_reg1";
+        dir1SubSym1Path = dir1Path + "/sub_sym1";
+        dir1SubSym2Path = dir1Path + "/sub_sym2";
+        dir2Path = testRootDirectoryPath + "/dir2";
+        dir2SubReg1Path = dir2Path + "/sub_reg1";
+        dir2SubReg2Path = dir2Path + "/sub_reg2";
+        dir3Path = testRootDirectoryPath + "/dir3";
+        dir4Path = testRootDirectoryPath + "/dir4";
     }
 
-    private static void runTestsInner(@NonNull final String testRootDirectoryPath) throws Exception {
-        Error error;
-        String label;
-        String path;
+    @After
+    public void tearDown() throws Exception {
+        FileUtils.deleteDirectoryFile("testRootDirectoryPath", testRootDirectoryPath, true);
+    }
 
-        /*
-         * - dir1
-         *  - sub_dir1
-         *  - sub_reg1
-         *  - sub_sym1 (absolute symlink to dir2)
-         *  - sub_sym2 (copy of sub_sym1 for symlink to dir2)
-         *  - sub_sym3 (relative symlink to dir4)
-         * - dir2
-         *  - sub_reg1
-         *  - sub_reg2 (copy of dir2/sub_reg1)
-         * - dir3 (copy of dir1)
-         * - dir4 (moved from dir3)
-         */
+    @Test
+    public void testCreateDirectoriesAndFiles() throws Exception {
+        createDir1WithSymlink();
+        createDir2();
 
-        String dir1_label = "dir1";
-        String dir1_path = testRootDirectoryPath + "/dir1";
+        if (!FileUtils.directoryFileExists(dir1SubDir1Path, false))
+            throwException("dir1/sub_dir1 does not exist after creation");
+        if (!FileUtils.regularFileExists(dir1SubReg1Path, false))
+            throwException("dir1/sub_reg1 does not exist after creation");
+        if (!FileUtils.symlinkFileExists(dir1SubSym1Path))
+            throwException("dir1/sub_sym1 does not exist after creation");
+    }
 
-        String dir1__sub_dir1_label = "dir1/sub_dir1";
-        String dir1__sub_dir1_path = dir1_path + "/sub_dir1";
+    @Test
+    public void testCopySymlinkPointsAtTheTarget() throws Exception {
+        createDir1WithSymlink();
+        createDir2();
 
-        String dir1__sub_dir2_label = "dir1/sub_dir2";
-        String dir1__sub_dir2_path = dir1_path + "/sub_dir2";
+        assertEqual("Failed to copy dir1/sub_sym1 to dir1/sub_sym2", null,
+            FileUtils.copySymlinkFile("dir1/sub_sym2", dir1SubSym1Path, dir1SubSym2Path, false));
+        if (!FileUtils.symlinkFileExists(dir1SubSym2Path))
+            throwException("dir1/sub_sym2 does not exist after copying it from dir1/sub_sym1");
+        if (!new File(dir1SubSym2Path).getCanonicalPath().equals(dir2Path))
+            throwException("dir1/sub_sym2 does not point to dir2");
+    }
 
-        String dir1__sub_dir3_label = "dir1/sub_dir3";
-        String dir1__sub_dir3_path = dir1_path + "/sub_dir3";
+    @Test
+    public void testRegularFileReadWrite() throws Exception {
+        createDir2();
 
-        String dir1__sub_dir3__sub_reg1_label = "dir1/sub_dir3/sub_reg1";
-        String dir1__sub_dir3__sub_reg1_path = dir1__sub_dir3_path + "/sub_reg1";
+        assertEqual("Failed to write with append mode false", null,
+            FileUtils.writeTextToFile("dir2/sub_reg1", dir2SubReg1Path, Charset.defaultCharset(), "line1", false));
+        if (!FileUtils.regularFileExists(dir2SubReg1Path, false))
+            throwException("dir2/sub_reg1 does not exist after writing to it with append mode false");
 
-        String dir1__sub_reg1_label = "dir1/sub_reg1";
-        String dir1__sub_reg1_path = dir1_path + "/sub_reg1";
+        assertEqual("Failed to write with append mode true", null,
+            FileUtils.writeTextToFile("dir2/sub_reg1", dir2SubReg1Path, Charset.defaultCharset(), "\nline2", true));
 
-        String dir1__sub_sym1_label = "dir1/sub_sym1";
-        String dir1__sub_sym1_path = dir1_path + "/sub_sym1";
-
-        String dir1__sub_sym2_label = "dir1/sub_sym2";
-        String dir1__sub_sym2_path = dir1_path + "/sub_sym2";
-
-        String dir1__sub_sym3_label = "dir1/sub_sym3";
-        String dir1__sub_sym3_path = dir1_path + "/sub_sym3";
-
-
-        String dir2_label = "dir2";
-        String dir2_path = testRootDirectoryPath + "/dir2";
-
-        String dir2__sub_reg1_label = "dir2/sub_reg1";
-        String dir2__sub_reg1_path = dir2_path + "/sub_reg1";
-
-        String dir2__sub_reg2_label = "dir2/sub_reg2";
-        String dir2__sub_reg2_path = dir2_path + "/sub_reg2";
-
-
-        String dir3_label = "dir3";
-        String dir3_path = testRootDirectoryPath + "/dir3";
-
-        String dir4_label = "dir4";
-        String dir4_path = testRootDirectoryPath + "/dir4";
-
-
-
-
-
-        // Create or clear test root directory file
-        label = "testRootDirectoryPath";
-        error = FileUtils.clearDirectory(label, testRootDirectoryPath);
-        assertEqual("Failed to create " + label + " directory file", null, error);
-
-        if (!FileUtils.directoryFileExists(testRootDirectoryPath, false))
-            throwException("The " + label + " directory file does not exist as expected after creation");
-
-
-        // Create dir1 directory file
-        error = FileUtils.createDirectoryFile(dir1_label, dir1_path);
-        assertEqual("Failed to create " + dir1_label + " directory file", null, error);
-
-        // Create dir2 directory file
-        error = FileUtils.createDirectoryFile(dir2_label, dir2_path);
-        assertEqual("Failed to create " + dir2_label + " directory file", null, error);
-
-
-
-
-
-        // Create dir1/sub_dir1 directory file
-        label = dir1__sub_dir1_label; path = dir1__sub_dir1_path;
-        error = FileUtils.createDirectoryFile(label, path);
-        assertEqual("Failed to create " + label + " directory file", null, error);
-        if (!FileUtils.directoryFileExists(path, false))
-            throwException("The " + label + " directory file does not exist as expected after creation");
-
-        // Create dir1/sub_reg1 regular file
-        label = dir1__sub_reg1_label; path = dir1__sub_reg1_path;
-        error = FileUtils.createRegularFile(label, path);
-        assertEqual("Failed to create " + label + " regular file", null, error);
-        if (!FileUtils.regularFileExists(path, false))
-            throwException("The " + label + " regular file does not exist as expected after creation");
-
-        // Create dir1/sub_sym1 -> dir2 absolute symlink file
-        label = dir1__sub_sym1_label; path = dir1__sub_sym1_path;
-        error = FileUtils.createSymlinkFile(label, dir2_path, path);
-        assertEqual("Failed to create " + label + " symlink file", null, error);
-        if (!FileUtils.symlinkFileExists(path))
-            throwException("The " + label + " symlink file does not exist as expected after creation");
-
-        // Copy dir1/sub_sym1 symlink file to dir1/sub_sym2
-        label = dir1__sub_sym2_label; path = dir1__sub_sym2_path;
-        error = FileUtils.copySymlinkFile(label, dir1__sub_sym1_path, path, false);
-        assertEqual("Failed to copy " + dir1__sub_sym1_label + " symlink file to " + label, null, error);
-        if (!FileUtils.symlinkFileExists(path))
-            throwException("The " + label + " symlink file does not exist as expected after copying it from " + dir1__sub_sym1_label);
-        if (!new File(path).getCanonicalPath().equals(dir2_path))
-            throwException("The " + label + " symlink file does not point to " + dir2_label);
-
-
-
-
-
-        // Write "line1" to dir2/sub_reg1 regular file
-        label = dir2__sub_reg1_label; path = dir2__sub_reg1_path;
-        error = FileUtils.writeTextToFile(label, path, Charset.defaultCharset(), "line1", false);
-        assertEqual("Failed to write string to " + label + " file with append mode false", null, error);
-        if (!FileUtils.regularFileExists(path, false))
-            throwException("The " + label + " file does not exist as expected after writing to it with append mode false");
-
-        // Write "line2" to dir2/sub_reg1 regular file
-        error = FileUtils.writeTextToFile(label, path, Charset.defaultCharset(), "\nline2", true);
-        assertEqual("Failed to write string to " + label + " file with append mode true", null, error);
-
-        // Read dir2/sub_reg1 regular file
         StringBuilder dataStringBuilder = new StringBuilder();
-        error = FileUtils.readTextFromFile(label, path, Charset.defaultCharset(), dataStringBuilder, false);
-        assertEqual("Failed to read from " + label + " file", null, error);
-        assertEqual("The data read from " + label + " file in not as expected", "line1\nline2", dataStringBuilder.toString());
+        assertEqual("Failed to read dir2/sub_reg1", null,
+            FileUtils.readTextFromFile("dir2/sub_reg1", dir2SubReg1Path, Charset.defaultCharset(), dataStringBuilder, false));
+        assertEqual("The data read is not as expected", "line1\nline2", dataStringBuilder.toString());
 
-        // Copy dir2/sub_reg1 regular file to dir2/sub_reg2 file
-        label = dir2__sub_reg2_label; path = dir2__sub_reg2_path;
-        error = FileUtils.copyRegularFile(label, dir2__sub_reg1_path, path, false);
-        assertEqual("Failed to copy " + dir2__sub_reg1_label + " regular file to " + label, null, error);
-        if (!FileUtils.regularFileExists(path, false))
-            throwException("The " + label + " regular file does not exist as expected after copying it from " + dir2__sub_reg1_label);
+        assertEqual("Failed to copy dir2/sub_reg1 to dir2/sub_reg2", null,
+            FileUtils.copyRegularFile("dir2/sub_reg2", dir2SubReg1Path, dir2SubReg2Path, false));
+        if (!FileUtils.regularFileExists(dir2SubReg2Path, false))
+            throwException("dir2/sub_reg2 does not exist after copying it from dir2/sub_reg1");
+    }
 
+    @Test
+    public void testCopyAndMoveDirectory() throws Exception {
+        createDir2();
 
+        assertEqual("Failed to copy dir2 to dir3", null,
+            FileUtils.copyDirectoryFile("dir3", dir2Path, dir3Path, false));
+        if (!FileUtils.directoryFileExists(dir3Path, false))
+            throwException("dir3 does not exist after copying it from dir2");
 
+        // A second copy must overwrite whatever the first one left behind instead of failing.
+        assertEqual("Failed to copy dir2 to dir3 again", null,
+            FileUtils.copyDirectoryFile("dir3", dir2Path, dir3Path, false));
+        if (!FileUtils.directoryFileExists(dir3Path, false))
+            throwException("dir3 does not exist after copying it from dir2 again");
 
+        assertEqual("Failed to move dir3 to dir4", null,
+            FileUtils.moveDirectoryFile("dir4", dir3Path, dir4Path, false));
+        if (!FileUtils.directoryFileExists(dir4Path, false))
+            throwException("dir4 does not exist after moving it from dir3");
+    }
 
-        // Copy dir1 directory file to dir3
-        label = dir3_label; path = dir3_path;
-        error = FileUtils.copyDirectoryFile(label, dir2_path, path, false);
-        assertEqual("Failed to copy " + dir2_label + " directory file to " + label, null, error);
-        if (!FileUtils.directoryFileExists(path, false))
-            throwException("The " + label + " directory file does not exist as expected after copying it from " + dir2_label);
+    @Test
+    public void testDeletingLinksAndDirectoriesKeepsTheirTargets() throws Exception {
+        createDir1WithSymlink();
+        createDir2();
 
-        // Copy dir1 directory file to dir3 again to test overwrite
-        label = dir3_label; path = dir3_path;
-        error = FileUtils.copyDirectoryFile(label, dir2_path, path, false);
-        assertEqual("Failed to copy " + dir2_label + " directory file to " + label, null, error);
-        if (!FileUtils.directoryFileExists(path, false))
-            throwException("The " + label + " directory file does not exist as expected after copying it from " + dir2_label);
+        assertEqual("Failed to copy dir1/sub_sym1 to dir1/sub_sym2", null,
+            FileUtils.copySymlinkFile("dir1/sub_sym2", dir1SubSym1Path, dir1SubSym2Path, false));
 
-        // Move dir3 directory file to dir4
-        label = dir4_label; path = dir4_path;
-        error = FileUtils.moveDirectoryFile(label, dir3_path, path, false);
-        assertEqual("Failed to move " + dir3_label + " directory file to " + label, null, error);
-        if (!FileUtils.directoryFileExists(path, false))
-            throwException("The " + label + " directory file does not exist as expected after copying it from " + dir3_label);
+        assertEqual("Failed to delete dir1/sub_sym2", null,
+            FileUtils.deleteSymlinkFile("dir1/sub_sym2", dir1SubSym2Path, false));
+        if (FileUtils.fileExists(dir1SubSym2Path, false))
+            throwException("dir1/sub_sym2 still exists after deletion");
+        // Deleting a symlink must not delete what it points at.
+        if (!FileUtils.directoryFileExists(dir2Path, false))
+            throwException("dir2 was deleted by the deletion of dir1/sub_sym2");
 
+        assertEqual("Failed to delete dir1", null,
+            FileUtils.deleteDirectoryFile("dir1", dir1Path, false));
+        if (FileUtils.fileExists(dir1Path, false))
+            throwException("dir1 still exists after deletion");
+        // Deleting dir1 must not delete the target of the symlink it contained.
+        if (!FileUtils.directoryFileExists(dir2Path, false))
+            throwException("dir2 was deleted by the deletion of dir1");
+    }
 
+    @Test
+    public void testValidateDirectoryFileEmptyOrOnlyContainsSpecificFiles() throws Exception {
+        String dir1SubDir2Path = dir1Path + "/sub_dir2";
+        String dir1SubDir3Path = dir1Path + "/sub_dir3";
+        String dir1SubDir3SubReg1Path = dir1SubDir3Path + "/sub_reg1";
 
+        assertEqual("Failed to create dir1", null, FileUtils.createDirectoryFile("dir1", dir1Path));
+        List<String> ignoredSubFilePaths = Arrays.asList(dir1SubDir2Path, dir1SubDir3SubReg1Path);
 
+        assertEqual("An empty dir1 must validate", null,
+            FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles("dir1", dir1Path, ignoredSubFilePaths, false));
 
-        // Create dir1/sub_sym3 -> dir4 relative symlink file
-        label = dir1__sub_sym3_label; path = dir1__sub_sym3_path;
-        error = FileUtils.createSymlinkFile(label, "../dir4", path);
-        assertEqual("Failed to create " + label + " symlink file", null, error);
-        if (!FileUtils.symlinkFileExists(path))
-            throwException("The " + label + " symlink file does not exist as expected after creation");
+        // The parent directory of an ignored but missing file exists: still a non-empty directory.
+        assertEqual("Failed to create dir1/sub_dir3", null,
+            FileUtils.createDirectoryFile("dir1/sub_dir3", dir1SubDir3Path));
+        assertErrnoEqual("dir1 must be non-empty when the parent of a missing ignored file exists",
+            FileUtilsErrno.ERRNO_NON_EMPTY_DIRECTORY_FILE,
+            FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles("dir1", dir1Path, ignoredSubFilePaths, false));
 
-        // Create dir1/sub_sym3 -> dirX relative dangling symlink file
-        // This is to ensure that symlinkFileExists returns true if a symlink file exists but is dangling
-        label = dir1__sub_sym3_label; path = dir1__sub_sym3_path;
-        error = FileUtils.createSymlinkFile(label, "../dirX", path);
-        assertEqual("Failed to create " + label + " symlink file", null, error);
-        if (!FileUtils.symlinkFileExists(path))
-            throwException("The " + label + " dangling symlink file does not exist as expected after creation");
+        assertEqual("Failed to write dir1/sub_dir3/sub_reg1", null,
+            FileUtils.writeTextToFile("dir1/sub_dir3/sub_reg1", dir1SubDir3SubReg1Path, Charset.defaultCharset(), "line1", false));
+        assertEqual("An existing ignored regular file must validate", null,
+            FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles("dir1", dir1Path, ignoredSubFilePaths, false));
 
+        assertEqual("Failed to create dir1/sub_dir2", null,
+            FileUtils.createDirectoryFile("dir1/sub_dir2", dir1SubDir2Path));
+        assertEqual("An existing ignored directory must validate", null,
+            FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles("dir1", dir1Path, ignoredSubFilePaths, false));
 
+        assertEqual("Failed to create dir1/sub_dir1", null,
+            FileUtils.createDirectoryFile("dir1/sub_dir1", dir1SubDir1Path));
+        assertErrnoEqual("dir1 must be non-empty when a non-ignored directory exists",
+            FileUtilsErrno.ERRNO_NON_EMPTY_DIRECTORY_FILE,
+            FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles("dir1", dir1Path, ignoredSubFilePaths, false));
+    }
 
+    @Test
+    public void testValidateDirectoryFileAcceptsAPathEqualToItsParent() throws Exception {
+        // A directory path is "in" its own parent; without that, a missing path equal to the parent
+        // would not be created and the call would report it as not found.
+        String missingDirPath = testRootDirectoryPath + "/missing_dir";
+        assertEqual("A path equal to its parent directory must be created", null,
+            FileUtils.validateDirectoryFileExistenceAndPermissions("missing_dir", missingDirPath, missingDirPath,
+                true, null, false, false, false, false));
+        if (!FileUtils.directoryFileExists(missingDirPath, false))
+            throwException("missing_dir does not exist after validation created it");
+    }
 
+    @Test
+    public void testReadSerializableObjectFromFile() throws Exception {
+        String filePath = testRootDirectoryPath + "/serializable.txt";
+        assertEqual("Failed to write the serializable object", null,
+            FileUtils.writeSerializableObjectToFile("serializable", filePath, "hello"));
 
-        // Delete dir1/sub_sym2 symlink file
-        label = dir1__sub_sym2_label; path = dir1__sub_sym2_path;
-        error = FileUtils.deleteSymlinkFile(label, path, false);
-        assertEqual("Failed to delete " + label + " symlink file", null, error);
-        if (FileUtils.fileExists(path, false))
-            throwException("The " + label + " symlink file still exist after deletion");
+        FileUtils.ReadSerializableObjectResult result =
+            FileUtils.readSerializableObjectFromFile("serializable", filePath, String.class, false);
+        assertEqual("Failed to read the serializable object", null, result.error);
+        assertEqual("The serializable object is not as expected", "hello", (String) result.serializableObject);
+    }
 
-        // Check if dir2 directory file still exists after deletion of dir1/sub_sym2 since it was a symlink to dir2
-        // When deleting a symlink file, its target must not be deleted
-        label = dir2_label; path = dir2_path;
-        if (!FileUtils.directoryFileExists(path, false))
-            throwException("The " + label + " directory file has unexpectedly been deleted after deletion of " + dir1__sub_sym2_label);
-
-
-
-
-
-        // Delete dir1 directory file
-        label = dir1_label; path = dir1_path;
-        error = FileUtils.deleteDirectoryFile(label, path, false);
-        assertEqual("Failed to delete " + label + " directory file", null, error);
-        if (FileUtils.fileExists(path, false))
-            throwException("The " + label + " directory file still exist after deletion");
-
-
-        // Check if dir2 directory file and dir2/sub_reg1 regular file still exist after deletion of
-        // dir1 since there was a dir1/sub_sym1 symlink to dir2 in it
-        // When deleting a directory, any targets of symlinks must not be deleted when deleting symlink files
-        label = dir2_label; path = dir2_path;
-        if (!FileUtils.directoryFileExists(path, false))
-            throwException("The " + label + " directory file has unexpectedly been deleted after deletion of " + dir1_label);
-        label = dir2__sub_reg1_label; path = dir2__sub_reg1_path;
-        if (!FileUtils.fileExists(path, false))
-            throwException("The " + label + " regular file has unexpectedly been deleted after deletion of " + dir1_label);
-
-
-
-
-
-        // Delete dir2/sub_reg1 regular file
-        label = dir2__sub_reg1_label; path = dir2__sub_reg1_path;
-        error = FileUtils.deleteRegularFile(label, path, false);
-        assertEqual("Failed to delete " + label + " regular file", null, error);
-        if (FileUtils.fileExists(path, false))
-            throwException("The " + label + " regular file still exist after deletion");
-
-
-        List<String> ignoredSubFilePaths = Arrays.asList(dir1__sub_dir2_path, dir1__sub_dir3__sub_reg1_path);
-
-        // Create dir1 directory file
-        error = FileUtils.createDirectoryFile(dir1_label, dir1_path);
-        assertEqual("Failed to create " + dir1_label + " directory file", null, error);
-
-        // Test empty dir
-        error = FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles(dir1_label, dir1_path, ignoredSubFilePaths, false);
-        assertEqual("Failed to validate if " + dir1_label + " directory file is empty", null, error);
-
-
-        // Create dir1/sub_dir3 directory file
-        label = dir1__sub_dir3_label; path = dir1__sub_dir3_path;
-        error = FileUtils.createDirectoryFile(label, path);
-        assertEqual("Failed to create " + label + " directory file", null, error);
-        if (!FileUtils.directoryFileExists(path, false))
-            throwException("The " + label + " directory file does not exist as expected after creation");
-
-        // Test parent dir existing of non existing ignored regular file
-        error = FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles(dir1_label, dir1_path, ignoredSubFilePaths, false);
-        assertErrnoEqual("Failed to validate if " + dir1_label + " directory file is empty with parent dir existing of non existing ignored regular file", FileUtilsErrno.ERRNO_NON_EMPTY_DIRECTORY_FILE, error);
-
-
-        // Write "line1" to dir1/sub_dir3/sub_reg1 regular file
-        label = dir1__sub_dir3__sub_reg1_label; path = dir1__sub_dir3__sub_reg1_path;
-        error = FileUtils.writeTextToFile(label, path, Charset.defaultCharset(), "line1", false);
-        assertEqual("Failed to write string to " + label + " file with append mode false", null, error);
-        if (!FileUtils.regularFileExists(path, false))
-            throwException("The " + label + " file does not exist as expected after writing to it with append mode false");
-
-        // Test ignored regular file existing
-        error = FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles(dir1_label, dir1_path, ignoredSubFilePaths, false);
-        assertEqual("Failed to validate if " + dir1_label + " directory file is empty with ignored regular file existing", null, error);
-
-
-        // Create dir1/sub_dir2 directory file
-        label = dir1__sub_dir2_label; path = dir1__sub_dir2_path;
-        error = FileUtils.createDirectoryFile(label, path);
-        assertEqual("Failed to create " + label + " directory file", null, error);
-        if (!FileUtils.directoryFileExists(path, false))
-            throwException("The " + label + " directory file does not exist as expected after creation");
-
-        // Test ignored dir file existing
-        error = FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles(dir1_label, dir1_path, ignoredSubFilePaths, false);
-        assertEqual("Failed to validate if " + dir1_label + " directory file is empty with ignored dir file existing", null, error);
-
-
-        // Create dir1/sub_dir1 directory file
-        label = dir1__sub_dir1_label; path = dir1__sub_dir1_path;
-        error = FileUtils.createDirectoryFile(label, path);
-        assertEqual("Failed to create " + label + " directory file", null, error);
-        if (!FileUtils.directoryFileExists(path, false))
-            throwException("The " + label + " directory file does not exist as expected after creation");
-
-        // Test non ignored dir file existing
-        error = FileUtils.validateDirectoryFileEmptyOrOnlyContainsSpecificFiles(dir1_label, dir1_path, ignoredSubFilePaths, false);
-        assertErrnoEqual("Failed to validate if " + dir1_label + " directory file is empty with non ignored dir file existing", FileUtilsErrno.ERRNO_NON_EMPTY_DIRECTORY_FILE, error);
-
-
-        // Delete dir1 directory file
-        label = dir1_label; path = dir1_path;
-        error = FileUtils.deleteDirectoryFile(label, path, false);
-        assertEqual("Failed to delete " + label + " directory file", null, error);
-
-
+    @Test
+    public void testGetFileType() throws Exception {
         FileUtils.getFileType("/dev/ptmx", false);
         FileUtils.getFileType("/dev/null", false);
     }
 
+    private void createDir1WithSymlink() throws Exception {
+        assertEqual("Failed to create dir1", null, FileUtils.createDirectoryFile("dir1", dir1Path));
+        assertEqual("Failed to create dir1/sub_dir1", null, FileUtils.createDirectoryFile("dir1/sub_dir1", dir1SubDir1Path));
+        assertEqual("Failed to create dir1/sub_reg1", null, FileUtils.createRegularFile("dir1/sub_reg1", dir1SubReg1Path));
+        assertEqual("Failed to create dir1/sub_sym1", null,
+            FileUtils.createSymlinkFile("dir1/sub_sym1", dir2Path, dir1SubSym1Path));
+    }
 
+    private void createDir2() throws Exception {
+        assertEqual("Failed to create dir2", null, FileUtils.createDirectoryFile("dir2", dir2Path));
+    }
 
     public static void assertEqual(@NonNull final String message, final String expected, final Error actual) throws Exception {
         String actualString = actual != null ? actual.getMessage() : null;
@@ -362,27 +270,21 @@ public class FileUtilsTests {
             throwException(message + "\nexpected: \"" + expected + "\"\nactual: \"" + actual + "\"");
     }
 
-    private static boolean equalsRegardingNull(final String expected, final String actual) {
-        if (expected == null) {
-            return actual == null;
-        }
-
-        return isEquals(expected, actual);
-    }
-
     public static void assertErrnoEqual(@NonNull final String message, final Errno expected, final Error actual) throws Exception {
         if ((expected == null && actual != null) || (expected != null && !expected.equalsErrorTypeAndCode(actual)))
             throwException(message + "\nexpected: \"" + expected + "\"\nactual: \"" + actual + "\"\nFull Error:\n" + (actual != null ? actual.toString() : ""));
     }
 
+    private static boolean equalsRegardingNull(final String expected, final String actual) {
+        if (expected == null) {
+            return actual == null;
+        }
 
-
-    private static boolean isEquals(String expected, String actual) {
         return expected.equals(actual);
     }
 
     public static void throwException(@NonNull final String message) throws Exception {
-            throw new Exception(message);
+        throw new Exception(message);
     }
 
 }
