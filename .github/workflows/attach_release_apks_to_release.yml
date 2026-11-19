@@ -14,29 +14,37 @@ jobs:
       fail-fast: false
       matrix:
         package_variant: [ apt-android-7, apt-android-5 ]
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
     steps:
       - name: Clone repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ env.GITHUB_REF }}
+          ref: ${{ github.ref }}
 
       - name: Build and attach APKs to release
         shell: bash {0}
         env:
+          # Only this step calls `gh`; the rest of the job needs no token.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PACKAGE_VARIANT: ${{ matrix.package_variant }}
           TERMUX_RELEASE_KEYSTORE_BASE64: ${{ secrets.TERMUX_RELEASE_KEYSTORE_BASE64 }}
           TERMUX_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.TERMUX_RELEASE_KEYSTORE_PASSWORD }}
           TERMUX_RELEASE_KEY_ALIAS: ${{ secrets.TERMUX_RELEASE_KEY_ALIAS }}
           TERMUX_RELEASE_KEY_PASSWORD: ${{ secrets.TERMUX_RELEASE_KEY_PASSWORD }}
         run: |
+          # Drops only the assets this leg may have attached, so the other package variant can
+          # still publish its own set. The release and its tag are left in place.
+          delete_own_assets() {
+              [ -n "${APK_BASENAME_PREFIX:-}" ] || return 0
+              for abi in universal arm64-v8a armeabi-v7a x86_64 x86; do
+                  gh release delete-asset "$RELEASE_VERSION_NAME" "${APK_BASENAME_PREFIX}_$abi.apk" --yes
+              done
+              gh release delete-asset "$RELEASE_VERSION_NAME" "${APK_BASENAME_PREFIX}_sha256sums" --yes
+          }
+
           exit_on_error() {
               echo "$1"
-              echo "Deleting '$RELEASE_VERSION_NAME' release and '$GITHUB_REF' tag"
-              gh release delete "$RELEASE_VERSION_NAME" --yes
-              git push --delete origin "$GITHUB_REF"
+              echo "Deleting the assets of '$RELEASE_VERSION_NAME' that this leg attached"
+              delete_own_assets
               exit 1
           }
 
@@ -59,6 +67,12 @@ jobs:
           APK_DIR_PATH="./app/build/outputs/apk/release"
           APK_VERSION_TAG="$RELEASE_VERSION_NAME+${{ env.PACKAGE_VARIANT }}-github-release"
           APK_BASENAME_PREFIX="termux-app_$APK_VERSION_TAG"
+
+          echo "Checking the tag against the app version"
+          expected="${RELEASE_VERSION_NAME#v}"
+          actual="$(./gradlew -q versionName | tail -1)"
+          [ "$expected" = "$actual" ] || exit_on_error "Tag '$expected' does not match app/build.gradle versionName '$actual'"
+          export TERMUX_APP_VERSION_NAME="$expected" # Used by app/build.gradle
 
           echo "Building APKs for '$APK_VERSION_TAG' release"
           export TERMUX_APK_VERSION_TAG="$APK_VERSION_TAG" # Used by app/build.gradle
