@@ -1,5 +1,6 @@
 package com.termux.app.domain.backup
 
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -21,7 +22,13 @@ class ByteFormatTest {
 
     @Test
     fun `the decimal separator does not follow the device locale`() {
-        // The test runs under the default locale; the format is fixed to Locale.US.
-        assertEquals("1.5 KiB", formatBytes(1536))
+        val original = Locale.getDefault()
+        try {
+            // A locale that writes a comma would turn "1.5 KiB" into "1,5 KiB" without the pin.
+            Locale.setDefault(Locale.GERMANY)
+            assertEquals("1.5 KiB", formatBytes(1536))
+        } finally {
+            Locale.setDefault(original)
+        }
     }
 }
