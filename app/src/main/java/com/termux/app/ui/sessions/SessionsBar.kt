@@ -264,10 +264,6 @@ fun SessionsBar(
                 }
             }
         } else {
-            val atStart = listState.firstVisibleItemIndex == 0 &&
-                listState.firstVisibleItemScrollOffset == 0
-            val atEnd = !listState.canScrollForward
-            val scrollFraction = if (atStart) 0f else 1f
             val fadeColor = MaterialTheme.colorScheme.surface.copy(alpha = backgroundAlpha)
             val fadeWidth = 16.dp
             Box(
@@ -283,6 +279,12 @@ fun SessionsBar(
                         .fillMaxWidth()
                         .drawWithContent {
                             drawContent()
+                            // Read the scroll state here, in the draw phase: a scroll then redraws
+                            // without recomposing the bar.
+                            val atStart = listState.firstVisibleItemIndex == 0 &&
+                                listState.firstVisibleItemScrollOffset == 0
+                            val atEnd = !listState.canScrollForward
+                            val scrollFraction = if (atStart) 0f else 1f
                             val edge = fadeWidth.toPx()
                             val leadingAlpha = edgeFadeAlpha(scrollFraction, atStart, atEnd, true)
                             val trailingAlpha = edgeFadeAlpha(scrollFraction, atStart, atEnd, false)
