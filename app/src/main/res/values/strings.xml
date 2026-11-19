@@ -404,7 +404,10 @@
     <string name="snippets_title">Snippets</string>
     <string name="snippets_apply">Apply</string>
     <string name="snippets_add">Add snippet</string>
-    <string name="snippets_limit">At most %1$d snippets are kept.</string>
+    <plurals name="snippets_limit">
+        <item quantity="one">At most %1$d snippet is kept.</item>
+        <item quantity="other">At most %1$d snippets are kept.</item>
+    </plurals>
     <string name="snippets_label">Label</string>
     <string name="snippets_command">Command</string>
     <string name="snippets_delete">Delete snippet</string>
@@ -462,7 +465,10 @@
     <string name="backup_kind_backup">Backup</string>
     <string name="backup_unknown_value">unknown</string>
     <string name="backup_phase_running">Running: %1$s</string>
-    <string name="backup_packages_value">%1$d packages</string>
+    <plurals name="backup_packages_value">
+        <item quantity="one">%1$d package</item>
+        <item quantity="other">%1$d packages</item>
+    </plurals>
     <string name="backup_yes">Yes</string>
     <string name="backup_no">No</string>
     <string name="backup_prune_action">Prune</string>

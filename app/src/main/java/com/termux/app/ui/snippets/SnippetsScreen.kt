@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.termux.R
@@ -81,7 +82,7 @@ fun SnippetsScreen(
 
         if (state.atLimit) {
             Text(
-                text = stringResource(R.string.snippets_limit, MAX_SNIPPETS),
+                text = pluralStringResource(R.plurals.snippets_limit, MAX_SNIPPETS, MAX_SNIPPETS),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp),
