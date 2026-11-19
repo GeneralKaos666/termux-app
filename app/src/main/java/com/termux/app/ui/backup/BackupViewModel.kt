@@ -13,6 +13,7 @@ import com.termux.app.domain.backup.BackupJson
 import com.termux.app.domain.backup.BackupProgress
 import com.termux.app.domain.backup.BackupRunState
 import com.termux.app.domain.backup.BackupStatus
+import com.termux.app.domain.backup.formatBytes
 import com.termux.shared.shell.command.ExecutionCommand
 import com.termux.terminal.TerminalSession
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ class BackupViewModel(
     private val runner: BackupSessionRunner,
     private val startSession: (ExecutionCommand, BackupSessionClient) -> TerminalSession?,
     private val async: (suspend () -> Unit) -> Unit,
+    private val strings: BackupStrings,
 ) {
 
     private val mutableState = MutableStateFlow(BackupUiState())
@@ -67,7 +69,7 @@ class BackupViewModel(
     /** Runs [command] and reloads the list when it finishes. */
     fun start(command: BackupCommand) {
         if (state.value.transfer?.running == true) {
-            mutableState.update { it.copy(message = "A transfer is already running") }
+            mutableState.update { it.copy(message = strings.transferRunning()) }
             return
         }
         runCommand(command)
@@ -188,35 +190,31 @@ class BackupViewModel(
             is BackupCommand.Backup -> json?.let {
                 runCatching {
                     val created = BackupJson.created(it)
-                    "Created ${created.name} (${formatBytes(created.sizeBytes)}, ${created.packages} packages)"
+                    strings.created(created.name, formatBytes(created.sizeBytes), created.packages)
                 }.getOrNull()
-            } ?: "Backup created"
+            } ?: strings.created(null, null, null)
             is BackupCommand.Restore -> json?.let {
                 runCatching {
                     val restored = BackupJson.restored(it)
-                    if (restored.safety != null) {
-                        "Restored ${restored.name}; safety archive ${restored.safety}"
-                    } else {
-                        "Restored ${restored.name}"
-                    }
+                    strings.restored(restored.name, restored.safety)
                 }.getOrNull()
-            } ?: "Backup restored"
+            } ?: strings.restored(null, null)
             is BackupCommand.Delete -> json?.let {
-                runCatching { "Deleted ${BackupJson.deleted(it).name}" }.getOrNull()
-            } ?: "Backup deleted"
+                runCatching { strings.deleted(BackupJson.deleted(it).name) }.getOrNull()
+            } ?: strings.deleted(null)
             is BackupCommand.Prune -> json?.let {
                 runCatching {
                     val pruned = BackupJson.pruned(it)
-                    "Removed ${pruned.removed}, kept ${pruned.kept}"
+                    strings.pruned(pruned.removed, pruned.kept)
                 }.getOrNull()
-            } ?: "Backups pruned"
+            } ?: strings.pruned(null, null)
             is BackupCommand.Verify -> json?.let {
                 runCatching {
                     val checked = BackupJson.verified(it)
-                    if (checked.valid) "Verified ${checked.name}" else "Verification failed: ${checked.name}"
+                    strings.verified(checked.name, checked.valid)
                 }.getOrNull()
-            } ?: "Backup verified"
-            BackupCommand.ListBackups, BackupCommand.Status -> "Done"
+            } ?: strings.verified(null, null)
+            BackupCommand.ListBackups, BackupCommand.Status -> strings.done()
         }
     }
 
@@ -279,20 +277,8 @@ class BackupViewModel(
             .split('\n')
             .map { it.trim().trimEnd('\r') }
             .lastOrNull { it.isNotEmpty() && !it.startsWith("{") }
-        return line ?: "The command failed"
+        return line ?: strings.commandFailed()
     }
 
     private class Outcome(val transcript: String?, val exitCode: Int?)
-
-    private fun formatBytes(bytes: Long): String {
-        if (bytes < 1024) return "$bytes B"
-        val units = listOf("KiB", "MiB", "GiB", "TiB")
-        var value = bytes.toDouble() / 1024
-        var unit = 0
-        while (value >= 1024 && unit < units.lastIndex) {
-            value /= 1024
-            unit++
-        }
-        return String.format("%.1f %s", value, units[unit])
-    }
 }

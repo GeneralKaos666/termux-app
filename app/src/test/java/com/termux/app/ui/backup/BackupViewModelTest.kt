@@ -270,8 +270,21 @@ class BackupViewModelTest {
 
         viewModel.start(BackupCommand.Backup(null, "gz", null, false, true, true))
 
-        assertEquals("A transfer is already running", viewModel.state.value.message)
+        assertEquals("MARKER transfer running", viewModel.state.value.message)
         assertEquals(startsBefore, runner.startCount)
+    }
+
+    @Test
+    fun `a finished command reports the injected summary`() {
+        val runner = FakeRunner(mapOf("status" to statusJson, "list" to listJson, "backup" to createdJson))
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+
+        viewModel.start(BackupCommand.Backup(null, "gz", null, false, true, true))
+
+        val result = viewModel.state.value.result
+        assertTrue(result is RunResult.Success)
+        assertEquals("MARKER created", (result as RunResult.Success).summary)
     }
 
     private fun viewModel(provisioner: BackupProvisioner, runner: BackupSessionRunner) =
@@ -280,7 +293,20 @@ class BackupViewModelTest {
             runner = runner,
             startSession = { _, _ -> null },
             async = { block -> runBlocking { block() } },
+            strings = FakeBackupStrings(),
         )
+
+    /** Proves the view model has no copy of its own: every message is a marker it must not know. */
+    private class FakeBackupStrings : BackupStrings {
+        override fun transferRunning() = "MARKER transfer running"
+        override fun created(name: String?, size: String?, packages: Int?) = "MARKER created"
+        override fun restored(name: String?, safety: String?) = "MARKER restored"
+        override fun deleted(name: String?) = "MARKER deleted"
+        override fun pruned(removed: Int?, kept: Int?) = "MARKER pruned"
+        override fun verified(name: String?, valid: Boolean?) = "MARKER verified"
+        override fun commandFailed() = "MARKER command failed"
+        override fun done() = "MARKER done"
+    }
 
     private class FakeProvisioner(private val result: ProvisionResult) : BackupProvisioner {
         val forceCalls = mutableListOf<Boolean>()

@@ -83,6 +83,7 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
             runner = runner,
             startSession = { command, client -> service?.createBackupSession(command, client)?.terminalSession },
             async = { block -> workScope.launch { block() } },
+            strings = AndroidBackupStrings(resources),
         )
 
         setContent {
