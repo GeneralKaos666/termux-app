@@ -55,14 +55,14 @@ class SettingsActivity : AppCompatActivity() {
 
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
-            Thread {
-                configureTermuxAPIPreference(context)
-                configureTermuxFloatPreference(context)
-                configureTermuxTaskerPreference(context)
-                configureTermuxWidgetPreference(context)
-                configureAboutPreference(context)
-                configureDonatePreference(context)
-            }.start()
+            // Preference state is UI state: mutate it on the main thread, where the fragment and the
+            // PreferenceManager live.
+            configureTermuxAPIPreference(context)
+            configureTermuxFloatPreference(context)
+            configureTermuxTaskerPreference(context)
+            configureTermuxWidgetPreference(context)
+            configureAboutPreference(context)
+            configureDonatePreference(context)
         }
 
         private fun configureTermuxAPIPreference(context: Context) {
