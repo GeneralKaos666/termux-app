@@ -89,6 +89,9 @@ import com.termux.app.ui.theme.shellSpringSpec
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collect
 
+/** Upper bound on the one-viewport steps taken to reach a tab whose offset is not measured yet. */
+private const val MAX_ACTIVE_TAB_SCROLL_STEPS = 8
+
 /**
  * Top strip of terminal sessions.
  *
@@ -147,25 +150,32 @@ fun SessionsBar(
 
     // Keep the active session visible when it changes. Deliberately not keyed on the whole list:
     // session titles update constantly while commands run, and re-running this on every refresh
-    // would keep yanking the row back and stop the user browsing the other tabs.
+    // would keep yanking the row back and stop the user browsing the other tabs. The item count is
+    // part of the key because nothing can be measured until the row has its items.
     //
-    // Only a tab that is outside the viewport is scrolled to; a visible one stays put, and the row
-    // moves by the minimum needed to reveal it. `animateScrollToItem` would align the tab to the
-    // leading edge, so every session switch slid the whole strip even when the tab was already on
-    // screen.
-    LaunchedEffect(activeIndex) {
+    // Only the overlap is scrolled, so a tab that is already on screen stays where it is:
+    // aligning it to the leading edge made every session switch slide the whole strip.
+    LaunchedEffect(activeIndex, listState.layoutInfo.totalItemsCount) {
         if (activeIndex < 0) return@LaunchedEffect
-        val layout = listState.layoutInfo
-        val tab = layout.visibleItemsInfo.firstOrNull { it.index == activeIndex }
-        if (tab == null) {
-            listState.animateScrollToItem(activeIndex)
-        } else {
-            val beforeViewport = tab.offset - layout.viewportStartOffset
-            val pastViewport = tab.offset + tab.size - layout.viewportEndOffset
-            when {
-                beforeViewport < 0 -> listState.animateScrollBy(beforeViewport.toFloat())
-                pastViewport > 0 -> listState.animateScrollBy(pastViewport.toFloat())
+        repeat(MAX_ACTIVE_TAB_SCROLL_STEPS) {
+            val layout = listState.layoutInfo
+            val viewportSize = layout.viewportEndOffset - layout.viewportStartOffset
+            if (viewportSize <= 0) return@LaunchedEffect
+            val tab = layout.visibleItemsInfo.firstOrNull { it.index == activeIndex }
+            if (tab == null) {
+                // The tab is outside the measured range, so its offset is unknown: move one
+                // viewport towards it and measure again instead of aligning it to the edge.
+                val lastVisibleIndex = layout.visibleItemsInfo.lastOrNull()?.index
+                    ?: return@LaunchedEffect
+                val step = if (activeIndex > lastVisibleIndex) viewportSize else -viewportSize
+                listState.animateScrollBy(step.toFloat())
+                return@repeat
             }
+            val delta = minimalScrollDelta(
+                tab.offset, tab.size, layout.viewportStartOffset, layout.viewportEndOffset,
+            )
+            if (delta != 0) listState.animateScrollBy(delta.toFloat())
+            return@LaunchedEffect
         }
     }
 
@@ -815,6 +825,21 @@ internal fun edgeFadeAlpha(
     val fraction = scrollFraction.coerceIn(0f, 1f)
     if (fraction < 0.02f) return 0f
     return ((fraction - 0.02f) / 0.1f).coerceIn(0f, 1f)
+}
+
+/**
+ * How far the row must scroll to bring a tab into view: `0` when it is fully visible, the negative
+ * leading overlap when it starts before the viewport, and the positive trailing overlap when it ends
+ * past it. A tab wider than the viewport therefore scrolls to its leading edge.
+ */
+internal fun minimalScrollDelta(tabOffset: Int, tabSize: Int, viewportStart: Int, viewportEnd: Int): Int {
+    val leadingOverlap = tabOffset - viewportStart
+    val trailingOverlap = tabOffset + tabSize - viewportEnd
+    return when {
+        leadingOverlap < 0 -> leadingOverlap
+        trailingOverlap > 0 -> trailingOverlap
+        else -> 0
+    }
 }
 
 /** Display label for a starter command; the command itself is what gets inserted. */
