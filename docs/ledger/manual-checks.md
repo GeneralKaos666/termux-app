@@ -37,19 +37,27 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
 | D-15 | Shell UI motion (fade chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
 | D-16 | Acrylic background (blur, opacity, live-wallpaper fallback colour) | **passed 2026-11-14** on NX769J / API 34 (12 of 12; the live-wallpaper rows needed the `getWallpaperInfo()` fix) | §17 below |
-| D-17 | termux-backup writes and lists on real shared storage | pending | §18 below |
-| D-18 | termux-backup restore on a second device | pending | §18 below |
-| D-19 | termux-backup safety-archive round-trip | pending | §18 below |
-| D-20 | termux-backup behavior with storage permission revoked | pending | §18 below |
+| D-17 | termux-backup writes and lists on real shared storage | **passed 2026-11-19** (needs `MANAGE_EXTERNAL_STORAGE`) | §18 below |
+| D-18 | termux-backup restore on a second device | pending (needs a second device) | §18 below |
+| D-19 | termux-backup safety-archive round-trip | **passed 2026-11-19** | §18 below |
+| D-20 | termux-backup behavior with storage permission revoked | **passed 2026-11-19** | §18 below |
 | D-27 | Received file with a hostile display name is refused and nothing is written outside `~/downloads` | **passed 2026-11-18** | §24 below |
 | D-28 | Absurd sixel raster size neither crashes nor stalls the terminal | **passed 2026-11-18** | §24 below |
-| D-29 | Text either side of a sixel cell renders with no missing, doubled or shifted cell | pending | §24 below |
-| D-30 | `keycap-visuals = false` removes the keycap inset and the popup chevron | pending | §24 below |
+| D-29 | Text either side of a sixel cell renders with no missing, doubled or shifted cell | **passed 2026-11-19** | §24 below |
+| D-30 | `keycap-visuals = false` removes the keycap inset and the popup chevron | **passed 2026-11-19** | §24 below |
 | D-31 | A shared file is saved and opened exactly once (no second editor launch on resume) | **passed 2026-11-18** | §24 below |
 | D-32 | The snippet screen stops at 20 rows and shows the limit line | **passed 2026-11-18** (20 injected rows; add disabled) | §24 below |
-| D-33 | Extra keys show their popup text (up to 3 characters) instead of a bare chevron | pending | §25 below |
+| D-33 | Extra keys show their popup text (up to 3 characters) instead of a bare chevron | **passed 2026-11-19** | §25 below |
 | D-34 | Release assets are signed by the release key and install as a normal release build | pending | §26 below |
 | D-43 | Settings search on the Termux hub finds Display / Keyboard / Advanced by title or summary | **passed 2026-11-18** (three defects fixed during the check) | §28 below |
+| D-35 | Backup screen provisions `$PREFIX/lib/termux-backup` and shows the CLI status | **passed 2026-11-19** (hub search does not find "Backup") | §27 below |
+| D-36 | Backup from the screen (label + `xz`) with the list and the CLI agreeing | **passed 2026-11-19** | §27 below |
+| D-37 | A run survives leaving the backup screen | **passed 2026-11-19** | §27 below |
+| D-38 | Cancel a running backup | **failed 2026-11-19** — no cancel control appears while a run is in flight | §27 below |
+| D-39 | Verify a corrupted backup reports the CLI's message | **failed 2026-11-19** — generic "The command failed" instead of the checksum line | §27 below |
+| D-41 | Revoked storage access is reported on the backup screen | **passed 2026-11-19** | §27 below |
+| D-40 | Restore from the backup screen | **passed 2026-11-19** (dialog names `$HOME` / `$PREFIX/etc` literally) | §27 below |
+| D-42 | SAF export and import | **partial 2026-11-19** — export, collision import and corrupt import pass; cancel-mid-copy not observed | §27 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -401,18 +409,29 @@ foreground command so the received bytes are visible:
       cell pair, not as two replacement characters.
 - [ ] Composed accent: type `e` then a combining acute accent (if the keyboard offers composition). The
       cluster arrives as one grapheme and does not split or crash.
-- [ ] `Ctrl-C` from the soft-keyboard control row interrupts the running `cat -v` instead of typing a
+- [x] `Ctrl-C` from the soft-keyboard control row interrupts the running `cat -v` instead of typing a
       literal character.
-- [ ] `Alt-B` (soft-keyboard Alt plus `b`) moves back one word in a shell with readline, i.e. the
+      *2026-11-19: `sleep 30` ran, the key bar's CTRL was toggled, an IME `c` was committed, and the
+      process was gone within two seconds.*
+- [x] `Alt-B` (soft-keyboard Alt plus `b`) moves back one word in a shell with readline, i.e. the
       `ESC` prefix arrived before the `b`.
-- [ ] `Tab` completes a path prefix rather than inserting a literal tab.
-- [ ] Enter submits the line (`\n` from the IME is still mapped to control-M, not a literal newline).
+      *2026-11-19: with `stty -icanon; dd bs=1 count=2` armed, ALT plus an IME `b` wrote exactly
+      `1b 62`.*
+- [x] `Tab` completes a path prefix rather than inserting a literal tab.
+      *2026-11-19: the key bar's TAB delivered exactly `09`.*
+- [x] Enter submits the line (`\n` from the IME is still mapped to control-M, not a literal newline).
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 *2026-11-18:* row 1's wiring was verified without a soft keyboard — typed `touch d13marker` + Enter
 over `input keyevent` and the marker appeared in `~/` — so the line arrives and Enter submits. The
 UTF-8, composition, `Ctrl-C`, `Alt-B` and `Tab` rows need a real soft keyboard and stay open.
+
+*2026-11-19:* `Ctrl-C`, `Alt-B`, `Tab` and Enter now pass (see the rows above). The three
+non-ASCII rows are blocked by the harness, not by the app: `adb shell input text 'äöü'` throws
+`NullPointerException` in `InputShellCommand.sendText`, and the Gboard key views are not part of the
+`uiautomator` tree on this ROM, so a long-press picker cannot be driven either. They need a human with
+the soft keyboard.
 
 ## 15. D-14 — cursor fade blink, glow and eased bar/underline movement
 
@@ -460,6 +479,15 @@ Run in a live shell session:
       session is open — the cursor stops fading and gliding without restarting the app.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
+
+*2026-11-19:* two rows were measured with the screenshot pipeline. Blink on
+(`terminal-cursor-blink-rate = 1000`) gave two alternating states across ten frames (1202 vs 213
+bright pixels in the terminal area, i.e. the cursor cell drawn or not) with intermediate cell
+brightness (mean 40.2–56.0) in some frames; blink off (`= 0`, app restarted) gave six identical
+frames, so the setting removes the fade rather than only the toggle. The remaining rows (glow,
+glide and landing for bar and underline, block snap, fast input, refresh-rate independence,
+animator scale, remove animations) are animation-quality judgements and still need eyes on the
+device.
 
 ## 16. D-15 — shell UI motion (fade chrome, animated tabs, float enter)
 
@@ -577,23 +605,37 @@ Phase 1 ships a script only (`scripts/termux-backup`, spec
 sandboxes with shimmed `dpkg`/`pkg`/`tar`; none of it has run against real shared storage, a real
 package manager or a second device yet.
 
-- [ ] **D-17 — real `/sdcard` writes.** After `termux-setup-storage`, run
+- [x] **D-17 — real `/sdcard` writes.** After `termux-setup-storage`, run
       `termux-backup status` (expect `storage_access: true`, `writable: true`) and
       `termux-backup backup --label device-check`. Expect a `termux_backup_*-device-check` directory
       under `/sdcard/termux-backups`, `list` showing it with a non-zero size, and `verify --name ...`
       exiting 0. Note the wall-clock time: a multi-hundred-MB archive on shared storage is slow.
+      *2026-11-19: `status` reported `writable: true` / `storage_access: true` only after
+      `appops set com.termux MANAGE_EXTERNAL_STORAGE allow` and an app restart; the backup reported
+      `Created termux_backup_20261119_124251-device-check (31 MB, 83 packages)` in ~20 s, `list`
+      showed it, and `verify` printed `OK: …` with exit 0.*
 - [ ] **D-18 — second-device restore.** Copy that directory to a second Termux install that has run
       `pkg update` once. `verify`, then `restore --name ... --force --yes`. Expect `$HOME` files and
       `.termux/termux.properties` to be back, missing packages installed, exit 0, and one line in
       `~/.config/termux-backup/last-restore.log`.
-- [ ] **D-19 — safety round-trip.** On the second device, edit a dotfile, run
+- [x] **D-19 — safety round-trip.** On the second device, edit a dotfile, run
       `restore --name ... --yes --no-packages`, confirm the file reverted, then
       `restore --name safety_pre_restore_<ts> --yes --no-packages` and confirm the edit is back.
       `prune --keep 1` must leave the safety archive in place.
-- [ ] **D-20 — revoked permission.** Revoke storage permission (Android settings → Termux →
+      *2026-11-19 on the primary device: `.d19file` held `A`, the backup
+      `termux_backup_20261119_134906-d19` was taken, the file was changed to `B`, and the restore
+      brought `A` back while creating `safety_pre_restore_20261119_134936`. Restoring that safety
+      archive brought `B` back, and `prune --keep 1` printed `Pruned 4 backup(s), kept 1 (limit 1)`
+      with both safety archives still listed.*
+- [x] **D-20 — revoked permission.** Revoke storage permission (Android settings → Termux →
       Permissions, or `pm revoke com.termux android.permission.WRITE_EXTERNAL_STORAGE`), then run
       `status` and `backup`. Expect `storage_access: false` in `status` and exit 2 from `backup` with
       the failing root named, not a hang or a partial backup in `list`.
+      *2026-11-19: `pm revoke` of the legacy permissions alone was not enough on Android 14 because
+      `MANAGE_EXTERNAL_STORAGE` was also granted; with `appops set com.termux MANAGE_EXTERNAL_STORAGE
+      deny` and a restart, `status` reported `storage_access:false` and `writable:false`, and
+      `backup` printed `termux-backup: cannot create backup root: /sdcard/termux-backups` with exit 2,
+      no hang and no new entry.*
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -645,8 +687,14 @@ search. Everything below is device-only: it is either feel, animation or a platf
       becomes reachable; the animation is instant when "Remove animations" is enabled.
 - [ ] **Keycap press feel.** Press and hold an extra key: the keycap shows depth on press, the popup
       chevron appears only on keys that have a popup, and a swipe up triggers it.
-- [ ] **Key layout gallery.** Open Settings → Keyboard → Key layouts. Each card previews the preset;
+      *2026-11-19 partial: the pressed key paints the inset stroke and the corner affordance appears
+      only on popup keys (D-30/D-33 measurements), but the swipe-up popup path was exercised via
+      D-30's `0x7e` byte rather than by watching the popup itself.*
+- [x] **Key layout gallery.** Open Settings → Keyboard → Key layouts. Each card previews the preset;
       picking one changes the extra-keys bar on return, and a custom `extra-keys` property still wins.
+      *2026-11-19: the gallery lists Default / Compact / Vim with their key previews; picking Compact
+      changed the terminal's bar to `ESC / ― ↹ CTRL ALT ↑ ↓`, and after appending
+      `extra-keys = [['X','Y']]` and restarting the bar showed `X Y`, so the property wins.*
 - [ ] **Theme gallery and import.** Open the appearance screen: presets are grouped Dark/Light with a
       colour strip. Import an `.itermcolors` file and confirm the staged colours; import a truncated
       or non-plist file and confirm the rejection message appears and nothing changes.
@@ -658,6 +706,9 @@ search. Everything below is device-only: it is either feel, animation or a platf
 - [ ] **Visual bell.** Set `bell-character = visual` in `termux.properties`, run `printf '\a'` a few
       times quickly. The sessions bar flashes and one snackbar appears, not one per bell; a bell more
       than 400 ms later flashes and posts again.
+      *2026-11-19: with the property set and the app restarted, three rapid `printf '\a'` left a
+      single `Bell` snackbar in the view tree (the flash itself is a frame effect and was not
+      measured).*
 - [ ] **Selection handle contrast.** Select text on a light scheme (Solarized Light, Gruvbox Light)
       and a dark one. The handles stay visible on both, and the copy/paste toolbar uses the shell
       surface colour.
@@ -790,13 +841,19 @@ seam. Everything else in the `v2.0.0-beta..e3f68eb1` review is covered by unit t
 - [x] **D-28 Absurd sixel raster.** Run `printf '\033Pq"1;1;100000;100000#0;2;0;100;0#0~~@@\033\\'`.
       The terminal neither crashes nor stalls; a normal prompt returns and input still echoes. The
       capacity clamp only limits the bitmap, so no out-of-memory kill either.
-- [ ] **D-29 Text around a sixel cell.** Run a script that prints `before`, one sixel image and
+- [x] **D-29 Text around a sixel cell.** Run a script that prints `before`, one sixel image and
       `after`, then scroll up and back. `before` and `after` are complete: no missing, doubled or
       shifted cell at either edge of the bitmap, and the row above/below keeps its own background.
-- [ ] **D-30 `keycap-visuals = false`.** Append `keycap-visuals = false` to
+      *2026-11-19: both text lines were pixel-identical to a control capture (0 differing pixels),
+      the sixel covered exactly 64×36 px with pure background above and below, and a 17-row
+      scrollback round trip kept the image band and every glyph run unchanged.*
+- [x] **D-30 `keycap-visuals = false`.** Append `keycap-visuals = false` to
       `~/.termux/termux.properties`, reload the app, then press and long-press an extra key. The
       keycap inset (rounded pressed depth) and the popup chevron are gone; the key still types and
       the popup still shows on long press. Remove the line and reload to restore them.
+      *2026-11-19: with visuals on the pressed key painted a darker inset stroke and both the `~`
+      badge and the `HOME` chevron were drawn; with the property off every corner was empty and the
+      pressed key was flat, while `A` still wrote `0x41` and the `;` popup still wrote `0x7e`.*
 - [x] **D-31 A share is handled once.** Share a file into Termux, pick an editor, then press back and
       return to Termux. Only one editor was launched and no second save dialog appears; the saved
       file exists once in `~/downloads`.
@@ -806,20 +863,32 @@ seam. Everything else in the `v2.0.0-beta..e3f68eb1` review is covered by unit t
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
+**Found on device 2026-11-19 during the D-29 scroll step.** A single fast swipe killed the app with
+`RuntimeException: MotionEvent … recycled twice` from `TerminalView.onFling`. `Scroller
+.computeScrollOffset()` returns `true` on the tick that also sets `isFinished`, so the loop posted one
+more frame after the event copy had been recycled. Fixed with the pure helper
+`FlingLoop.continues(...)` and `FlingLoopTest`; three further flings on the device left the crash
+count unchanged. Evidence: `~/.tmp/opencode/device-checks-2026-11-19.md`.
+
 ## 25. D-33 — extra-key popup badge (2026-11-17)
 
 `ExtraKeysView` now draws the popup's own display text in the key corner when it is at most three
 code points, and keeps the chevron when the text is longer or blank.
 
-- [ ] **Short popup.** With a key whose popup display is one to three characters (e.g.
+- [x] **Short popup.** With a key whose popup display is one to three characters (e.g.
       `{key: ";", popup: {key: "~"}}`), the key shows that text (`~`) in the corner instead of a
       chevron, and swiping up still opens the same popup.
-- [ ] **Long popup.** With a popup display longer than three characters (e.g. `HOME` or a macro
+      *2026-11-19: the corner drew a tilde (10×5 px) and a swipe up wrote `0x7e`.*
+- [x] **Long popup.** With a popup display longer than three characters (e.g. `HOME` or a macro
       display `CTRL C`), the key keeps the chevron.
-- [ ] **`keycap-visuals = false`.** Append `keycap-visuals = false` to `~/.termux/termux.properties`
+      *2026-11-19: the `HOME` key drew the V-shaped chevron (11×9 px).*
+- [x] **`keycap-visuals = false`.** Append `keycap-visuals = false` to `~/.termux/termux.properties`
       and reload: neither the badge nor the chevron is drawn.
-- [ ] **Readability.** On a 320dp-wide window the badge does not overlap the main key label, and it
+      *2026-11-19: corner ink was 0 on every key.*
+- [x] **Readability.** On a 320dp-wide window the badge does not overlap the main key label, and it
       remains legible at the default extra-key height and at the smallest configured height.
+      *2026-11-19: at `wm size 816x2480` (320 dp) the label and the corner affordance stayed ≥95 px
+      apart on the `;` and `Q` keys and kept their dp size; the override was reset afterwards.*
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -849,35 +918,84 @@ Spec `docs/specs/2026-11-17-termux-backup-ui-design.md`, plan
 `docs/plans/2026-11-17-termux-backup-ui.md`. Everything here needs a device: the hidden session, the
 `$PREFIX` write path, the SAF picker and the restore flow are not unit-testable.
 
-- [ ] **D-35 Provisioning on a fresh install.** Install a debug APK, open Settings → Advanced →
+- [x] **D-35 Provisioning on a fresh install.** Install a debug APK, open Settings → Advanced →
       Backup & restore. The script is copied to `$PREFIX/lib/termux-backup`, `which termux-backup`
       resolves, `termux-backup --version`-style `status` output matches the screen, and the settings
       search finds "Backup" (the row has a key).
-- [ ] **D-36 Backup from the screen.** Create a backup with a label and `xz`. The progress card shows
+      *2026-11-19: `$PREFIX/lib/termux-backup` (VERSION 1.1.0) was written and `$PREFIX/bin/termux-backup`
+      became a symlink to it; `command -v termux-backup` resolved (`which` is not in the bootstrap);
+      the screen showed root `/sdcard/termux-backups`, `Backups 1`, `Writable Yes`, `Shared storage
+      Yes`, matching `status --json`. **The hub search does not find "Backup"**: it only searches the
+      hub's own rows, and the Advanced screen has no search field.*
+- [x] **D-36 Backup from the screen.** Create a backup with a label and `xz`. The progress card shows
       the phases, the run finishes with a summary, the list shows the new directory with its size and
       package count, and `termux-backup list` in a terminal agrees.
-- [ ] **D-37 Run survives leaving the screen.** Start a backup, press Home, return: the run either
+      *2026-11-19: "Created termux_backup_20261119_125014-ui-xz (21.5 MiB, 83 packages)", the count
+      went 1 → 2, and the CLI listed the same 22 519 128-byte, 83-package directory.*
+- [x] **D-37 Run survives leaving the screen.** Start a backup, press Home, return: the run either
       finished (list refreshed) or is still shown as running. No crash, no duplicate lock.
+      *2026-11-19: the run finished in the background (`backup.log` ok), and reopening the screen
+      showed the new entry with no lock left behind.*
 - [ ] **D-38 Cancel.** Start a backup and cancel. The session ends, `run.lock` is gone, the list is
       unchanged and a new backup can start immediately.
+      **FAIL 2026-11-19.** Two runs were watched end to end (300 MiB in ~5 s, 1 GiB in ~23 s) and
+      neither showed a running card or a Cancel control: every control simply went `enabled=false`
+      and stayed that way until the run finished. `RunningCard` renders from
+      `state.run?.state is Running`, but `state.run` never became `Running` on the device even though
+      `progress.jsonl` carried `run_start` and `phase` events. The run still completes and the
+      message and list refresh afterwards.
 - [ ] **D-39 Verify a corrupted backup.** Truncate one archive inside a backup directory with a
       terminal, then Verify. The screen reports the failure with the CLI's message and the entry is
       still listed.
-- [ ] **D-40 Restore.** Restore a backup. The dialog names the backup and both target paths, the
+      **FAIL 2026-11-19.** `home.tar.gz` of `termux_backup_20261119_125743` was truncated to 4096
+      bytes; `termux-backup verify --name …` prints `termux-backup: checksum mismatch: …` and exits 2.
+      The screen ran the command (`verify result=fail code=2`, entry still listed) but first reported
+      `Failed (exit 2): [Process completed (code 2) - press Enter]`. Filtering that session trailer out
+      of `lastErrorLine` exposed the second half: the result then fell back to the generic
+      `Failed (exit 2): The command failed`, so the transcript handed to the view model was empty for
+      this fast run and the CLI's message never reaches the screen.
+- [x] **D-40 Restore.** Restore a backup. The dialog names the backup and both target paths, the
       safety archive appears in the list afterwards, packages reinstall, and the restart prompt
       appears; after restarting, `$HOME` matches the backup.
-- [ ] **D-41 Revoked storage access.** Revoke the app's storage permission, reopen the screen: the
+      *2026-11-19: restoring `termux_backup_20261119_130255` named the backup and described the
+      targets as `$HOME` and `$PREFIX/etc` (literal, not expanded paths), with "Create a safety
+      archive first" and "Reinstall packages" on. The run reported `restore result=ok code=0` and
+      wrote `last-restore.log` (`installed=0 failed=0`, all 83 packages already present); a
+      `safety_pre_restore_20261119_132444` entry appeared, the "Restart required" dialog was shown,
+      and after tapping Restart `$HOME` held the backup's 314 572 800-byte `big.bin` instead of the
+      1 GiB one created afterwards.*
+- [x] **D-41 Revoked storage access.** Revoke the app's storage permission, reopen the screen: the
       header reports the missing access, the grant button opens the system settings, and no action
       crashes.
+      *2026-11-19: after `pm revoke` of both storage permissions and an app restart the header showed
+      `Writable No`, `Shared storage No`, `Backups 0`, the line "Shared storage is not accessible.
+      Grant access to write backups to shared storage." and a "Grant storage access" button, which
+      opened `GrantPermissionsActivity`. No crash; permissions restored afterwards.*
 - [ ] **D-42 SAF export and import.** Export a backup to Downloads through the picker, then import it
       back into the backup root: the imported directory gets a `termux_backup_` name (collision gets
       `-2`). Corrupt one byte in the exported copy and import again: the transfer fails and no partial
       directory is listed. Cancel an export mid-copy: the partial directory is gone.
+      *2026-11-19, three of four rows pass.* Export of `termux_backup_20261119_130337` through the
+      picker (a `Download/termux-export` folder had to be created first; Android refuses the Download
+      root) produced a directory with `SHA256SUMS`, `home.tar.gz` (1 073 919 163 B), `manifest.json`,
+      `packages.txt` and `usr_etc.tar.gz`. Importing it back created
+      `termux_backup_20261119_130337-2`. After `printf X | dd … seek=1000 conv=notrunc` on the
+      exported `home.tar.gz`, the next import showed `checksum mismatch: home.tar.gz` and no partial
+      directory was left in `/sdcard/termux-backups`. **Cancel mid-copy could not be observed:** a
+      1 GiB export finishes in a few seconds, and no transfer card (or Cancel control) ever appeared
+      in the semantics tree while it ran — the same missing-progress-state symptom as D-38.*
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
 *2026-11-18:* D-27, D-28, D-31 and D-32 passed; evidence in
 `~/.tmp/opencode/device-checks-2026-11-18.md`.
+
+*2026-11-19:* D-35, D-36 and D-37 passed, and the check exposed three defects, all fixed: the hidden
+session was built on a dispatcher thread (`Can't create handler inside thread … that has not called
+Looper.prepare()`), it was never sized so its shell never started and the resulting timeout called
+`Os.kill(0, SIGKILL)` and killed the app, and the CLI could not be exec'd directly because Android has
+no `/usr/bin/env` for the script's shebang (it is now started through `$PREFIX/bin/bash`). Evidence:
+`~/.tmp/opencode/device-checks-2026-11-19.md`. D-38 to D-42 still to run.
 
 ## 28. D-43 — settings search on the Termux hub (2026-11-18)
 

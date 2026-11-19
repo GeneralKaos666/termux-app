@@ -94,6 +94,12 @@ drag-to-reorder, rename and close have all since shipped.
   changes once `view == null`), and the filtered list survived a return from a result while the
   search view came back empty (the real screen is re-inflated in `onViewCreated`). Neither has a
   unit test: the shape is fragment lifecycle, and `:app` has no fragment host test infrastructure.
+- `[check]` **Settings search is scoped to the screen it is opened from.** The search index is built
+  from the current preference hierarchy, so a query on the Termux hub can only match the hub's three
+  rows. Leaf settings are unreachable by search: D-35 asks for "Backup" to be found, and typing
+  `backup` on the hub reports "No settings match", while the Advanced screen has no search field at
+  all. Making search global means indexing the leaf fragments' XML as well and navigating into them;
+  that is a design decision, not a bug fix, so it is recorded here rather than changed.
 
 ### 1.4 Appearance — shipped, device passes outstanding
 
