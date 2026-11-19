@@ -210,6 +210,24 @@ class BackupViewModelTest {
     }
 
     @Test
+    fun `failure ignores the session exit trailer`() {
+        val runner = FakeRunner(
+            mapOf("status" to statusJson, "list" to listJson),
+            exit = 2,
+            fixedTranscript = "termux-backup: checksum mismatch: demo\n" +
+                "[Process completed (code 2) - press Enter]\n",
+        )
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+
+        viewModel.start(BackupCommand.Verify("demo"))
+
+        val result = viewModel.state.value.result
+        assertTrue(result is RunResult.Failure)
+        assertEquals("termux-backup: checksum mismatch: demo", (result as RunResult.Failure).lastError)
+    }
+
+    @Test
     fun `restore exit 3 is reported as partial success`() {
         val runner = FakeRunner(
             mapOf(

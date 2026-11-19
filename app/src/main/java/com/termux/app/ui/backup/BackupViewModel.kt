@@ -273,10 +273,14 @@ class BackupViewModel(
 
     /** Last human line of the transcript, for a failure message. */
     private fun lastErrorLine(transcript: String?): String {
+        // The hidden session appends its own "[Process completed (code N) …]" line after the
+        // command's output, which would otherwise be reported instead of the command's error.
         val line = transcript.orEmpty()
             .split('\n')
             .map { it.trim().trimEnd('\r') }
-            .lastOrNull { it.isNotEmpty() && !it.startsWith("{") }
+            .lastOrNull {
+                it.isNotEmpty() && !it.startsWith("{") && !it.startsWith("[Process completed")
+            }
         return line ?: strings.commandFailed()
     }
 
