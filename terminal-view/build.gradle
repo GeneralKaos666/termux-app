@@ -6,7 +6,7 @@ android {
     compileSdkVersion project.properties.compileSdkVersion.toInteger()
 
     dependencies {
-        implementation "androidx.annotation:annotation:1.11.0"
+        implementation libs.androidx.annotation
         api project(":terminal-emulator")
     }
 
@@ -49,7 +49,7 @@ android {
 }
 
 dependencies {
-    testImplementation "junit:junit:4.13.2"
+    testImplementation libs.junit
 }
 
 kotlin {
@@ -64,11 +64,6 @@ kotlin {
     }
 }
 
-task sourceJar(type: Jar) {
-    from android.sourceSets.main.java.srcDirs
-    archiveClassifier = "sources"
-}
-
 afterEvaluate {
     publishing {
         publications {
@@ -78,7 +73,6 @@ afterEvaluate {
                 groupId = 'com.termux'
                 artifactId = 'terminal-view'
                 version = System.getenv("VERSION") ?: '0.118.0'
-                artifact(sourceJar)
             }
         }
     }
