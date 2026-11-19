@@ -9,6 +9,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Patterns
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.termux.R
 import com.termux.app.TermuxService
 import com.termux.shared.android.PackageUtils
@@ -24,6 +25,9 @@ import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE
 import com.termux.shared.termux.interact.TextInputDialogUtils
 import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -43,6 +47,12 @@ class FileReceiverActivity : AppCompatActivity() {
      * when showing the error dialog.
      */
     private var mFinishOnDismissNameDialog = true
+
+    /**
+     * Whether a shared file is being copied to disk. The name dialog is dismissed as soon as its
+     * button is pressed, so the dismiss listener must not close a stream the copy is still reading.
+     */
+    private var mSaveInProgress = false
 
     /** `onResume` runs again after every dialog, so the launch intent must be handled only once. */
     private val mIntentGate = ReceivedIntentGate()
@@ -176,38 +186,42 @@ class FileReceiverActivity : AppCompatActivity() {
             this, R.string.title_file_received, attachmentFileName,
             R.string.action_file_received_edit,
             TextInputDialogUtils.TextSetListener { text ->
-                val outFile = saveStreamWithName(inputStream, text) ?: return@TextSetListener
+                saveStreamWithNameAsync(inputStream, text) { outFile ->
+                    if (outFile == null) return@saveStreamWithNameAsync
 
-                val editorProgramFile = File(EDITOR_PROGRAM)
-                if (!editorProgramFile.isFile) {
-                    showErrorDialogAndQuit(
-                        "The following file does not exist:\n\$HOME/bin/termux-file-editor\n\n" +
-                            "Create this file as a script or a symlink - it will be called with the received file as only argument.",
-                    )
-                    return@TextSetListener
+                    val editorProgramFile = File(EDITOR_PROGRAM)
+                    if (!editorProgramFile.isFile) {
+                        showErrorDialogAndQuit(
+                            "The following file does not exist:\n\$HOME/bin/termux-file-editor\n\n" +
+                                "Create this file as a script or a symlink - it will be called with the received file as only argument.",
+                        )
+                        return@saveStreamWithNameAsync
+                    }
+
+                    // Do this for the user if necessary:
+                    //noinspection ResultOfMethodCallIgnored
+                    editorProgramFile.setExecutable(true)
+
+                    val scriptUri = UriUtils.getFileUri(EDITOR_PROGRAM)
+
+                    val executeIntent = Intent(TERMUX_SERVICE.ACTION_SERVICE_EXECUTE, scriptUri)
+                    executeIntent.setClass(this, TermuxService::class.java)
+                    executeIntent.putExtra(TERMUX_SERVICE.EXTRA_ARGUMENTS, arrayOf(outFile.getAbsolutePath()))
+                    startService(executeIntent)
+                    finish()
                 }
-
-                // Do this for the user if necessary:
-                //noinspection ResultOfMethodCallIgnored
-                editorProgramFile.setExecutable(true)
-
-                val scriptUri = UriUtils.getFileUri(EDITOR_PROGRAM)
-
-                val executeIntent = Intent(TERMUX_SERVICE.ACTION_SERVICE_EXECUTE, scriptUri)
-                executeIntent.setClass(this, TermuxService::class.java)
-                executeIntent.putExtra(TERMUX_SERVICE.EXTRA_ARGUMENTS, arrayOf(outFile.getAbsolutePath()))
-                startService(executeIntent)
-                finish()
             },
             R.string.action_file_received_open_directory,
             TextInputDialogUtils.TextSetListener { text ->
-                if (saveStreamWithName(inputStream, text) == null) return@TextSetListener
+                saveStreamWithNameAsync(inputStream, text) { outFile ->
+                    if (outFile == null) return@saveStreamWithNameAsync
 
-                val executeIntent = Intent(TERMUX_SERVICE.ACTION_SERVICE_EXECUTE)
-                executeIntent.putExtra(TERMUX_SERVICE.EXTRA_WORKDIR, TERMUX_RECEIVEDIR)
-                executeIntent.setClass(this, TermuxService::class.java)
-                startService(executeIntent)
-                finish()
+                    val executeIntent = Intent(TERMUX_SERVICE.ACTION_SERVICE_EXECUTE)
+                    executeIntent.putExtra(TERMUX_SERVICE.EXTRA_WORKDIR, TERMUX_RECEIVEDIR)
+                    executeIntent.setClass(this, TermuxService::class.java)
+                    startService(executeIntent)
+                    finish()
+                }
             },
             android.R.string.cancel,
             TextInputDialogUtils.TextSetListener {
@@ -217,30 +231,64 @@ class FileReceiverActivity : AppCompatActivity() {
                 finish()
             },
             DialogInterface.OnDismissListener {
-                runCatching { inputStream.close() }
+                if (!mSaveInProgress) runCatching { inputStream.close() }
                 if (mFinishOnDismissNameDialog) finish()
             },
         )
     }
 
+    /**
+     * Copies [inputStream] to the received directory off the main thread and delivers the file, or
+     * `null` after reporting the error, back on the main thread.
+     */
+    fun saveStreamWithNameAsync(inputStream: InputStream, attachmentFileName: String?, onResult: (File?) -> Unit) {
+        mSaveInProgress = true
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { copyStreamToFile(inputStream, attachmentFileName) }
+            mSaveInProgress = false
+            // The activity may be gone while the copy runs; do not touch its UI then.
+            if (isFinishing || isDestroyed) return@launch
+            when (result) {
+                is SaveResult.Saved -> onResult(result.file)
+                is SaveResult.Failed -> {
+                    showErrorDialogAndQuit(result.message)
+                    onResult(null)
+                }
+            }
+        }
+    }
+
     fun saveStreamWithName(inputStream: InputStream, attachmentFileName: String?): File? {
+        return when (val result = copyStreamToFile(inputStream, attachmentFileName)) {
+            is SaveResult.Saved -> result.file
+            is SaveResult.Failed -> {
+                showErrorDialogAndQuit(result.message)
+                null
+            }
+        }
+    }
+
+    /** The result of copying a shared stream, without any UI so it can run off the main thread. */
+    private sealed class SaveResult {
+        data class Saved(val file: File) : SaveResult()
+        data class Failed(val message: String) : SaveResult()
+    }
+
+    private fun copyStreamToFile(inputStream: InputStream, attachmentFileName: String?): SaveResult {
         val receiveDir = File(TERMUX_RECEIVEDIR)
 
         val fileName = safeReceivedFileName(attachmentFileName)
         if (fileName == null) {
-            showErrorDialogAndQuit("File name cannot be empty or contain a path")
-            return null
+            return SaveResult.Failed("File name cannot be empty or contain a path")
         }
 
         if (!receiveDir.isDirectory && !receiveDir.mkdirs()) {
-            showErrorDialogAndQuit("Cannot create directory: " + receiveDir.getAbsolutePath())
-            return null
+            return SaveResult.Failed("Cannot create directory: " + receiveDir.getAbsolutePath())
         }
 
         val outFile = File(receiveDir, fileName)
         if (!isDirectChildOf(receiveDir, outFile)) {
-            showErrorDialogAndQuit("File name cannot be empty or contain a path")
-            return null
+            return SaveResult.Failed("File name cannot be empty or contain a path")
         }
 
         try {
@@ -254,11 +302,10 @@ class FileReceiverActivity : AppCompatActivity() {
                     }
                 }
             }
-            return outFile
+            return SaveResult.Saved(outFile)
         } catch (e: IOException) {
-            showErrorDialogAndQuit("Error saving file:\n\n$e")
             Logger.logStackTraceWithMessage(LOG_TAG, "Error saving file", e)
-            return null
+            return SaveResult.Failed("Error saving file:\n\n$e")
         }
     }
 
