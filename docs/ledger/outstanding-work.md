@@ -172,7 +172,7 @@ drag-to-reorder, rename and close have all since shipped.
   instead of one fixed 420 ms for any string, so a long localized welcome no longer blurs past;
   `TypewriterTimingTest` covers the clamp. **Restore handle:** `ShellHost` fades the collapsed-bar
   handle in only after the bar's 120 ms exit, so a control no longer pops into the corner while the
-  bar is still on screen. `./gradlew test` green (114 `:terminal-view`, 530 `:app`). **Not changed:**
+  bar is still on screen. `./gradlew test` green (135 `:terminal-view`, 530 `:app`). **Not changed:**
   colour transitions still snap under "remove animations" — Compose itself scales every animation by
   `ANIMATOR_DURATION_SCALE` (`MotionDurationScaleImpl` in `compose-ui`), so a colour tween cannot be
   kept alive while the setting is 0 without bypassing the platform; the explicit `snap()` is the
@@ -512,8 +512,9 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
 
 ### 3.2 Code-shape debt
 
-- God classes: `TerminalEmulator.java` 3,876 lines, `TerminalView.java` 1,585, `FileUtils.java`
-  2,044, `TermuxConstants.java` 1,338. Behavior-preserving splits only.
+- God classes: `TerminalEmulator.java` 3,376 lines, `TerminalView.kt` 1,857, `FileUtils.java` 2,113,
+  `TermuxConstants.java` 1,338 (re-measured 2026-11-18; figures inside the dated entries below are as
+  measured on their own dates). Behavior-preserving splits only.
   - `[done 2026-10-27]` sixel parsing extracted from `TerminalEmulator` into `SixelParser`:
     `processSixelDcs` → `SixelParser.process` (returns a `Result` carrying the buffer-capacity
     hint) and `getSixelDcsSetupArgs` → `SixelParser.parseSetupArgs` (returns a `Setup`
@@ -588,6 +589,41 @@ no-op. No code change was needed. Two follow-ups, neither a defect in this repo:
   ruling). `:app:testDebugUnitTest` passed; `:app:assembleDebug` failed in this aarch64 Termux env
   at `:app:configureNdkBuildDebug` (`ndk-build` host CPU `aarch64` unsupported), unrelated to these
   Java/Kotlin changes.
+
+- `[done 2026-11-18]` **Compose god-composables** (audit 2026-11-18):
+  `app/src/main/java/com/termux/app/ui/sessions/SessionsBar.kt` is 895 lines with two oversized
+  composables — `SessionsBar(...)` at `SessionsBar.kt:105` is 352 lines and `SessionTab(...)` at
+  `SessionsBar.kt:490` is 223. Extract the tab row, its drag/long-press handle and
+  `SessionActionsMenu` (`SessionsBar.kt:713`, 50 lines) into `ui/sessions/components/`,
+  leaving `SessionsBar` as the state and `LazyRow` orchestrator. Behavior pinning is partial:
+  `SessionsBarLayoutTest` and `SessionsStateTest` cover layout maths and state, not the composables.
+  Split before adding anything else to the tab. Done in `5754d157`: the tab, its menu, the state
+  dot, the empty-state row and the previews each have a file, `SessionsBar.kt` is 455 lines and no
+  file in `ui/sessions/` exceeds 500.
+- `[open]` `TerminalShellHost(...)` at `app/src/main/java/com/termux/app/ui/ShellHost.kt:185` is one
+  278-line private composable (file total 462). Split the host body from the chrome wiring. Pure
+  `:app` extraction, no plugin surface moves.
+- `[open]` **Kotlin-conversion line growth** in two files the 2026-11-04/2026-11-15 splits had just
+  reduced: `terminal-view/src/main/java/com/termux/view/TerminalView.kt` 1,585 → 1,857
+  (`4ae6905b`) and `app/src/main/java/com/termux/app/TermuxActivity.kt` 1,477 → 1,681
+  (`fe4a1010`, with `TermuxService.kt` at 976 from 961). The extracted seams are untouched; the
+  growth is the Java → Kotlin conversion plus later cursor/render work. Re-split on the same terms
+  as the earlier passes; the `TerminalView` View-bound half still needs Robolectric `View`/`Handler`
+  infrastructure (`[open]` above).
+- `[open]` **two UI state conventions in `:app`**: `ui/backup/` is `BackupViewModel` plus an
+  immutable `BackupUiState`; `ui/appearance/` and `ui/snippets/` are Compose-observable `*State.kt`
+  classes (`AppearanceState`, `SnippetsState`) with no ViewModel. Both work; choose one before the
+  next screen copies whichever it lands next to. Naming note: no `*Contract.kt` exists in the repo
+  and none is required — `*State.kt` is this repo's name for the same thing (an external audit
+  flagged the absence; it was a false positive).
+- `[record 2026-11-18]` file-size audit re-measure (500-line threshold): `TerminalEmulator.java`
+  3,376, `FileUtils.java` 2,113, `TerminalView.kt` 1,857, `TermuxActivity.kt` 1,681,
+  `TermuxConstants.java` 1,338, `TerminalBuffer.java` 1,215, `TermuxService.kt` 976,
+  `ExtraKeysView.java` 909, `SessionsBar.kt` 895, `PackageUtils.java` 830,
+  `TermuxTerminalViewClient.kt` 761, plus 14 more between 501 and 750. Only `SessionsBar.kt` is new
+  relative to the god classes tracked above. The audit's other two findings need no work: the 13
+  comment blocks longer than 5 lines carry security or scroll rationale (e.g.
+  `RunCommandService.kt:146`), and no UI module lacks a state/contract file.
 
 ### 3.3 Post-review hardening — closed 2026-11-17
 
