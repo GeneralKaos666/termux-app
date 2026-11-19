@@ -641,8 +641,10 @@ public final class TerminalBuffer {
         for (int y = 0; y < h; y++) {
             if (val == ' ' && w == mColumns) {
                 // Clearing a whole row is the same as writing a blank into every cell, but one
-                // clear() is cheaper than a setChar() per column.
-                allocateFullLineIfNecessary(externalToInternalRow(sy + y)).clear(style);
+                // clear() is cheaper than a setChar() per column. clear() does not mark the row,
+                // so clearLineWrap() below is what flags it for a repaint.
+                int internalRow = externalToInternalRow(sy + y);
+                allocateFullLineIfNecessary(internalRow).clear(style);
             } else {
                 for (int x = 0; x < w; x++)
                     setChar(sx + x, sy + y, val, style, 0);
