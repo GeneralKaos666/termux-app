@@ -26,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -550,7 +551,7 @@ private fun EntryCard(entry: BackupEntry, enabled: Boolean, actions: BackupActio
             }
             Text(
                 text = "${entry.createdAt} · ${formatBytes(entry.sizeBytes)} · " +
-                    stringResource(R.string.backup_packages_value, entry.packages),
+                    pluralStringResource(R.plurals.backup_packages_value, entry.packages, entry.packages),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
