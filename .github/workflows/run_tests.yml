@@ -38,6 +38,12 @@ jobs:
       with:
         path: ~/.m2/repository/org/robolectric
         key: robolectric-m2-${{ runner.os }}-${{ hashFiles('**/*.gradle', 'gradle.properties') }}
+    - name: Cache bootstrap archives
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: app/src/main/cpp/bootstrap-*.zip
+        key: bootstrap-${{ hashFiles('app/build.gradle') }}
+
     - name: Execute tests
       run: |
         ./gradlew test

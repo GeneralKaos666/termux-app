@@ -41,6 +41,12 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      - name: Cache bootstrap archives
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: app/src/main/cpp/bootstrap-*.zip
+          key: bootstrap-${{ hashFiles('app/build.gradle') }}
+
       - name: Build APKs
         shell: bash {0}
         env:
