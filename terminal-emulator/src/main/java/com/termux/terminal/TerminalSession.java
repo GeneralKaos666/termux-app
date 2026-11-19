@@ -234,7 +234,9 @@ public final class TerminalSession extends TerminalOutput {
 
     /** Finish this terminal session by sending SIGKILL to the shell. */
     public void finishIfRunning() {
-        if (isRunning()) {
+        // A pid of 0 means the shell was never started (updateSize() has not run yet), and
+        // Os.kill(0, SIGKILL) targets the caller's whole process group, which would kill the app.
+        if (mShellPid > 0 && isRunning()) {
             try {
                 Os.kill(mShellPid, OsConstants.SIGKILL);
             } catch (ErrnoException e) {
