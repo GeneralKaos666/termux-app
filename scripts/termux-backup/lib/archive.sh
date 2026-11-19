@@ -325,7 +325,7 @@ link_escapes_root() {
 }
 
 archive_scan() {
-    local archive=$1 listing line type rest entry target link other
+    local archive=$1 listing line type rest entry target
     local -a names=() escapes=()
     [ -f "$archive" ] || return 2
     # The verbose listing carries the name and, for a link, its target; the first five fields are
@@ -361,13 +361,21 @@ archive_scan() {
 
     # A link that resolves outside the archive root only writes outside it when another entry sits
     # beneath the link: extraction would then create that member through the link. A link on its own
-    # is kept, because a real \$HOME holds absolute links such as ~/.termux/colors.properties.
-    for link in ${escapes[@]+"${escapes[@]}"}; do
-        for other in ${names[@]+"${names[@]}"}; do
-            case $other in
-                "$link"/*) return 2 ;;
-            esac
-        done
-    done
+    # is kept, because a real $HOME holds absolute links such as ~/.termux/colors.properties.
+    #
+    # One sorted pass decides it: a member beneath a link sorts directly after that link's "<link>/"
+    # prefix, so its immediate successor is the only line that can match. A link × member loop would
+    # be quadratic, and a real $HOME has thousands of absolute links and tens of thousands of members.
+    if [ ${#escapes[@]} -gt 0 ]; then
+        if ! {
+            printf 'L\t%s/\n' "${escapes[@]}"
+            printf 'N\t%s\n' "${names[@]}"
+        } | LC_ALL=C sort -t $'\t' -k2,2 -k1,1 | LC_ALL=C awk -F'\t' '
+            $1 == "L" { link = $2; pending = 1; next }
+            { if (pending && index($2, link) == 1) exit 1; pending = 0 }
+        '; then
+            return 2
+        fi
+    fi
     return 0
 }
