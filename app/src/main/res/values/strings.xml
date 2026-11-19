@@ -128,7 +128,6 @@
     <string name="appearance_color_cursor">Cursor</string>
     <string name="appearance_color_ansi">ANSI colour %1$d, %2$s</string>
 
-    <string name="appearance_color_picker_title">Choose colour</string>
     <string name="appearance_color_picker_hex">Hex</string>
 
     <string name="appearance_cursor_blink">Blinking</string>
@@ -487,7 +486,10 @@
     <string name="backup_sdcard_warning">This directory is shared storage: other apps can read the backups, including any secrets they contain.</string>
     <string name="backup_transfer_running">A transfer is already running</string>
     <string name="backup_created">Backup created</string>
-    <string name="backup_created_detail">Created %1$s (%2$s, %3$d packages)</string>
+    <plurals name="backup_created_detail">
+        <item quantity="one">Created %1$s (%2$s, %3$d package)</item>
+        <item quantity="other">Created %1$s (%2$s, %3$d packages)</item>
+    </plurals>
     <string name="backup_restored">Backup restored</string>
     <string name="backup_restored_detail">Restored %1$s</string>
     <string name="backup_restored_safety">Restored %1$s; safety archive %2$s</string>

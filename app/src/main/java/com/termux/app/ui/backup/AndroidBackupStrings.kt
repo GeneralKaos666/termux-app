@@ -10,7 +10,7 @@ class AndroidBackupStrings(private val resources: Resources) : BackupStrings {
 
     override fun created(name: String?, size: String?, packages: Int?): String =
         if (name == null || size == null || packages == null) resources.getString(R.string.backup_created)
-        else resources.getString(R.string.backup_created_detail, name, size, packages)
+        else resources.getQuantityString(R.plurals.backup_created_detail, packages, name, size, packages)
 
     override fun restored(name: String?, safety: String?): String = when {
         name == null -> resources.getString(R.string.backup_restored)

@@ -114,13 +114,13 @@ fun SessionsBar(
     onNewSession: () -> Unit,
     onNewFloatSession: () -> Unit,
     onCollapse: () -> Unit,
+    modifier: Modifier = Modifier,
     onStarterCommand: (String) -> Unit = {},
     onOpenPalette: () -> Unit = {},
     backgroundAlpha: Float = 1f,
     unseen: Set<Int> = emptySet(),
     starterCommands: List<StarterCommand> = emptyList(),
     bellFlash: Boolean = false,
-    modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
     val listState = rememberLazyListState()
@@ -468,9 +468,9 @@ fun SessionsBar(
 @Composable
 internal fun SessionsRestoreHandle(
     onExpand: () -> Unit,
+    modifier: Modifier = Modifier,
     backgroundAlpha: Float = 1f,
     bellFlash: Boolean = false,
-    modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
     val expandLabel = stringResource(R.string.action_show_sessions_bar)

@@ -65,9 +65,7 @@ class FloatController @JvmOverloads constructor(
     private val context: Context,
     private val sessionSource: FloatSessionSource,
     private val fontSize: Int,
-    private val canDrawOverlays: () -> Boolean = {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) true else Settings.canDrawOverlays(context)
-    },
+    private val canDrawOverlays: () -> Boolean = { Settings.canDrawOverlays(context) },
 ) : FloatSessionClient.Listener {
 
     /** The dedicated float session, exposed for the test to observe the listener clearing it. */
