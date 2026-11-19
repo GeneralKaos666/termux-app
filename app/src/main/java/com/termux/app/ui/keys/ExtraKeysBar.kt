@@ -4,7 +4,6 @@ import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
@@ -176,17 +175,11 @@ fun ExtraKeysBar(
         }
     }
 
-    // Animated target of the pager (collapse, page changes); its unanimated form drives the
-    // semantics below so a hidden pager flips to invisible immediately, not after the animation.
-    // The height snaps rather than tweens: the bar is a sibling of the terminal, so an animated
-    // height resizes the terminal every frame, and each size change resizes the pty and repaints.
-    // The alpha still eases so the content does not cut out.
-    val pagerHeightTarget = extraKeysPageHeight(pagerState.settledPage, keysVisible, gridHeight, grid2Height)
-    val pagerHeight by animateDpAsState(
-        targetValue = pagerHeightTarget,
-        animationSpec = snap(),
-        label = "extraKeysPagerHeight",
-    )
+    // Target height of the pager (collapse, page changes), applied without animation: the bar is a
+    // sibling of the terminal, so an animated height resizes the terminal every frame, and each
+    // size change resizes the pty and repaints. The alpha still eases so the content does not cut
+    // out.
+    val pagerHeight = extraKeysPageHeight(pagerState.settledPage, keysVisible, gridHeight, grid2Height)
     val pagerAlpha by animateFloatAsState(
         targetValue = if (keysVisible) 1f else 0f,
         animationSpec = if (animationsEnabled) tween(180, easing = ShellEaseOut) else snap(),
@@ -215,7 +208,7 @@ fun ExtraKeysBar(
                 .clipToBounds()
                 .graphicsLayer { alpha = pagerAlpha }
                 .then(
-                    if (pagerHeightTarget > 0.dp) Modifier else Modifier.semantics { invisibleToUser() },
+                    if (pagerHeight > 0.dp) Modifier else Modifier.semantics { invisibleToUser() },
                 ),
         ) { page ->
             when (page) {

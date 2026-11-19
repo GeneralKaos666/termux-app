@@ -356,5 +356,3 @@ internal fun clampDragPosition(
     FloatWindowGeometry.clampX(x + delta.x, width, maxX),
     FloatWindowGeometry.clampY(y + delta.y, height, maxY),
 )
-
-private const val DEFAULT_FONT_SIZE = 14
