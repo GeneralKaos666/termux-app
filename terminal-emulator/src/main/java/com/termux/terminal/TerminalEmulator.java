@@ -2033,7 +2033,8 @@ public final class TerminalEmulator {
             }
             break;
             case 'S': { // "${CSI}${N}S" - scroll up ${N} lines (default = 1) (SU).
-                final int linesToScroll = getArg0(1);
+                final int linesBetweenTopAndBottomMargins = mBottomMargin - mTopMargin;
+                final int linesToScroll = Math.min(linesBetweenTopAndBottomMargins, getArg0(1));
                 for (int i = 0; i < linesToScroll; i++)
                     scrollDownOneLine();
                 break;
