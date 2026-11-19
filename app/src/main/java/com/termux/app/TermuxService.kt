@@ -590,7 +590,11 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
         executionCommand: ExecutionCommand,
         terminalSessionClient: TerminalSessionClient,
     ): TermuxSession? {
-        return executeTermuxSession(executionCommand, terminalSessionClient)
+        val termuxSession = executeTermuxSession(executionCommand, terminalSessionClient) ?: return null
+        // A hidden session has no TerminalView, so nothing else sizes it and the pty is never
+        // created: the shell would never start and its pid would stay 0. Give it a fixed geometry.
+        termuxSession.terminalSession.updateSize(BACKUP_SESSION_COLUMNS, BACKUP_SESSION_ROWS, 0, 0)
+        return termuxSession
     }
 
     /**
@@ -964,6 +968,10 @@ class TermuxService : Service(), AppShell.AppShellClient, TermuxSession.TermuxSe
 
     companion object {
         private const val LOG_TAG = "TermuxService"
+
+        /** Geometry for the hidden backup session, which has no view to size it. */
+        private const val BACKUP_SESSION_COLUMNS = 80
+        private const val BACKUP_SESSION_ROWS = 24
 
         /**
          * Action for the foreground notification's "Float" button, toggling the in-app floating terminal.

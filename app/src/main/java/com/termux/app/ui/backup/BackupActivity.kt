@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -81,7 +83,7 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
                 BackupDefaults.scriptBinLink,
             ),
             runner = runner,
-            startSession = { command, client -> service?.createBackupSession(command, client)?.terminalSession },
+            startSession = { command, client -> createBackupSession(command, client) },
             async = { block -> workScope.launch { block() } },
             strings = AndroidBackupStrings(resources),
         )
@@ -113,6 +115,31 @@ class BackupActivity : ComponentActivity(), ServiceConnection {
     override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
         service = (binder as? TermuxService.LocalBinder)?.service
         viewModel.open()
+    }
+
+    /**
+     * Creates the hidden session on the main thread. The session constructor builds a `Handler`
+     * for its screen updates, and a handler cannot be created on a dispatcher thread with no
+     * `Looper`, which is where the runner calls this from.
+     */
+    private fun createBackupSession(
+        command: com.termux.shared.shell.command.ExecutionCommand,
+        client: com.termux.app.data.backup.BackupSessionClient,
+    ): com.termux.terminal.TerminalSession? {
+        if (Looper.myLooper() == Looper.getMainLooper())
+            return service?.createBackupSession(command, client)?.terminalSession
+
+        var session: com.termux.terminal.TerminalSession? = null
+        val latch = java.util.concurrent.CountDownLatch(1)
+        Handler(Looper.getMainLooper()).post {
+            try {
+                session = service?.createBackupSession(command, client)?.terminalSession
+            } finally {
+                latch.countDown()
+            }
+        }
+        latch.await()
+        return session
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
