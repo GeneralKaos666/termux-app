@@ -41,7 +41,7 @@ class TermuxFloatPreferencesDataStore private constructor(context: Context) : Pr
         @Synchronized
         fun getInstance(context: Context): TermuxFloatPreferencesDataStore {
             if (mInstance == null) {
-                mInstance = TermuxFloatPreferencesDataStore(context)
+                mInstance = TermuxFloatPreferencesDataStore(context.applicationContext)
             }
             return mInstance!!
         }

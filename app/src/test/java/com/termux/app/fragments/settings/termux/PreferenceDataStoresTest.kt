@@ -1,6 +1,8 @@
 package com.termux.app.fragments.settings.termux
 
+import android.content.ContextWrapper
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,6 +27,15 @@ class PreferenceDataStoresTest {
         val field = type.getDeclaredField("mInstance")
         field.isAccessible = true
         field.set(null, null)
+    }
+
+    @Test
+    fun `stores hold the application context`() {
+        val wrapper = ContextWrapper(context)
+        val store = KeyboardPreferencesDataStore.getInstance(wrapper)
+        val field = KeyboardPreferencesDataStore::class.java.getDeclaredField("mContext")
+        field.isAccessible = true
+        assertSame(wrapper.applicationContext, field.get(store))
     }
 
     @Test

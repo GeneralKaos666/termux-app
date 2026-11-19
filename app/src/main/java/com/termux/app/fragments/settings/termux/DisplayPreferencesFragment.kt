@@ -188,7 +188,7 @@ class DisplayPreferencesDataStore private constructor(context: Context) : Prefer
         @Synchronized
         fun getInstance(context: Context): DisplayPreferencesDataStore {
             if (mInstance == null) {
-                mInstance = DisplayPreferencesDataStore(context)
+                mInstance = DisplayPreferencesDataStore(context.applicationContext)
             }
             return mInstance!!
         }
