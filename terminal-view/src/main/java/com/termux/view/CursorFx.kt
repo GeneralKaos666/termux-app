@@ -9,9 +9,11 @@ package com.termux.view
 object CursorFx {
 
     /**
-     * The cursor opacity for the triangular blink envelope at `elapsedMs` into a blink cycle of
-     * `periodMs`: full at the start and end of the cycle, fully faded at the half cycle, and linear
-     * in between. A non-positive period means blinking is disabled, so the cursor stays fully opaque.
+     * The cursor opacity for the blink envelope at `elapsedMs` into a blink cycle of `periodMs`:
+     * full at the start and end of the cycle, fully faded at the half cycle. The triangle is passed
+     * through smoothstep, so the cursor stays close to full opacity around the ends and fades
+     * quickly through the middle, instead of sitting half transparent for most of the cycle. A
+     * non-positive period means blinking is disabled, so the cursor stays fully opaque.
      */
     @JvmStatic
     fun blinkAlpha(elapsedMs: Long, periodMs: Long): Float {
@@ -19,7 +21,8 @@ object CursorFx {
         var phase = elapsedMs % periodMs
         if (phase < 0) phase += periodMs
         val position = phase.toFloat() / periodMs.toFloat()
-        return Math.abs(2f * position - 1f)
+        val triangle = Math.abs(2f * position - 1f)
+        return triangle * triangle * (3f - 2f * triangle)
     }
 
     /**
