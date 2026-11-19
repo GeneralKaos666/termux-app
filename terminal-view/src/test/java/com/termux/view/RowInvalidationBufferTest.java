@@ -105,7 +105,7 @@ public class RowInvalidationBufferTest extends TestCase {
         assertEquals(0, RowInvalidation.dirtyByIndex(newScreen(), 0, -1).length);
 
         RowInvalidation.Decision result = RowInvalidation.decide(
-                7L, 7L, false, RowInvalidation.dirtyByIndex(null, 0, 3), 3, 30, 10);
+                7L, 7L, false, RowInvalidation.dirtyByIndex(null, 0, 3), 3, 30, 10, 4);
         assertSame(RowInvalidation.Decision.NONE, result);
     }
 }

@@ -60,12 +60,13 @@ object RowInvalidation {
      * **Coordinates:** `dirtyByIndex` is **viewport-relative**: index `0` is the
      * top visible row and index `rows - 1` the bottom one. This helper never sees the scroll
      * offset — [dirtyByIndex] is the single place that owns the `screen row = topRow + index`
-     * mapping — so the band it returns is already view-relative: `topPx = firstDirtyIndex * fontLineSpacing` and
-     * `bottomPx = (lastDirtyIndex + 1) * fontLineSpacing`. The low end is therefore
-     * non-negative by construction (a viewport-relative index times a positive row height). The high
-     * end is clamped to `viewHeight` when `viewHeight > 0`; if the band ends up empty or
-     * entirely outside the view (its bottom edge is at or above its top edge, e.g. the only dirty rows
-     * are below the visible area), the decision is [Result.FULL] rather than a useless band.
+     * mapping — so the band it returns is already view-relative: `topPx = fontLineSpacingAndAscent +
+     * firstDirtyIndex * fontLineSpacing` and `bottomPx = fontLineSpacingAndAscent + (lastDirtyIndex + 1) *
+     * fontLineSpacing`. The origin offset is where the renderer puts the top of the first row's cell, so a
+     * band that ignored it would miss the bottom part of the last dirty row's glyphs. The high end is
+     * clamped to `viewHeight` when `viewHeight > 0`; if the band ends up empty or entirely outside the view
+     * (its bottom edge is at or above its top edge, e.g. the only dirty rows are below the visible area), the
+     * decision is [Result.FULL] rather than a useless band.
      *
      * @param lastCounter    The change counter observed at the previous draw, or `-1` when
      *                       nothing has been drawn yet (session/emulator rebind).
@@ -78,12 +79,16 @@ object RowInvalidation {
      * @param rows           Number of visible rows; flags at index `>= rows` are ignored.
      * @param viewHeight     The view height in pixels; `<= 0` means "unknown, do not clamp".
      * @param fontLineSpacing The height of a single text row in pixels; `<= 0` yields [Result.FULL].
+     * @param fontLineSpacingAndAscent The distance from the top edge of the view to the top of the
+     *                       first row's cell; the renderer draws a row's text one font ascent below its
+     *                       own band, so the band is offset by this much.
      * @return [Decision.NONE], [Decision.FULL], or a [Result.RANGE] decision.
      */
     @JvmStatic
     fun decide(
         lastCounter: Long, currentCounter: Long, forceFull: Boolean,
         dirtyByIndex: BooleanArray?, rows: Int, viewHeight: Int, fontLineSpacing: Int,
+        fontLineSpacingAndAscent: Int,
     ): Decision {
         // A counter change (including a decrease, which is defensive: a jump backwards is still a
         // jump) means our picture of the screen is stale; a scroll or an overlay change moves every
@@ -105,8 +110,8 @@ object RowInvalidation {
         }
         if (firstDirty < 0) return Decision.NONE
 
-        val topPx = firstDirty * fontLineSpacing
-        var bottomPx = (lastDirty + 1) * fontLineSpacing
+        val topPx = fontLineSpacingAndAscent + firstDirty * fontLineSpacing
+        var bottomPx = fontLineSpacingAndAscent + (lastDirty + 1) * fontLineSpacing
         if (viewHeight > 0 && bottomPx > viewHeight) bottomPx = viewHeight
         // The band is empty or entirely outside the view: repaint everything rather than nothing.
         if (bottomPx <= topPx) return Decision.FULL

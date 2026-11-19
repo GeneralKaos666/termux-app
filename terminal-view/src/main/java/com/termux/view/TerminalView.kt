@@ -529,7 +529,8 @@ class TerminalView(context: Context, attributes: AttributeSet?) : View(context, 
             mLastSeenChangeCounter,
             screen.changeCounter, topRowChanged || overlayChanged,
             RowInvalidation.dirtyByIndex(screen, mTopRow, emulator.mRows),
-            emulator.mRows, height, mRenderer!!.mFontLineSpacing,
+            emulator.mRows, height,
+            mRenderer!!.mFontLineSpacing, mRenderer!!.mFontLineSpacingAndAscent,
         )
 
         if (decision.kind == RowInvalidation.Result.FULL) {
