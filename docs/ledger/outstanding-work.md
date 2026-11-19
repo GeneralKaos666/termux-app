@@ -145,6 +145,40 @@ drag-to-reorder, rename and close have all since shipped.
   sign-off" status line although the three §9 reversals were confirmed and the work shipped
   (`docs/specs/2026-11-15-motion-craft-design.md`, head of file). Raised as Finding 3 by the same
   review. The status line now records the approval and the shipped state.
+- `[fixed 2026-11-18]` the whole-repo animation review (second pass) found three blockers, all fixed.
+  **Bar geometry:** the chrome bars animated their height, and both bars share a `Column` with the
+  terminal, so every frame resized the terminal and ran `TerminalView.updateSize` →
+  `TerminalSession.updateSize` → `JNI.setPtyWindowSize` plus a full repaint — a shell in vim/tmux
+  reflowed several times per toggle. `ShellHost.kt` now fades the bars only (150/120 ms), so the
+  height changes in one frame; `ExtraKeysBar.kt`'s pager height snaps for the same reason, keeping
+  its alpha tween. **Tab scroll:** `SessionsBar.kt` called `animateScrollToItem(activeIndex)` on every
+  switch, which aligns the tab to the leading edge, so the strip slid even when the tab was already
+  on screen; it now scrolls only for an out-of-viewport tab and by the minimum delta
+  (`animateScrollBy`). **Easing:** Compose's default `tween` easing is `FastOutSlowIn` (an ease-in
+  lead); all shell tweens now use `theme/Motion.kt#ShellEaseOut`
+  (`cubic-bezier(0.23, 1, 0.32, 1)`). No unit test: Compose specs and layout have no test host here;
+  `./gradlew test` is green and `manual-checks.md` D-15 is rewritten. Spec correction:
+  `docs/specs/2026-11-15-motion-craft-design.md` §11.
+- `[fixed 2026-11-18]` the rest of the animation review's findings, fixed the same day. **Springs:**
+  `theme/Motion.kt#shellSpringSpec` is now `LowBouncy` (about 3 % overshoot instead of 16 %) and a new
+  `shellSettleSpec` (critically damped, same stiffness) drives the active-tab pill's offset and width
+  and the residual drag offset on drop, so neither overshoots its tab or slot. **Cursor scale and
+  blink:** `TerminalView` caches the animator duration scale (refreshed by the existing
+  `ContentObserver`) and multiplies it into the blink period and the 26 ms glide half-life, so a
+  0.5x/2x setting changes cursor speed like the Compose chrome; `CursorFx.blinkAlpha` now passes its
+  triangle through smoothstep, so the cursor holds near full opacity around the ends and fades fast
+  through the middle instead of sitting half transparent. `CursorFxTest` covers the new envelope (13
+  tests). **Typewriter:** `TypewriterText` types at a per-character cadence (32 ms, clamped 240–900 ms)
+  instead of one fixed 420 ms for any string, so a long localized welcome no longer blurs past;
+  `TypewriterTimingTest` covers the clamp. **Restore handle:** `ShellHost` fades the collapsed-bar
+  handle in only after the bar's 120 ms exit, so a control no longer pops into the corner while the
+  bar is still on screen. `./gradlew test` green (114 `:terminal-view`, 530 `:app`). **Not changed:**
+  colour transitions still snap under "remove animations" — Compose itself scales every animation by
+  `ANIMATOR_DURATION_SCALE` (`MotionDurationScaleImpl` in `compose-ui`), so a colour tween cannot be
+  kept alive while the setting is 0 without bypassing the platform; the explicit `snap()` is the
+  honest reading of "remove animations". Docs: `manual-checks.md` D-14/D-15 and the spec §11 items
+  4–7.
+
 - `[device checks pending]` **UI appeal program** (`docs/plans/2026-11-16-ui-appeal-program.md`,
   written 2026-11-16 from the chat brainstorm). Seven workstreams, 21 tasks: app UI preference store,
   session tab context + unseen-output badges, overflow fade + drag lift, starter prompt, command

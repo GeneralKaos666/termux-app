@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,8 +81,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.termux.R
+import com.termux.app.ui.theme.ShellEaseOut
 import com.termux.app.ui.theme.TermuxShellTheme
 import com.termux.app.ui.theme.shellAnimationsEnabled
+import com.termux.app.ui.theme.shellSettleSpec
 import com.termux.app.ui.theme.shellSpringSpec
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collect
@@ -145,8 +148,25 @@ fun SessionsBar(
     // Keep the active session visible when it changes. Deliberately not keyed on the whole list:
     // session titles update constantly while commands run, and re-running this on every refresh
     // would keep yanking the row back and stop the user browsing the other tabs.
+    //
+    // Only a tab that is outside the viewport is scrolled to; a visible one stays put, and the row
+    // moves by the minimum needed to reveal it. `animateScrollToItem` would align the tab to the
+    // leading edge, so every session switch slid the whole strip even when the tab was already on
+    // screen.
     LaunchedEffect(activeIndex) {
-        if (activeIndex >= 0) listState.animateScrollToItem(activeIndex)
+        if (activeIndex < 0) return@LaunchedEffect
+        val layout = listState.layoutInfo
+        val tab = layout.visibleItemsInfo.firstOrNull { it.index == activeIndex }
+        if (tab == null) {
+            listState.animateScrollToItem(activeIndex)
+        } else {
+            val beforeViewport = tab.offset - layout.viewportStartOffset
+            val pastViewport = tab.offset + tab.size - layout.viewportEndOffset
+            when {
+                beforeViewport < 0 -> listState.animateScrollBy(beforeViewport.toFloat())
+                pastViewport > 0 -> listState.animateScrollBy(pastViewport.toFloat())
+            }
+        }
     }
 
     val animationsEnabled = shellAnimationsEnabled()
@@ -318,9 +338,9 @@ fun SessionsBar(
                                 // clamped alpha overshoot (the spring goes above 1). Placement keeps
                                 // the spring so a reorder still reads as one motion language.
                                 Modifier.animateItem(
-                                    fadeInSpec = tween(durationMillis = 150),
+                                    fadeInSpec = tween(durationMillis = 150, easing = ShellEaseOut),
                                     placementSpec = shellSpringSpec(),
-                                    fadeOutSpec = tween(durationMillis = 120),
+                                    fadeOutSpec = tween(durationMillis = 120, easing = ShellEaseOut),
                                 )
                             } else {
                                 Modifier
@@ -340,10 +360,11 @@ fun SessionsBar(
                     val targetOffset = IntOffset(bounds.startPx - rowLeftPx + insetPx, 0)
                     val targetWidth = (bounds.endPx - bounds.startPx - 2 * insetPx).coerceAtLeast(0)
                     // While the row scrolls, the measured bounds move every frame: snap so the pill
-                    // stays glued to its tab instead of trailing behind the fling. The spring is
-                    // for the slide between tabs, which only happens once scrolling has settled.
+                    // stays glued to its tab instead of trailing behind the fling. The settle spring
+                    // is for the slide between tabs, which only happens once scrolling has settled;
+                    // critically damped, because a pill that overshoots its tab edge reads as a miss.
                     val offsetSpec = if (animationsEnabled && !listState.isScrollInProgress) {
-                        shellSpringSpec<IntOffset>()
+                        shellSettleSpec<IntOffset>()
                     } else {
                         snap<IntOffset>()
                     }
@@ -352,11 +373,12 @@ fun SessionsBar(
                         animationSpec = offsetSpec,
                         label = "activeTabIndicatorOffset",
                     )
-                    // A tween, not the spring: an overshooting width would briefly make the pill
-                    // wider than its tab.
+                    // Same spring as the offset, so the pill's left edge and its width move on one
+                    // beat and it never briefly straddles two tabs. Critically damped, so it cannot
+                    // grow wider than the tab.
                     val indicatorWidth by animateDpAsState(
                         targetValue = with(density) { targetWidth.toDp() },
-                        animationSpec = if (animationsEnabled) tween(durationMillis = 200) else snap(),
+                        animationSpec = if (animationsEnabled) shellSettleSpec() else snap(),
                         label = "activeTabIndicatorWidth",
                     )
                     // Clipped to the row so the pill never draws over the chevron or the "+" when
@@ -493,7 +515,7 @@ private fun SessionTab(
 
     // Colours fade between tabs instead of snapping. A tween, not the shell spring: a bouncy spec
     // would overshoot the blend past the target colour and flash brighter than either end state.
-    val colorSpec = if (animationsEnabled) tween<Color>(durationMillis = 200) else snap<Color>()
+    val colorSpec = if (animationsEnabled) tween<Color>(durationMillis = 200, easing = ShellEaseOut) else snap<Color>()
     val containerColor by animateColorAsState(
         targetValue = if (item.active) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
         animationSpec = colorSpec,
@@ -533,8 +555,8 @@ private fun SessionTab(
     val liftShadowPx = with(LocalDensity.current) { 8.dp.toPx() }
     // Residual drag translation after release. The tab is placed in its new slot the moment the
     // order changes, so without this it would snap back to its pre-drag slot before gliding out;
-    // instead the finger's offset decays to 0 over the same spring as the placement animation, so
-    // the drop continues from where the tab was let go.
+    // instead the finger's offset decays to 0 over the settle spring, so the drop continues from
+    // where the tab was let go without overshooting the slot.
     var releaseOffsetX by remember(item.id) { mutableStateOf(0f) }
     var releaseTick by remember(item.id) { mutableIntStateOf(0) }
     // Tab extent captured when the drag starts. The drop maths measures the dragged centre against
@@ -547,7 +569,7 @@ private fun SessionTab(
             releaseOffsetX = 0f
             return@LaunchedEffect
         }
-        animate(releaseOffsetX, 0f, animationSpec = shellSpringSpec()) { value, _ ->
+        animate(releaseOffsetX, 0f, animationSpec = shellSettleSpec()) { value, _ ->
             releaseOffsetX = value
         }
     }

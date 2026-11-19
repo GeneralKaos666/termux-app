@@ -87,6 +87,8 @@ already read this helper and need no change.
 
 ### 3.2 Chrome transitions
 
+> **Superseded 2026-11-18:** the animated size was removed; the bars fade only. See §11.
+
 `ShellHost.kt` drops the spring on the two `AnimatedVisibility` blocks for a tween, with asymmetric
 enter/exit (showing a bar is the deliberate act, hiding is a response):
 
@@ -266,3 +268,48 @@ These contradict decisions recorded in the 2026-11-14 designs and must be confir
 - Each piece is independent and separately revertible: `Motion.kt` (float origin), `ShellHost.kt` +
   `SessionsBar.kt` (chrome easing), `Theme.kt` (reactive gate), `CursorFx` + `CursorFxTest` (easing
   math), `TerminalView` (loop + gate).
+
+## 11. Correction 2026-11-18 — bar geometry, tab scroll, easing
+
+A second animation review (whole repo) found three craft and correctness problems left by this
+design. All three are fixed; nothing else in the design changes.
+
+1. **Chrome bars no longer animate their height** (supersedes §3.2). Both bars are siblings of the
+   terminal in one `Column`, so a height animation resized the terminal on every frame; each size
+   change runs `TerminalView.updateSize` → `TerminalSession.updateSize` → `JNI.setPtyWindowSize` and
+   a full emulator repaint, so a running shell reflowed several times per toggle. `ShellHost.kt`
+   now uses `fadeIn`/`fadeOut` only (150/120 ms, `ShellEaseOut`), which commits the height change in
+   one frame — at the start when a bar appears, at the end when it leaves. `ExtraKeysBar.kt`'s pager
+   height also snaps instead of tweening, for the same reason; its alpha still eases.
+2. **The sessions bar scrolls minimally** (replaces the `animateScrollToItem(activeIndex)` call in
+   `SessionsBar.kt`). That call aligns the item to the leading edge, so every session switch slid the
+   whole strip even when the tab was already visible. It now scrolls only when the tab is outside the
+   viewport, by the minimum needed (`animateScrollBy`), which matters because session switching is a
+   many-times-a-day action.
+3. **Every shell tween uses an ease-out** (`theme/Motion.kt#ShellEaseOut`,
+   `cubic-bezier(0.23, 1, 0.32, 1)`). Compose's default `tween` easing is `FastOutSlowIn`, which
+   starts slow and delays the first moment of an enter/exit. Applied to the chrome fades, the tab
+   fades and indicator width, the tab colour crossfade, the extra-keys pager alpha, and the splash
+   fade.
+4. **Springs no longer overshoot targets.** `shellSpringSpec` drops from `MediumBouncy` (about 16 %
+   overshoot) to `LowBouncy` (about 3 %) for the float pop, tab lift and tab placement. A new
+   `shellSettleSpec` (critically damped, `StiffnessMedium`) drives the active-tab pill's offset and
+   width and the release offset after a drag, so the pill cannot straddle two tabs and a dropped tab
+   cannot slide past its slot.
+5. **The cursor follows the animator duration scale.** `TerminalView` reads
+   `ANIMATOR_DURATION_SCALE` once and on each change (the existing `ContentObserver`) instead of only
+   testing `> 0`, and multiplies it into the blink period and the glide half-life; `CursorFx.blinkAlpha`
+   smoothsteps its triangle so the cursor stays near full opacity around the ends of a cycle. Same
+   path as the Compose chrome, so 0.5x/2x affects both.
+6. **Typewriter cadence is per character.** `TypewriterText` derives its duration from the string
+   length (32 ms per character, clamped to 240–900 ms) instead of a fixed 420 ms, so localized
+   first-run copy keeps a readable speed.
+7. **The restore handle waits for the bar.** `ShellHost` fades the collapsed-bar handle in after the
+   bar's 120 ms exit, so it no longer pops into the corner while the bar is still leaving.
+
+Rollback: each item is one or two files — `ShellHost.kt` (items 1 and 7), `ExtraKeysBar.kt` (item 1,
+pager), `SessionsBar.kt` (items 2, 3 and 4), `Motion.kt` (items 3 and 4, the shared curves and specs),
+`TerminalView.kt` + `CursorFx.kt` + `CursorFxTest.java` (item 5), `TypewriterText.kt` +
+`TypewriterTimingTest.kt` (item 6). Recorded in `outstanding-work.md` §1.4 and `manual-checks.md`
+D-14/D-15.
+

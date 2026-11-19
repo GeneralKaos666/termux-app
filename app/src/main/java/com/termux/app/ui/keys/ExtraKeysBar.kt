@@ -50,6 +50,7 @@ import com.termux.app.domain.keys.shouldHandBackFocus
 import com.termux.app.domain.snippets.Snippet
 import com.termux.app.ui.ShellHostCallbacks
 import com.termux.app.ui.snippets.SnippetChipsRow
+import com.termux.app.ui.theme.ShellEaseOut
 import com.termux.shared.termux.extrakeys.ExtraKeysView
 import com.termux.shared.view.KeyboardUtils
 
@@ -177,15 +178,18 @@ fun ExtraKeysBar(
 
     // Animated target of the pager (collapse, page changes); its unanimated form drives the
     // semantics below so a hidden pager flips to invisible immediately, not after the animation.
+    // The height snaps rather than tweens: the bar is a sibling of the terminal, so an animated
+    // height resizes the terminal every frame, and each size change resizes the pty and repaints.
+    // The alpha still eases so the content does not cut out.
     val pagerHeightTarget = extraKeysPageHeight(pagerState.settledPage, keysVisible, gridHeight, grid2Height)
     val pagerHeight by animateDpAsState(
         targetValue = pagerHeightTarget,
-        animationSpec = if (animationsEnabled) tween(180) else snap(),
+        animationSpec = snap(),
         label = "extraKeysPagerHeight",
     )
     val pagerAlpha by animateFloatAsState(
         targetValue = if (keysVisible) 1f else 0f,
-        animationSpec = if (animationsEnabled) tween(180) else snap(),
+        animationSpec = if (animationsEnabled) tween(180, easing = ShellEaseOut) else snap(),
         label = "extraKeysPagerAlpha",
     )
 

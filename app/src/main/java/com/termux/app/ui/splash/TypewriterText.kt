@@ -24,7 +24,7 @@ fun TypewriterText(
     style: TextStyle,
     color: Color,
     modifier: Modifier = Modifier,
-    durationMs: Int = 420,
+    durationMs: Int = typingDurationMs(text.length),
 ) {
     var typed by remember(text) { mutableIntStateOf(if (animationsEnabled) 0 else text.length) }
 
@@ -44,3 +44,20 @@ fun TypewriterText(
         style = style.copy(color = color),
     )
 }
+
+/** Per-character typing cadence: fast enough not to delay the panel, slow enough to read. */
+private const val TYPE_CHAR_MS = 32
+
+/** Floor so a very short string still reads as typed rather than popping in. */
+private const val TYPE_MIN_MS = 240
+
+/** Ceiling so a long localized welcome never holds the panel for longer than this. */
+private const val TYPE_MAX_MS = 900
+
+/**
+ * Type-out duration for [length] characters: a fixed cadence per character instead of one fixed
+ * duration for the whole string. A fixed duration makes a long localized welcome blur past and a
+ * short one crawl; this keeps the speed the same and caps the total.
+ */
+internal fun typingDurationMs(length: Int): Int =
+    (length * TYPE_CHAR_MS).coerceIn(TYPE_MIN_MS, TYPE_MAX_MS)
