@@ -83,18 +83,21 @@ public final class TerminalRow {
         final int x1 = line.findStartOfColumn(sourceX1);
         final int x2 = line.findStartOfColumn(sourceX2);
         boolean startingFromSecondHalfOfWideChar = (sourceX1 > 0 && line.wideDisplayCharacterStartingAt(sourceX1 - 1));
-        final char[] sourceChars = (this == line) ? Arrays.copyOf(line.mText, line.mText.length) : line.mText;
+        final char[] sourceChars = (this == line) ? Arrays.copyOf(line.mText, line.mSpaceUsed) : line.mText;
+        // When the row is copied onto itself every setChar() below can grow the live mSpaceUsed, so
+        // bound every read by the snapshot taken above instead.
+        final int sourceSpaceUsed = (this == line) ? sourceChars.length : line.mSpaceUsed;
         // Copy whole grapheme clusters, so that a cluster's width is counted once instead of once per
         // code point. Every code point of a cluster is written at the cluster's destination column;
         // setChar() appends the continuations to the cell it created for the base.
         int destinationColumn = destinationX;
         int sourceColumn = sourceX1;
         for (int i = x1; i < x2; ) {
-            final int clusterEnd = GraphemeClusters.clusterEnd(sourceChars, i, line.mSpaceUsed);
+            final int clusterEnd = GraphemeClusters.clusterEnd(sourceChars, i, sourceSpaceUsed);
             final long style = line.getStyle(sourceColumn);
             final int linkId = line.getLinkId(sourceColumn);
             final int underlineColor = line.getUnderlineColor(sourceColumn);
-            int clusterWidth = GraphemeClusters.clusterWidth(sourceChars, i, line.mSpaceUsed);
+            int clusterWidth = GraphemeClusters.clusterWidth(sourceChars, i, sourceSpaceUsed);
             if (startingFromSecondHalfOfWideChar) {
                 // Just treat copying second half of wide char as copying whitespace.
                 setChar(destinationColumn, ' ', style, linkId, underlineColor);
@@ -102,7 +105,7 @@ public final class TerminalRow {
                 clusterWidth = 1;
             } else {
                 for (int j = i; j < clusterEnd; ) {
-                    final int codePoint = codePointAt(sourceChars, j);
+                    final int codePoint = codePointAt(sourceChars, j, sourceSpaceUsed);
                     setChar(destinationColumn, codePoint, style, linkId, underlineColor);
                     j += Character.charCount(codePoint);
                 }
@@ -180,6 +183,13 @@ public final class TerminalRow {
     private static int codePointAt(char[] text, int index) {
         final char c = text[index];
         return Character.isHighSurrogate(c) ? Character.toCodePoint(c, text[index + 1]) : c;
+    }
+
+    /** Like {@link #codePointAt(char[], int)}, but never reads at or past {@code spaceUsed}. */
+    private static int codePointAt(char[] text, int index, int spaceUsed) {
+        final char c = text[index];
+        if (!Character.isHighSurrogate(c) || index + 1 >= spaceUsed) return c;
+        return Character.toCodePoint(c, text[index + 1]);
     }
 
     /** @return the number of code points in {@code text} between {@code start} and {@code end}. */
