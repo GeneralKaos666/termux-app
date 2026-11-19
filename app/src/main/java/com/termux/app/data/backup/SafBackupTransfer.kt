@@ -1,5 +1,6 @@
 package com.termux.app.data.backup
 
+import android.os.StatFs
 import com.termux.app.domain.backup.InvalidBackupException
 import com.termux.app.domain.backup.SafBackupManifest
 import com.termux.app.domain.backup.SafBackupName
@@ -33,6 +34,15 @@ sealed interface TransferResult {
 }
 
 /**
+ * Bytes available to this app on the volume that holds [file], measured on that volume rather than
+ * assumed to be the primary one. The transfer needs the space a copy can actually use: allocatable
+ * bytes also count cached data the system may reclaim later, so a copy that fits only after that
+ * reclaim would still run out part way through.
+ */
+private fun availableBytesAt(file: File): Long =
+    runCatching { StatFs(file.path).availableBytes }.getOrElse { file.freeSpace }
+
+/**
  * Copies a backup directory to and from a SAF tree, verifying `SHA256SUMS` on both directions.
  *
  * The checksum set, not the directory listing, decides which files must exist and which are
@@ -46,7 +56,7 @@ sealed interface TransferResult {
 class SafBackupTransfer(
     private val progress: (CopyProgress) -> Unit,
     private val cancellation: () -> Boolean,
-    private val freeSpace: (File) -> Long = { it.usableSpace },
+    private val freeSpace: (File) -> Long = ::availableBytesAt,
 ) : BackupTransfer {
 
     /** Copies [sourceDir]'s summed files into a new directory in [tree]. */
