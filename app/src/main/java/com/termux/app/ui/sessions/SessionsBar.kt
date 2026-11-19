@@ -67,6 +67,7 @@ import com.termux.app.ui.theme.shellSettleSpec
 import com.termux.app.ui.theme.shellSpringSpec
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 
 /** Upper bound on the one-viewport steps taken to reach a tab whose offset is not measured yet. */
 private const val MAX_ACTIVE_TAB_SCROLL_STEPS = 8
@@ -129,13 +130,15 @@ fun SessionsBar(
 
     // Keep the active session visible when it changes. Deliberately not keyed on the whole list:
     // session titles update constantly while commands run, and re-running this on every refresh
-    // would keep yanking the row back and stop the user browsing the other tabs. The item count is
-    // part of the key because nothing can be measured until the row has its items.
+    // would keep yanking the row back and stop the user browsing the other tabs.
     //
     // Only the overlap is scrolled, so a tab that is already on screen stays where it is:
     // aligning it to the leading edge made every session switch slide the whole strip.
-    LaunchedEffect(activeIndex, listState.layoutInfo.totalItemsCount) {
+    LaunchedEffect(activeIndex) {
         if (activeIndex < 0) return@LaunchedEffect
+        // Nothing can be measured before the row has its items, and the layout info changes on every
+        // scroll, so the wait for the first layout happens here rather than in a composition key.
+        snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
         repeat(MAX_ACTIVE_TAB_SCROLL_STEPS) {
             val layout = listState.layoutInfo
             val viewportSize = layout.viewportEndOffset - layout.viewportStartOffset
