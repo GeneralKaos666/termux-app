@@ -1,6 +1,7 @@
 package com.termux.app.fragments.settings.termux
 
 import android.app.Activity
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -175,8 +176,11 @@ class DisplayPreferencesFragment : PreferenceFragmentCompat() {
 
 }
 
+@SuppressLint("StaticFieldLeak")
 class DisplayPreferencesDataStore private constructor(context: Context) : PreferenceDataStore() {
 
+    // Holds the application context: the store is a process-wide singleton, so an Activity here
+    // would leak. Lint only sees the field type, which is why the class suppresses its check.
     private val mContext: Context = context
     private val mPreferences: TermuxAppSharedPreferences? = TermuxAppSharedPreferences.build(context, true)
     private val mUiPreferences: AndroidUiPreferences = AndroidUiPreferences(context)
