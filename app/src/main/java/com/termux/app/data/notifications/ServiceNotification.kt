@@ -32,7 +32,7 @@ class ServiceNotification(private val context: Context) {
 
         // Set pending intent to be launched when notification is clicked
         val notificationIntent = TermuxActivity.newInstance(context)
-        val contentIntent = PendingIntent.getActivity(context, 0, notificationIntent, 0)
+        val contentIntent = PendingIntent.getActivity(context, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
 
         // Set notification text
         var notificationText = sessionCount.toString() + " session" + if (sessionCount == 1) "" else "s"
@@ -72,7 +72,7 @@ class ServiceNotification(private val context: Context) {
         builder.addAction(
             android.R.drawable.ic_delete,
             res.getString(R.string.notification_action_exit),
-            PendingIntent.getService(context, 0, exitIntent, 0)
+            PendingIntent.getService(context, 0, exitIntent, PendingIntent.FLAG_IMMUTABLE)
         )
 
         // Set Wakelock button actions
@@ -82,14 +82,18 @@ class ServiceNotification(private val context: Context) {
             if (wakeLockHeld) R.string.notification_action_wake_unlock else R.string.notification_action_wake_lock
         )
         val actionIcon = if (wakeLockHeld) android.R.drawable.ic_lock_idle_lock else android.R.drawable.ic_lock_lock
-        builder.addAction(actionIcon, actionTitle, PendingIntent.getService(context, 0, toggleWakeLockIntent, 0))
+        builder.addAction(
+            actionIcon,
+            actionTitle,
+            PendingIntent.getService(context, 0, toggleWakeLockIntent, PendingIntent.FLAG_IMMUTABLE),
+        )
 
         // Set Float button action to toggle the in-app floating terminal
         val toggleFloatIntent = Intent(context, TermuxService::class.java).setAction(TermuxService.ACTION_TOGGLE_FLOAT)
         builder.addAction(
             android.R.drawable.ic_menu_view,
             res.getString(R.string.notification_action_float),
-            PendingIntent.getService(context, 0, toggleFloatIntent, 0)
+            PendingIntent.getService(context, 0, toggleFloatIntent, PendingIntent.FLAG_IMMUTABLE)
         )
 
         return builder.build()
