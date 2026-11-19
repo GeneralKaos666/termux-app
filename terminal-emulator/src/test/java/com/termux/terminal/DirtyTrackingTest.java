@@ -32,6 +32,18 @@ public class DirtyTrackingTest extends TerminalTestCase {
 		assertTrue(screen.isRowDirty(2));
 	}
 
+	public void testFullWidthClearMarksTheRow() {
+		TerminalBuffer screen = new TerminalBuffer(5, 3, 3);
+		screen.setChar(0, 1, 'a', 0);
+		screen.clearDirtyState();
+		// A whole-row blank takes the clear() fast path, which must still flag the row.
+		screen.blockSet(0, 1, 5, 1, ' ', 0);
+		assertFalse(screen.isRowDirty(0));
+		assertTrue(screen.isRowDirty(1));
+		assertFalse(screen.isRowDirty(2));
+		assertEquals("", screen.getSelectedText(0, 1, 4, 1).trim());
+	}
+
 	public void testScrollTicksTheCounterAndMarksTheRegion() {
 		TerminalBuffer screen = new TerminalBuffer(5, 3, 3);
 		screen.setChar(0, 0, 'a', 0);
