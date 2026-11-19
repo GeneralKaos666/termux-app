@@ -639,8 +639,14 @@ public final class TerminalBuffer {
                 "Illegal arguments! blockSet(" + sx + ", " + sy + ", " + w + ", " + h + ", " + val + ", " + mColumns + ", " + mScreenRows + ")");
         }
         for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++)
-                setChar(sx + x, sy + y, val, style, 0);
+            if (val == ' ' && w == mColumns) {
+                // Clearing a whole row is the same as writing a blank into every cell, but one
+                // clear() is cheaper than a setChar() per column.
+                allocateFullLineIfNecessary(externalToInternalRow(sy + y)).clear(style);
+            } else {
+                for (int x = 0; x < w; x++)
+                    setChar(sx + x, sy + y, val, style, 0);
+            }
             if (sx + w == mColumns && val == ' ') {
                 clearLineWrap(sy + y);
             }
