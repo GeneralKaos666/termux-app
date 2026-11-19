@@ -113,4 +113,12 @@ public class GraphemeClustersTest extends TestCase {
 		assertEquals(2, GraphemeClusters.clusterEnd(text, 0, text.length));
 	}
 
+	public void testLoneHighSurrogateAtTheEndOfTheUsedText() {
+		char[] text = new char[] { 'a', '\uD800' };
+		// The high surrogate has no low surrogate inside the used text, so it is one char wide and
+		// never reads past spaceUsed.
+		assertEquals(2, GraphemeClusters.clusterEnd(text, 1, 2));
+		assertEquals(1, GraphemeClusters.clusterEnd(text, 0, 2));
+	}
+
 }
