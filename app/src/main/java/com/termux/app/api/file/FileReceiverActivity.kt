@@ -231,7 +231,10 @@ class FileReceiverActivity : AppCompatActivity() {
                 finish()
             },
             DialogInterface.OnDismissListener {
-                if (!mSaveInProgress) runCatching { inputStream.close() }
+                // The copy owns the stream until it reports back, and it finishes the activity then:
+                // finishing here would drop that report before the editor or the directory opens.
+                if (mSaveInProgress) return@OnDismissListener
+                runCatching { inputStream.close() }
                 if (mFinishOnDismissNameDialog) finish()
             },
         )
@@ -275,24 +278,26 @@ class FileReceiverActivity : AppCompatActivity() {
     }
 
     private fun copyStreamToFile(inputStream: InputStream, attachmentFileName: String?): SaveResult {
-        val receiveDir = File(TERMUX_RECEIVEDIR)
+        // The stream is closed on every path, including a rejected name or directory: once the copy
+        // has started, the dialog's dismiss listener leaves the stream alone.
+        inputStream.use { input ->
+            val receiveDir = File(TERMUX_RECEIVEDIR)
 
-        val fileName = safeReceivedFileName(attachmentFileName)
-        if (fileName == null) {
-            return SaveResult.Failed("File name cannot be empty or contain a path")
-        }
+            val fileName = safeReceivedFileName(attachmentFileName)
+            if (fileName == null) {
+                return SaveResult.Failed("File name cannot be empty or contain a path")
+            }
 
-        if (!receiveDir.isDirectory && !receiveDir.mkdirs()) {
-            return SaveResult.Failed("Cannot create directory: " + receiveDir.getAbsolutePath())
-        }
+            if (!receiveDir.isDirectory && !receiveDir.mkdirs()) {
+                return SaveResult.Failed("Cannot create directory: " + receiveDir.getAbsolutePath())
+            }
 
-        val outFile = File(receiveDir, fileName)
-        if (!isDirectChildOf(receiveDir, outFile)) {
-            return SaveResult.Failed("File name cannot be empty or contain a path")
-        }
+            val outFile = File(receiveDir, fileName)
+            if (!isDirectChildOf(receiveDir, outFile)) {
+                return SaveResult.Failed("File name cannot be empty or contain a path")
+            }
 
-        try {
-            inputStream.use { input ->
+            try {
                 FileOutputStream(outFile).use { f ->
                     val buffer = ByteArray(4096)
                     while (true) {
@@ -301,11 +306,11 @@ class FileReceiverActivity : AppCompatActivity() {
                         f.write(buffer, 0, readBytes)
                     }
                 }
+                return SaveResult.Saved(outFile)
+            } catch (e: IOException) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Error saving file", e)
+                return SaveResult.Failed("Error saving file:\n\n$e")
             }
-            return SaveResult.Saved(outFile)
-        } catch (e: IOException) {
-            Logger.logStackTraceWithMessage(LOG_TAG, "Error saving file", e)
-            return SaveResult.Failed("Error saving file:\n\n$e")
         }
     }
 
