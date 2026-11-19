@@ -1,5 +1,6 @@
 package com.termux.app.fragments.settings
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
 import androidx.annotation.Keep
@@ -23,8 +24,11 @@ class TermuxTaskerPreferencesFragment : PreferenceFragmentCompat() {
 
 }
 
+@SuppressLint("StaticFieldLeak")
 class TermuxTaskerPreferencesDataStore private constructor(context: Context) : PreferenceDataStore() {
 
+    // Holds the application context: the store is a process-wide singleton, so an Activity here
+    // would leak. Lint only sees the field type, which is why the class suppresses its check.
     private val mContext: Context = context
     private val mPreferences: TermuxTaskerAppSharedPreferences? = TermuxTaskerAppSharedPreferences.build(context, true)
 
