@@ -299,16 +299,75 @@ cmd_backup() {
     fi
 }
 
+# Whether the link entry $1, pointing at $2, would land outside the archive root. A symlink target
+# is resolved against the link's own directory ($3 = 1); a hard link names a member from the root.
+link_escapes_root() {
+    local entry=${1#./} target=$2 relative=$3 depth=0 component
+    case $target in /*) return 0 ;; esac
+    local IFS=/
+    if [ "$relative" = 1 ]; then
+        for component in $entry; do
+            [ -n "$component" ] && depth=$((depth + 1))
+        done
+        depth=$((depth - 1))
+    fi
+    for component in $target; do
+        case $component in
+            '' | .) ;;
+            ..)
+                depth=$((depth - 1))
+                [ "$depth" -lt 0 ] && return 0
+                ;;
+            *) depth=$((depth + 1)) ;;
+        esac
+    done
+    return 1
+}
+
 archive_scan() {
-    local archive=$1 listing entry
+    local archive=$1 listing line type rest entry target link other
+    local -a names=() escapes=()
     [ -f "$archive" ] || return 2
-    listing=$(tar -tf "$archive" 2>/dev/null) || return 2
-    while IFS= read -r entry; do
-        [ -n "$entry" ] || continue
+    # The verbose listing carries the name and, for a link, its target; the first five fields are
+    # mode, owner, size, date and time, so the name is everything after them (it may hold spaces).
+    listing=$(tar -tvf "$archive" 2>/dev/null) || return 2
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        type=${line:0:1}
+        read -r _ _ _ _ _ rest <<<"$line"
+        [ -n "$rest" ] || return 2
+        entry=${rest%% -> *}
+        entry=${entry%% link to *}
         entry=${entry#./}
         case $entry in
             /* | .. | ../* | */.. | */../*) return 2 ;;
         esac
+        names+=("$entry")
+        case $rest in
+            *" -> "*) target=${rest##* -> } ;;
+            *" link to "*) target=${rest##* link to } ;;
+            *) continue ;;
+        esac
+        case $type in
+            l)
+                link_escapes_root "$entry" "$target" 1 && escapes+=("$entry")
+                ;;
+            h)
+                # A hard link can only name a member, so a target outside the archive is invalid.
+                link_escapes_root "$entry" "$target" 0 && return 2
+                ;;
+        esac
     done <<<"$listing"
+
+    # A link that resolves outside the archive root only writes outside it when another entry sits
+    # beneath the link: extraction would then create that member through the link. A link on its own
+    # is kept, because a real \$HOME holds absolute links such as ~/.termux/colors.properties.
+    for link in ${escapes[@]+"${escapes[@]}"}; do
+        for other in ${names[@]+"${names[@]}"}; do
+            case $other in
+                "$link"/*) return 2 ;;
+            esac
+        done
+    done
     return 0
 }
