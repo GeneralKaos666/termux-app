@@ -214,7 +214,10 @@ private fun TerminalShellHost(
         toggleKeys = stringResource(R.string.palette_action_toggle_keys),
         paste = stringResource(R.string.palette_action_paste),
     )
-    val paletteRows = remember(sessionsState.sessions, snippetChipsState.items, paletteLabels) {
+    // Keyed on what a row is built from, not on the session objects: a title or active change
+    // rebuilds the rows, while an unrelated field of a session does not.
+    val paletteSessionKeys = sessionsState.sessions.map { Triple(it.id, it.title, it.active) }
+    val paletteRows = remember(paletteSessionKeys, snippetChipsState.items, paletteLabels) {
         paletteEntries(sessionsState.sessions, snippetChipsState.items, paletteLabels)
     }
     LaunchedEffect(paletteRows) { paletteState.updateEntries(paletteRows) }
@@ -382,7 +385,9 @@ private fun TerminalShellHost(
                 modifier = Modifier.align(Alignment.TopEnd),
             ) {
                 SessionsRestoreHandle(
-                    onExpand = { sessionsBarExpanded = true },
+                    // Ignore a click during the 80 ms exit: expanding then would put the bar
+                    // behind the first-run overlay.
+                    onExpand = { if (!firstRunOverlayVisible) sessionsBarExpanded = true },
                     backgroundAlpha = chromeBackgroundAlpha(shellChromeState.barTransparencyPercent),
                     bellFlash = shellChromeState.bellFlash,
                     modifier = Modifier.padding(4.dp),
