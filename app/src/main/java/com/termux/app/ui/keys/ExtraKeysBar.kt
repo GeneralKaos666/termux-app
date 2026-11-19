@@ -96,17 +96,17 @@ internal fun extraKeysPageHeight(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ExtraKeysBar(
-    snippets: List<Snippet> = emptyList(),
-    snippetsRowVisible: Boolean = false,
-    onInsertSnippet: (String) -> Unit = {},
     state: ExtraKeysState,
     keysVisible: Boolean,
     initialText: String?,
     animationsEnabled: Boolean,
     callbacks: ShellHostCallbacks,
     onLeaveWritingPage: () -> Unit,
-    backgroundAlpha: Float = 1f,
     modifier: Modifier = Modifier,
+    snippets: List<Snippet> = emptyList(),
+    snippetsRowVisible: Boolean = false,
+    onInsertSnippet: (String) -> Unit = {},
+    backgroundAlpha: Float = 1f,
 ) {
     // Hoisted above the pager so restored text is applied once when the writing page's view is
     // created, and not re-applied on every recomposition of the bar.
@@ -330,8 +330,8 @@ private fun TextInputPage(
 internal fun ExtraKeysHandle(
     keysVisible: Boolean,
     onToggle: () -> Unit,
-    backgroundAlpha: Float = 1f,
     modifier: Modifier = Modifier,
+    backgroundAlpha: Float = 1f,
 ) {
     val view = LocalView.current
     val label = stringResource(if (keysVisible) R.string.action_hide_keys else R.string.action_show_keys)

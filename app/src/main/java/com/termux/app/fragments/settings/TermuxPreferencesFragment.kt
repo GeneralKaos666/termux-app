@@ -1,5 +1,6 @@
 package com.termux.app.fragments.settings
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
 import android.view.Menu
@@ -66,7 +67,7 @@ class TermuxPreferencesFragment : PreferenceFragmentCompat() {
             R.string.settings_search_hint,
         )
         item.actionView = searchView
-        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS or MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW)
+        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM or MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW)
     }
 
     /**
@@ -115,8 +116,11 @@ class TermuxPreferencesFragment : PreferenceFragmentCompat() {
 
 }
 
+@SuppressLint("StaticFieldLeak")
 class TermuxPreferencesDataStore private constructor(context: Context) : PreferenceDataStore() {
 
+    // Holds the application context: the store is a process-wide singleton, so an Activity here
+    // would leak. Lint only sees the field type, which is why the class suppresses its check.
     private val mContext: Context = context
     private val mPreferences: TermuxAppSharedPreferences? = TermuxAppSharedPreferences.build(context, true)
 
