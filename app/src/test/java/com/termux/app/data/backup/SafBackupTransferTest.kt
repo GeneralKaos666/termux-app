@@ -30,6 +30,16 @@ class SafBackupTransferTest {
 
     private lateinit var root: File
 
+    /**
+     * A transfer whose progress is unobserved and whose free-space check passes: Robolectric's
+     * `StatFs` reports nothing, so the space check is only exercised where a test asks for it.
+     */
+    private fun transfer(
+        cancellation: () -> Boolean = { false },
+        onProgress: (CopyProgress) -> Unit = {},
+        freeSpace: (File) -> Long = { Long.MAX_VALUE },
+    ) = SafBackupTransfer(onProgress, cancellation, freeSpace)
+
     @Before
     fun setUp() {
         root = temp.newFolder("backups")
@@ -40,7 +50,7 @@ class SafBackupTransferTest {
         val tree = FakeTree(sizes = sizes)
         val dir = backupDirWith(sums = mapOf("home.tar.gz" to sha("abc")))
 
-        val result = SafBackupTransfer({}, { false }).export(dir, tree)
+        val result = transfer().export(dir, tree)
 
         assertEquals(TransferResult.Success(dir.name), result)
         assertEquals(
@@ -54,7 +64,7 @@ class SafBackupTransferTest {
         val tree = FakeTree(sizes = sizes)
         val dir = backupDirWith(sums = mapOf("home.tar.gz" to "0".repeat(64)))
 
-        val result = SafBackupTransfer({}, { false }).export(dir, tree)
+        val result = transfer().export(dir, tree)
 
         assertTrue(result is TransferResult.Failed)
         assertTrue(tree.children(null).none { it.name == dir.name })
@@ -64,7 +74,7 @@ class SafBackupTransferTest {
     fun `existing destination refuses without touching it`() {
         val tree = FakeTree(existing = setOf("termux_backup_x"), sizes = sizes)
 
-        val result = SafBackupTransfer({}, { false }).export(backupDirNamed("termux_backup_x"), tree)
+        val result = transfer().export(backupDirNamed("termux_backup_x"), tree)
 
         assertTrue(result is TransferResult.Failed)
         assertTrue(tree.namesIn("termux_backup_x").isEmpty())
@@ -74,7 +84,7 @@ class SafBackupTransferTest {
     fun `import verifies and is not listed on mismatch`() {
         val tree = sourceTree(payload = "tampered", sumsFor = "abc")
 
-        val result = SafBackupTransfer({}, { false }).importInto(tree, root, emptySet())
+        val result = transfer().importInto(tree, root, emptySet())
 
         assertTrue(result is TransferResult.Failed)
         assertTrue(root.listFiles().orEmpty().none { it.name.startsWith("termux_backup_") })
@@ -84,7 +94,7 @@ class SafBackupTransferTest {
     fun `import succeeds and picks a collision suffix`() {
         File(root, "termux_backup_x").mkdirs()
 
-        val result = SafBackupTransfer({}, { false })
+        val result = transfer()
             .importInto(sourceTree(payload = "abc", sumsFor = "abc"), root, setOf("termux_backup_x"))
 
         assertEquals(TransferResult.Success("termux_backup_x-2"), result)
@@ -92,10 +102,18 @@ class SafBackupTransferTest {
     }
 
     @Test
+    fun `import refuses when the destination has no room`() {
+        val result = transfer(freeSpace = { 0 })
+            .importInto(sourceTree(payload = "abc", sumsFor = "abc"), root, emptySet())
+
+        assertTrue(result is TransferResult.Failed)
+    }
+
+    @Test
     fun `unknown provider size keeps the bar indeterminate`() {
         val seen = mutableListOf<CopyProgress>()
 
-        SafBackupTransfer({ seen += it }, { false })
+        transfer(onProgress = { seen += it })
             .export(backupDirWith(sums = mapOf("home.tar.gz" to sha("abc")), nullSize = true), FakeTree(sizes = sizes))
 
         assertTrue(seen.any { it.indeterminate })
@@ -105,7 +123,7 @@ class SafBackupTransferTest {
     fun `cancellation deletes partial output`() {
         val tree = FakeTree(sizes = sizes)
 
-        val result = SafBackupTransfer({}, { true })
+        val result = transfer({ true })
             .export(backupDirWith(sums = mapOf("home.tar.gz" to sha("abc"))), tree)
 
         assertEquals(TransferResult.Cancelled, result)
@@ -118,7 +136,7 @@ class SafBackupTransferTest {
         tree.writeRootFile("manifest.json", """{"format_version":2}""".toByteArray())
         tree.writeRootFile("SHA256SUMS", "${sha("abc")}  home.tar.gz".toByteArray())
 
-        val result = SafBackupTransfer({}, { false }).importInto(tree, root, emptySet())
+        val result = transfer().importInto(tree, root, emptySet())
 
         assertTrue(result is TransferResult.Failed)
         assertTrue(root.listFiles().orEmpty().isEmpty())
@@ -128,7 +146,7 @@ class SafBackupTransferTest {
     fun `import rejects a directory without checksums`() {
         val tree = FakeTree(sizes = sizes, name = "termux_backup_empty")
 
-        val result = SafBackupTransfer({}, { false }).importInto(tree, root, emptySet())
+        val result = transfer().importInto(tree, root, emptySet())
 
         assertTrue(result is TransferResult.Failed)
     }
@@ -140,7 +158,7 @@ class SafBackupTransferTest {
         writeSums(dir, mapOf("home.tar.gz" to sha("abc")))
         val tree = FakeTree(sizes = sizes)
 
-        val result = SafBackupTransfer({}, { false }).export(dir, tree)
+        val result = transfer().export(dir, tree)
 
         assertTrue(result is TransferResult.Failed)
         assertTrue(tree.children(null).isEmpty())
@@ -151,7 +169,7 @@ class SafBackupTransferTest {
         val tree = FakeTree(sizes = sizes, name = "termux_backup_x")
         tree.writeRootFile("SHA256SUMS", "${sha("abc")}  home.tar.gz".toByteArray())
 
-        val result = SafBackupTransfer({}, { false }).importInto(tree, root, emptySet())
+        val result = transfer().importInto(tree, root, emptySet())
 
         assertTrue(result is TransferResult.Failed)
         assertTrue(root.listFiles().orEmpty().isEmpty())
@@ -164,7 +182,7 @@ class SafBackupTransferTest {
         tree.writeRootFile("SHA256SUMS", "${sha("abc")}  home.tar.gz".toByteArray())
         tree.writeRootFile("../evil", "boom".toByteArray())
 
-        val result = SafBackupTransfer({}, { false }).importInto(tree, root, emptySet())
+        val result = transfer().importInto(tree, root, emptySet())
 
         assertTrue(result is TransferResult.Failed)
         assertTrue(root.listFiles().orEmpty().isEmpty())
@@ -177,7 +195,7 @@ class SafBackupTransferTest {
         tree.renameOnCreate = "renamed_backup"
         val dir = backupDirWith(sums = mapOf("home.tar.gz" to sha("abc")))
 
-        val result = SafBackupTransfer({}, { false }).export(dir, tree)
+        val result = transfer().export(dir, tree)
 
         assertEquals(TransferResult.Success("renamed_backup"), result)
     }
@@ -199,7 +217,7 @@ class SafBackupTransferTest {
         tree.failOnWrite = true
         val dir = backupDirWith(sums = mapOf("home.tar.gz" to sha("abc")))
 
-        val result = SafBackupTransfer({}, { false }).export(dir, tree)
+        val result = transfer().export(dir, tree)
 
         assertTrue(result is TransferResult.Failed)
         assertTrue(tree.children(null).isEmpty())
