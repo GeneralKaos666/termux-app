@@ -2,6 +2,7 @@ package com.termux.terminal;
 
 import android.util.Base64;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -135,6 +136,16 @@ public class OperatingSystemControlTest extends TerminalTestCase {
 		assertIndexColorsMatch(expectedColors);
 		enterString("\033]104\007"); // Reset all colors.
 		assertIndexColorsMatch(TerminalColors.COLOR_SCHEME.mDefaultColors);
+	}
+
+	/** The type is terminated by the first ';', not by a ':' anywhere in the args. */
+	public void testOscTypeIsParsedWithoutAColon() throws Exception {
+		withTerminalSized(10, 10);
+		enterString("\033]52;c;");
+		Field field = TerminalEmulator.class.getDeclaredField("mTerminalControlArgsMaxLength");
+		field.setAccessible(true);
+		assertTrue("OSC 52 must raise the args cap above the 16384 default",
+			(int) field.get(mTerminal) > 16384);
 	}
 
 	public void disabledTestSetClipboard() {

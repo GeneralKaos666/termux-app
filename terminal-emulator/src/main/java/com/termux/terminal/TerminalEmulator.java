@@ -2466,8 +2466,7 @@ public final class TerminalEmulator {
      * Set {@link #ESC_OSC} type variables.
      */
     void setOscTypeVariables() {
-        if (mOscType >= 0) return;
-        if (mTerminalControlArgs.indexOf(":") < 0) return;
+        if (mOscType != -1) return;
 
         int value = -1;
         int argsLength = mTerminalControlArgs.length();
