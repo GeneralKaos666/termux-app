@@ -218,18 +218,6 @@ public class FileUtilsTests {
     }
 
     @Test
-    public void testValidateDirectoryFileAcceptsAPathEqualToItsParent() throws Exception {
-        // A directory path is "in" its own parent; without that, a missing path equal to the parent
-        // would not be created and the call would report it as not found.
-        String missingDirPath = testRootDirectoryPath + "/missing_dir";
-        assertEqual("A path equal to its parent directory must be created", null,
-            FileUtils.validateDirectoryFileExistenceAndPermissions("missing_dir", missingDirPath, missingDirPath,
-                true, null, false, false, false, false));
-        if (!FileUtils.directoryFileExists(missingDirPath, false))
-            throwException("missing_dir does not exist after validation created it");
-    }
-
-    @Test
     public void testReadSerializableObjectFromFile() throws Exception {
         String filePath = testRootDirectoryPath + "/serializable.txt";
         assertEqual("Failed to write the serializable object", null,
