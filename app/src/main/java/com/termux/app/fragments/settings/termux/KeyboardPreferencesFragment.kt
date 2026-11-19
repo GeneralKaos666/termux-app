@@ -83,7 +83,7 @@ class KeyboardPreferencesDataStore private constructor(context: Context) : Prefe
         @Synchronized
         fun getInstance(context: Context): KeyboardPreferencesDataStore {
             if (mInstance == null) {
-                mInstance = KeyboardPreferencesDataStore(context)
+                mInstance = KeyboardPreferencesDataStore(context.applicationContext)
             }
             return mInstance!!
         }

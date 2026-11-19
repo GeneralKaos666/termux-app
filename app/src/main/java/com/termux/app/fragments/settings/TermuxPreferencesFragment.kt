@@ -127,7 +127,7 @@ class TermuxPreferencesDataStore private constructor(context: Context) : Prefere
         @Synchronized
         fun getInstance(context: Context): TermuxPreferencesDataStore {
             if (mInstance == null) {
-                mInstance = TermuxPreferencesDataStore(context)
+                mInstance = TermuxPreferencesDataStore(context.applicationContext)
             }
             return mInstance!!
         }

@@ -35,7 +35,7 @@ class TermuxAPIPreferencesDataStore private constructor(context: Context) : Pref
         @Synchronized
         fun getInstance(context: Context): TermuxAPIPreferencesDataStore {
             if (mInstance == null) {
-                mInstance = TermuxAPIPreferencesDataStore(context)
+                mInstance = TermuxAPIPreferencesDataStore(context.applicationContext)
             }
             return mInstance!!
         }

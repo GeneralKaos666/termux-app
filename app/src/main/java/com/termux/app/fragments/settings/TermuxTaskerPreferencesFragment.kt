@@ -35,7 +35,7 @@ class TermuxTaskerPreferencesDataStore private constructor(context: Context) : P
         @Synchronized
         fun getInstance(context: Context): TermuxTaskerPreferencesDataStore {
             if (mInstance == null) {
-                mInstance = TermuxTaskerPreferencesDataStore(context)
+                mInstance = TermuxTaskerPreferencesDataStore(context.applicationContext)
             }
             return mInstance!!
         }

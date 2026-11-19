@@ -35,7 +35,7 @@ class TermuxWidgetPreferencesDataStore private constructor(context: Context) : P
         @Synchronized
         fun getInstance(context: Context): TermuxWidgetPreferencesDataStore {
             if (mInstance == null) {
-                mInstance = TermuxWidgetPreferencesDataStore(context)
+                mInstance = TermuxWidgetPreferencesDataStore(context.applicationContext)
             }
             return mInstance!!
         }

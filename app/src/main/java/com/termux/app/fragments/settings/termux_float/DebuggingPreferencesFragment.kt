@@ -51,7 +51,7 @@ class DebuggingPreferencesDataStore private constructor(context: Context) : Pref
         @Synchronized
         fun getInstance(context: Context): DebuggingPreferencesDataStore {
             if (mInstance == null) {
-                mInstance = DebuggingPreferencesDataStore(context)
+                mInstance = DebuggingPreferencesDataStore(context.applicationContext)
             }
             return mInstance!!
         }
