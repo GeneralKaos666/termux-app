@@ -29,6 +29,65 @@ test_absolute_entries_are_rejected() {
     teardown_sandbox
 }
 
+# A link is only written through when the archive also holds an entry beneath it, so that is the
+# combination the scan must refuse: an absolute target alone is a real pattern (~/.termux links).
+test_absolute_symlink_with_a_nested_entry_is_rejected() {
+    setup_sandbox
+    mkdir -p "$SANDBOX/tree"
+    ln -s /data/data/com.termux "$SANDBOX/tree/escape"
+    echo payload >"$SANDBOX/payload"
+    ( cd "$SANDBOX" && tar -czf "$SANDBOX/link.tar.gz" \
+        --transform='s|^payload$|tree/escape/payload|' tree/escape payload )
+    load_libs
+    assert_exit 2 archive_scan "$SANDBOX/link.tar.gz"
+    teardown_sandbox
+}
+
+test_symlink_targets_that_climb_out_are_rejected() {
+    setup_sandbox
+    mkdir -p "$SANDBOX/tree"
+    ln -s ../../etc "$SANDBOX/tree/escape"
+    echo payload >"$SANDBOX/payload"
+    ( cd "$SANDBOX" && tar -czf "$SANDBOX/climb.tar.gz" \
+        --transform='s|^payload$|tree/escape/passwd|' tree/escape payload )
+    load_libs
+    assert_exit 2 archive_scan "$SANDBOX/climb.tar.gz"
+    teardown_sandbox
+}
+
+test_absolute_symlink_without_a_nested_entry_is_kept() {
+    setup_sandbox
+    mkdir -p "$SANDBOX/tree"
+    ln -s /data/data/com.termux "$SANDBOX/tree/link"
+    ( cd "$SANDBOX" && tar -czf "$SANDBOX/plainlink.tar.gz" tree )
+    load_libs
+    assert_success archive_scan "$SANDBOX/plainlink.tar.gz"
+    teardown_sandbox
+}
+
+test_relative_symlinks_are_accepted() {
+    setup_sandbox
+    mkdir -p "$SANDBOX/tree"
+    echo hi >"$SANDBOX/tree/file.txt"
+    ln -s file.txt "$SANDBOX/tree/link"
+    ln -s ../file.txt "$SANDBOX/tree/../tree/up" 2>/dev/null || true
+    ( cd "$SANDBOX" && tar -czf "$SANDBOX/relative.tar.gz" tree )
+    load_libs
+    assert_success archive_scan "$SANDBOX/relative.tar.gz"
+    teardown_sandbox
+}
+
+test_parent_relative_symlink_inside_the_root_is_accepted() {
+    setup_sandbox
+    mkdir -p "$SANDBOX/tree/sub"
+    echo hi >"$SANDBOX/tree/file.txt"
+    ln -s ../file.txt "$SANDBOX/tree/sub/up"
+    ( cd "$SANDBOX" && tar -czf "$SANDBOX/inside.tar.gz" tree )
+    load_libs
+    assert_success archive_scan "$SANDBOX/inside.tar.gz"
+    teardown_sandbox
+}
+
 test_archive_scan_accepts_normal_archive() {
     setup_sandbox
     echo hi >"$HOME/file.txt"
