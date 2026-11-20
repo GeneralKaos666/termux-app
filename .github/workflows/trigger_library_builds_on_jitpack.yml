@@ -1,9 +1,21 @@
 name: Trigger Termux Library Builds on Jitpack
 
+# JitPack builds a ref on the first request for its artifacts, so a release tag is usually not
+# indexed yet when the release is published. This used to run on `release: published` and failed
+# whenever JitPack had not caught up. Nothing pins a release tag — the plugin apps pin commits — so
+# the check is manual: dispatch it with the tag or commit you want JitPack to build.
 on:
-  release:
-    types:
-      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag or commit to build on JitPack, without the leading v (for example 2.6.3)'
+        required: true
+        type: string
+      wait_seconds:
+        description: 'Seconds to wait before the first request, to let JitPack index the ref'
+        required: false
+        default: '180'
+        type: string
 
 permissions:
   contents: read
@@ -11,14 +23,18 @@ permissions:
 jobs:
   trigger-termux-library-builds:
     runs-on: ubuntu-latest
+    env:
+      TERMUX_LIB_VERSION: ${{ inputs.version }}
+      WAIT_SECONDS: ${{ inputs.wait_seconds }}
     steps:
-      - name: Set vars
-        run: echo "TERMUX_LIB_VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV # Do not include "v" prefix
-      - name: Echo release
-        run: echo "Triggering termux library builds on jitpack for '$TERMUX_LIB_VERSION' release after waiting for 3 mins"
+      - name: Echo request
+        run: echo "Requesting termux library builds on JitPack for '$TERMUX_LIB_VERSION' after ${WAIT_SECONDS}s"
       - name: Trigger termux library builds on jitpack
         run: |
-          sleep 180 # It will take some time for the new tag to be detected by Jitpack
-          curl --fail --show-error --max-time 600 --no-progress-meter "https://jitpack.io/com/termux/termux-app/terminal-emulator/$TERMUX_LIB_VERSION/terminal-emulator-$TERMUX_LIB_VERSION.pom"
-          curl --fail --show-error --max-time 600 --no-progress-meter "https://jitpack.io/com/termux/termux-app/terminal-view/$TERMUX_LIB_VERSION/terminal-view-$TERMUX_LIB_VERSION.pom"
-          curl --fail --show-error --max-time 600 --no-progress-meter "https://jitpack.io/com/termux/termux-app/termux-shared/$TERMUX_LIB_VERSION/termux-shared-$TERMUX_LIB_VERSION.pom"
+          sleep "$WAIT_SECONDS"
+          # A 404 while JitPack is still building is expected: re-run the workflow until the POMs
+          # are served, which is what marks the ref as built.
+          for module in terminal-emulator terminal-view termux-shared; do
+            curl --fail --show-error --max-time 600 --no-progress-meter \
+              "https://jitpack.io/com/termux/termux-app/$module/$TERMUX_LIB_VERSION/$module-$TERMUX_LIB_VERSION.pom"
+          done
