@@ -210,6 +210,28 @@ class BackupViewModelTest {
     }
 
     @Test
+    fun `a failed verify names the backup from the JSON verdict`() {
+        val runner = FakeRunner(
+            mapOf(
+                "status" to statusJson,
+                "list" to listJson,
+                "verify" to """{"name":"$ENTRY_NAME","root":"/r","valid":false}""",
+            ),
+            exit = 2,
+        )
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+
+        viewModel.onVerify(entry)
+
+        val result = viewModel.state.value.result
+        assertTrue(result is RunResult.Failure)
+        // The JSON verdict is the only human-readable outcome a failed verify prints.
+        assertEquals("MARKER verified", (result as RunResult.Failure).lastError)
+        assertEquals(false, viewModel.state.value.verified[ENTRY_NAME])
+    }
+
+    @Test
     fun `failure ignores the session exit trailer`() {
         val runner = FakeRunner(
             mapOf("status" to statusJson, "list" to listJson),
@@ -305,6 +327,19 @@ class BackupViewModelTest {
         assertEquals("MARKER created", (result as RunResult.Success).summary)
     }
 
+    @Test
+    fun `cancel during a run keeps the cancelled result`() {
+        val runner = FakeRunner(mapOf("status" to statusJson, "list" to listJson, "backup" to createdJson))
+        val viewModel = viewModel(FakeProvisioner(ProvisionResult.UpToDate), runner)
+        viewModel.open()
+        runner.duringRun = { viewModel.cancel() }
+
+        viewModel.start(BackupCommand.Backup(null, "gz", null, false, true, true))
+
+        assertEquals(RunResult.Cancelled, viewModel.state.value.result)
+        assertEquals(BackupRunState.Interrupted, viewModel.state.value.run?.state)
+    }
+
     private fun viewModel(provisioner: BackupProvisioner, runner: BackupSessionRunner) =
         BackupViewModel(
             provisioner = provisioner,
@@ -349,6 +384,9 @@ class BackupViewModelTest {
         override val state: StateFlow<BackupProgress> = mutableState
         private var pending: String? = null
 
+        /** Runs inside `awaitResult`, so a test can act while the command is in flight. */
+        var duringRun: (() -> Unit)? = null
+
         var startCount = 0
         var listCount = 0
         var statusCount = 0
@@ -387,9 +425,14 @@ class BackupViewModelTest {
             return attachState
         }
 
-        override fun cancel() = Unit
+        override fun cancel() {
+            mutableState.value = mutableState.value.copy(state = BackupRunState.Interrupted)
+        }
 
-        override fun awaitResult(timeoutMs: Long): String? = pending
+        override fun awaitResult(timeoutMs: Long): String? {
+            duringRun?.invoke()
+            return pending
+        }
 
         override fun sweepStaleLock() = Unit
 

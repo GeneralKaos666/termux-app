@@ -86,7 +86,17 @@ class BackupRunner(
      */
     override fun attach(): BackupProgress {
         val progress = refresh()
-        if (progress.state is BackupRunState.Running) startPolling()
+        if (progress.state is BackupRunState.Running) {
+            if (readLock() == null) {
+                // A live run always holds the lock; without one it died with the process that
+                // owned it, and polling it would never end.
+                val interrupted =
+                    BackupProgress(BackupRunState.Interrupted, progress.phasesSeen, progress.startedAt)
+                mutableState.value = interrupted
+                return interrupted
+            }
+            startPolling()
+        }
         return progress
     }
 
@@ -147,6 +157,10 @@ class BackupRunner(
         session = newSession
         client = newClient
         val pid = newClient.shellPid
+        // The previous command's snapshot is still in the file. Clear it before the first poll:
+        // the CLI rewrites it on start anyway, and a stale `run_end` would otherwise end the loop
+        // (and release the lock) before the new run has reported anything.
+        progressFile.delete()
         writeLock(RunLock(command.subcommand, pid, java.time.Instant.now().toString(), pidStart(pid)))
         startPolling()
         return StartResult.Started
@@ -157,6 +171,10 @@ class BackupRunner(
         pollJob?.cancel()
         pollJob = null
         lockFile.delete()
+        // A cancelled run never writes `run_end`, so drop the snapshot instead of leaving a
+        // `Running` state that nothing will ever resolve.
+        progressFile.delete()
+        mutableState.value = mutableState.value.copy(state = BackupRunState.Interrupted)
         session?.finishIfRunning()
         session = null
         client = null
@@ -176,17 +194,16 @@ class BackupRunner(
 
     private fun startPolling() {
         pollJob?.cancel()
+        val active = client
         pollJob = scope.launch {
             while (isActive) {
                 val progress = refresh()
-                when (progress.state) {
-                    is BackupRunState.Finished -> {
-                        lockFile.delete()
-                        return@launch
-                    }
-                    BackupRunState.Interrupted -> return@launch
-                    else -> delay(BackupDefaults.pollIntervalMs)
+                val finished = active?.finished?.isCompleted == true
+                if (!keepsPolling(ownsRun = active != null, runFinished = finished, state = progress.state)) {
+                    lockFile.delete()
+                    return@launch
                 }
+                delay(BackupDefaults.pollIntervalMs)
             }
         }
     }
@@ -238,6 +255,21 @@ class BackupRunner(
         private const val SUBCOMMAND_SHELL_NAME = "backup"
         private const val SHELL_PID_TIMEOUT_MS = 2_000L
         private const val SHELL_PID_POLL_MS = 20L
+
+        /**
+         * Whether the poll loop should run another iteration.
+         *
+         * A run this runner started ends with its session, because the progress file still holds
+         * the previous command's snapshot until the CLI overwrites it: reading `Finished` there
+         * would stop the loop before the new run reported anything. An attached run has no session
+         * of its own, so its file is the only source: it ends on `Finished` or `Interrupted`.
+         */
+        internal fun keepsPolling(ownsRun: Boolean, runFinished: Boolean, state: BackupRunState): Boolean =
+            if (ownsRun) {
+                !runFinished
+            } else {
+                state is BackupRunState.Running
+            }
 
         /** Start time of [pid] from `/proc`, used to detect a reused pid. */
         fun defaultPidStart(pid: Int): String? {

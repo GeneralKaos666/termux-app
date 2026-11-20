@@ -122,8 +122,10 @@ class BackupViewModel(
     /** Stops the running command. */
     fun cancel() {
         runner.cancel()
+        // The runner published the cancelled outcome; re-reading the progress file would report
+        // the abandoned run again.
         mutableState.update {
-            it.copy(run = runner.refresh(), result = RunResult.Cancelled, busy = false)
+            it.copy(run = runner.state.value, result = RunResult.Cancelled, busy = false)
         }
     }
 
@@ -166,7 +168,7 @@ class BackupViewModel(
         val result = when {
             exitCode == 3 -> RunResult.Partial(summaryFor(command, transcript))
             exitCode == 0 -> RunResult.Success(summaryFor(command, transcript))
-            else -> RunResult.Failure(exitCode, lastErrorLine(transcript))
+            else -> RunResult.Failure(exitCode, failureMessage(command, transcript))
         }
         val verified = if (command is BackupCommand.Verify) {
             val valid = runCatching { BackupJson.verified(jsonOf(transcript)).valid }.getOrNull()
@@ -228,7 +230,10 @@ class BackupViewModel(
             StartResult.Started -> {
                 val transcript = runner.awaitResult()
                 lastTranscript = transcript
-                Outcome(transcript, exitCodeOf(runner.refresh()))
+                // A cancel already published `Cancelled`; re-reading the progress file would
+                // resurrect the killed run and overwrite that result with its exit code.
+                val cancelled = state.value.result is RunResult.Cancelled
+                Outcome(transcript, if (cancelled) null else exitCodeOf(runner.refresh()))
             }
             is StartResult.Refused -> {
                 mutableState.update { it.copy(message = result.reason) }
@@ -270,6 +275,22 @@ class BackupViewModel(
 
     private fun jsonOf(transcript: String?): String =
         transcript?.let { runCatching { BackupJson.lastJsonLine(it) }.getOrNull() } ?: ""
+
+    /**
+     * Message for a failed run. A failed `verify` reports its verdict as JSON only — `--json`
+     * suppresses the CLI's own "checksum mismatch" line — so the verdict names the backup instead
+     * of falling back to a generic failure.
+     */
+    private fun failureMessage(command: BackupCommand, transcript: String?): String {
+        if (command is BackupCommand.Verify) {
+            val verdict = transcript
+                ?.let { runCatching { BackupJson.verified(BackupJson.lastJsonLine(it)) }.getOrNull() }
+            if (verdict != null && !verdict.valid) {
+                return strings.verified(verdict.name, false)
+            }
+        }
+        return lastErrorLine(transcript)
+    }
 
     /** Last human line of the transcript, for a failure message. */
     private fun lastErrorLine(transcript: String?): String {
