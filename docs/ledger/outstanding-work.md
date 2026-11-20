@@ -938,6 +938,25 @@ Still deferred, each a separate decision later:
 
 Device checks for phase 1 live in `manual-checks.md` D-17 to D-20; phase 2 checks are D-35 to D-42.
 
+The 2026-11-19 device run closed D-35 to D-42 and exposed three defects in the screen, all fixed:
+
+- **No running state.** `BackupRunner.startPolling()` read `progress.jsonl` before the new CLI had
+  overwritten it, saw the previous command's `run_end`, deleted the lock it had just written and
+  stopped, so `state.run` never became `Running` (no card, no Cancel) and `run.lock` never existed
+  during a run. A start now clears the stale file, an owned run polls until its session ends, and an
+  attached run without a lock is reported as interrupted.
+- **Generic verify failure.** The app always passes `--json`, and `cmd_verify` prints only
+  `{"valid":false}` on a checksum mismatch — no human `checksum mismatch` line — which
+  `lastErrorLine` filtered out. A failed verify now reports its JSON verdict.
+- **Fast-run transcript.** The session waiter could announce the exit before the pty reader had
+  drained the last output; it now waits (bounded) for the reader and the exit handler drains the
+  whole queue first.
+
+One leftover from the same run: `TerminalSession.finishIfRunning()` sends SIGKILL, which skips the
+CLI's EXIT trap, so cancelling a backup mid-archive leaves `<root>/.tmp.<pid>` behind (192 MiB in the
+observed run; no final backup directory is created). A later `termux-backup` run — or the app after a
+cancel — could sweep `.tmp.*` whose pid is gone.
+
 ---
 
 ## 6. Decisions and non-goals

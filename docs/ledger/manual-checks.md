@@ -41,6 +41,9 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-18 | termux-backup restore on a second device | pending (needs a second device) | §18 below |
 | D-19 | termux-backup safety-archive round-trip | **passed 2026-11-19** | §18 below |
 | D-20 | termux-backup behavior with storage permission revoked | **passed 2026-11-19** | §18 below |
+| D-21 | App layering extraction (domain/data/ui) keeps plugin and service UI behavior | pending (7 rows: termux-api, Widget, Tasker, X11, Float, notification actions, double wake-lock) | §21 below |
+| D-22 | UI appeal program (tabs, palette, snippets, themes, pickers) | partial 2026-11-19 — 1 row passed, 15 open | §22 below |
+| D-23 | Kotlin conversion of `terminal-view` and `app` leaves behavior unchanged | partial — 6 rows passed, 13 open | §23 below |
 | D-27 | Received file with a hostile display name is refused and nothing is written outside `~/downloads` | **passed 2026-11-18** | §24 below |
 | D-28 | Absurd sixel raster size neither crashes nor stalls the terminal | **passed 2026-11-18** | §24 below |
 | D-29 | Text either side of a sixel cell renders with no missing, doubled or shifted cell | **passed 2026-11-19** | §24 below |
@@ -53,11 +56,11 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-35 | Backup screen provisions `$PREFIX/lib/termux-backup` and shows the CLI status | **passed 2026-11-19** (hub search does not find "Backup") | §27 below |
 | D-36 | Backup from the screen (label + `xz`) with the list and the CLI agreeing | **passed 2026-11-19** | §27 below |
 | D-37 | A run survives leaving the backup screen | **passed 2026-11-19** | §27 below |
-| D-38 | Cancel a running backup | **failed 2026-11-19** — no cancel control appears while a run is in flight | §27 below |
-| D-39 | Verify a corrupted backup reports the CLI's message | **failed 2026-11-19** — generic "The command failed" instead of the checksum line | §27 below |
+| D-38 | Cancel a running backup | **passed 2026-11-19** — running card, Cancel and `run.lock` correct after the poll-loop fix | §27 below |
+| D-39 | Verify a corrupted backup reports the CLI's message | **passed 2026-11-19** — a failed verify names the backup from the JSON verdict | §27 below |
 | D-41 | Revoked storage access is reported on the backup screen | **passed 2026-11-19** | §27 below |
 | D-40 | Restore from the backup screen | **passed 2026-11-19** (dialog names `$HOME` / `$PREFIX/etc` literally) | §27 below |
-| D-42 | SAF export and import | **partial 2026-11-19** — export, collision import and corrupt import pass; cancel-mid-copy not observed | §27 below |
+| D-42 | SAF export and import | **passed 2026-11-19** (all four rows; cancel mid-copy removes the partial directory) | §27 below |
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -936,7 +939,7 @@ Spec `docs/specs/2026-11-17-termux-backup-ui-design.md`, plan
       finished (list refreshed) or is still shown as running. No crash, no duplicate lock.
       *2026-11-19: the run finished in the background (`backup.log` ok), and reopening the screen
       showed the new entry with no lock left behind.*
-- [ ] **D-38 Cancel.** Start a backup and cancel. The session ends, `run.lock` is gone, the list is
+- [x] **D-38 Cancel.** Start a backup and cancel. The session ends, `run.lock` is gone, the list is
       unchanged and a new backup can start immediately.
       **FAIL 2026-11-19.** Two runs were watched end to end (300 MiB in ~5 s, 1 GiB in ~23 s) and
       neither showed a running card or a Cancel control: every control simply went `enabled=false`
@@ -944,7 +947,14 @@ Spec `docs/specs/2026-11-17-termux-backup-ui-design.md`, plan
       `state.run?.state is Running`, but `state.run` never became `Running` on the device even though
       `progress.jsonl` carried `run_start` and `phase` events. The run still completes and the
       message and list refresh afterwards.
-- [ ] **D-39 Verify a corrupted backup.** Truncate one archive inside a backup directory with a
+      *2026-11-19 fixed and passed.* Cause: the poll loop read `progress.jsonl` before the new CLI had
+      overwritten it, saw the previous command's `run_end`, deleted the lock it had just written and
+      stopped — so `Running` was never published, `run.lock` never existed during a run (confirmed
+      with `find`), and no Cancel could be shown. A start now clears the stale file first, a run the
+      app owns polls until its own session ends, and an attached run with no lock is reported as
+      interrupted. On NX769J a 300 MiB run showed `Running: archiving home` + `Cancel` with a live
+      `run.lock` (`pid` alive, `start_time` matching), and the lock vanished when the session ended.
+- [x] **D-39 Verify a corrupted backup.** Truncate one archive inside a backup directory with a
       terminal, then Verify. The screen reports the failure with the CLI's message and the entry is
       still listed.
       **FAIL 2026-11-19.** `home.tar.gz` of `termux_backup_20261119_125743` was truncated to 4096
@@ -952,8 +962,15 @@ Spec `docs/specs/2026-11-17-termux-backup-ui-design.md`, plan
       The screen ran the command (`verify result=fail code=2`, entry still listed) but first reported
       `Failed (exit 2): [Process completed (code 2) - press Enter]`. Filtering that session trailer out
       of `lastErrorLine` exposed the second half: the result then fell back to the generic
-      `Failed (exit 2): The command failed`, so the transcript handed to the view model was empty for
-      this fast run and the CLI's message never reaches the screen.
+      `Failed (exit 2): The command failed`.
+      *2026-11-19 fixed and passed.* The transcript was not empty: the app always passes `--json`, and
+      `cmd_verify` deliberately prints only `{"valid":false}` on a mismatch instead of the human
+      `checksum mismatch` line, so filtering JSON out left nothing. A failed verify now reports its
+      JSON verdict (`Verification failed: <name>`) and a non-JSON failure still uses the last stderr
+      line. The hidden session also waits (bounded) for its pty reader before announcing the exit, so
+      a fast run cannot hand the client a transcript missing its output. On NX769J a 4096-byte
+      `home.tar.gz` produced `Failed (exit 2): Verification failed: termux_backup_20261120_041043`
+      and the entry stayed listed.
 - [x] **D-40 Restore.** Restore a backup. The dialog names the backup and both target paths, the
       safety archive appears in the list afterwards, packages reinstall, and the restart prompt
       appears; after restarting, `$HOME` matches the backup.
@@ -971,7 +988,7 @@ Spec `docs/specs/2026-11-17-termux-backup-ui-design.md`, plan
       `Writable No`, `Shared storage No`, `Backups 0`, the line "Shared storage is not accessible.
       Grant access to write backups to shared storage." and a "Grant storage access" button, which
       opened `GrantPermissionsActivity`. No crash; permissions restored afterwards.*
-- [ ] **D-42 SAF export and import.** Export a backup to Downloads through the picker, then import it
+- [x] **D-42 SAF export and import.** Export a backup to Downloads through the picker, then import it
       back into the backup root: the imported directory gets a `termux_backup_` name (collision gets
       `-2`). Corrupt one byte in the exported copy and import again: the transfer fails and no partial
       directory is listed. Cancel an export mid-copy: the partial directory is gone.
@@ -983,7 +1000,14 @@ Spec `docs/specs/2026-11-17-termux-backup-ui-design.md`, plan
       exported `home.tar.gz`, the next import showed `checksum mismatch: home.tar.gz` and no partial
       directory was left in `/sdcard/termux-backups`. **Cancel mid-copy could not be observed:** a
       1 GiB export finishes in a few seconds, and no transfer card (or Cancel control) ever appeared
-      in the semantics tree while it ran — the same missing-progress-state symptom as D-38.*
+      in the semantics tree while it ran.
+      *2026-11-19, the fourth row now passes.* The missing card was a scroll artefact: the transfer
+      card is driven by `TransferState`, not by the backup run's state, and that dump had the list
+      scrolled to the bottom, so the card above the fold was not in the semantics tree. A 3.6 GiB
+      backup exported to `Download/termux-export` showed the card with `Cancel`; tapping it mid-copy
+      removed `termux_backup_20261120_042647` from the destination, left no tmp directory there and
+      reported the transfer as cancelled. Exports of a few hundred MiB are still too fast to cancel by
+      hand: use at least ~3 GiB.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
 
@@ -995,7 +1019,9 @@ session was built on a dispatcher thread (`Can't create handler inside thread �
 Looper.prepare()`), it was never sized so its shell never started and the resulting timeout called
 `Os.kill(0, SIGKILL)` and killed the app, and the CLI could not be exec'd directly because Android has
 no `/usr/bin/env` for the script's shebang (it is now started through `$PREFIX/bin/bash`). Evidence:
-`~/.tmp/opencode/device-checks-2026-11-19.md`. D-38 to D-42 still to run.
+`~/.tmp/opencode/device-checks-2026-11-19.md`. Later the same day D-38, D-39 and D-42 were fixed and
+re-run: the backup screen again publishes the run (`Running` card + Cancel), a failed verify reports
+its JSON verdict, and a cancelled SAF export removes its partial directory.
 
 ## 28. D-43 — settings search on the Termux hub (2026-11-18)
 
