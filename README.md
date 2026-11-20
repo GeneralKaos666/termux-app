@@ -55,7 +55,7 @@ Most work lands in `:app`, but the engine upgrades also change `:terminal-emulat
 ## Install
 
 Take an APK from [Releases](https://github.com/GeneralKaos666/termux-app/releases), currently
-`v2.6.2`, or from the
+`v2.6.3`, or from the
 [Build workflow](https://github.com/GeneralKaos666/termux-app/actions/workflows/debug_build.yml),
 where the tip of `master` is always built:
 
