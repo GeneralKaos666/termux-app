@@ -33,6 +33,12 @@ public final class TerminalSession extends TerminalOutput {
     private static final int MSG_NEW_INPUT = 1;
     private static final int MSG_PROCESS_EXITED = 4;
 
+    /**
+     * How long the waiter waits for the pty reader to drain output after the process exits. The
+     * reader normally finishes at once; the bound only covers a descendant that still holds the pty.
+     */
+    private static final long INPUT_READER_DRAIN_TIMEOUT_MS = 250;
+
     public final String mHandle = UUID.randomUUID().toString();
 
     TerminalEmulator mEmulator;
@@ -64,6 +70,9 @@ public final class TerminalSession extends TerminalOutput {
      * {@link JNI#createSubprocess(String, String, String[], String[], int[], int, int, int, int)}.
      */
     private int mTerminalFileDescriptor;
+
+    /** Reader thread draining the pty, so the exit handler can wait for the last bytes. */
+    private Thread mInputReaderThread;
 
     /** Set by the application for user identification of session, not by terminal. */
     public String mSessionName;
@@ -130,7 +139,7 @@ public final class TerminalSession extends TerminalOutput {
 
         final FileDescriptor terminalFileDescriptorWrapped = wrapFileDescriptor(mTerminalFileDescriptor, mClient);
 
-        new Thread("TermSessionInputReader[pid=" + mShellPid + "]") {
+        Thread inputReader = new Thread("TermSessionInputReader[pid=" + mShellPid + "]") {
             @Override
             public void run() {
                 try (InputStream termIn = new FileInputStream(terminalFileDescriptorWrapped)) {
@@ -145,7 +154,9 @@ public final class TerminalSession extends TerminalOutput {
                     // Ignore, just shutting down.
                 }
             }
-        }.start();
+        };
+        mInputReaderThread = inputReader;
+        inputReader.start();
 
         new Thread("TermSessionOutputWriter[pid=" + mShellPid + "]") {
             @Override
@@ -167,6 +178,17 @@ public final class TerminalSession extends TerminalOutput {
             @Override
             public void run() {
                 int processExitCode = JNI.waitFor(mShellPid);
+                // The process can exit before the reader has drained what the pty still holds. Wait
+                // for it, bounded, so MSG_PROCESS_EXITED is handled after the last output arrives
+                // and a client reading the transcript on that message sees the whole run.
+                Thread reader = mInputReaderThread;
+                if (reader != null) {
+                    try {
+                        reader.join(INPUT_READER_DRAIN_TIMEOUT_MS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
                 mMainThreadHandler.sendMessage(mMainThreadHandler.obtainMessage(MSG_PROCESS_EXITED, processExitCode));
             }
         }.start();
@@ -350,6 +372,12 @@ public final class TerminalSession extends TerminalOutput {
             }
 
             if (msg.what == MSG_PROCESS_EXITED) {
+                // The reader is done by now, so take whatever else it queued before this message:
+                // a run that fails fast can leave its whole output behind the exit announcement.
+                while ((bytesRead = mProcessToTerminalIOQueue.read(mReceiveBuffer, false)) > 0) {
+                    mEmulator.append(mReceiveBuffer, bytesRead);
+                    notifyScreenUpdate();
+                }
                 int exitCode = (Integer) msg.obj;
                 cleanupResources(exitCode);
 
