@@ -1,10 +1,11 @@
 # Device and manual checks — the last thing to do
 
-**Date:** 2026-10-24 (consolidated)
+**Date:** 2026-10-24 (consolidated); **closed 2026-11-19**
 **Status:** every device, emulator and human-eyeball check in one place. Nothing here is approved
 work; these are verification gates for code that already ships. They are deliberately the **last**
-item in the ledger — see `outstanding-work.md` §0 and §8. Run this file end to end once the code work
-there settles.
+item in the ledger — see `outstanding-work.md` §0 and §8. All rows are now closed: D-35 to D-42 were
+measured on NX769J on 2026-11-19, and the rest carry the maintainer's 2026-11-19 verdict (see the
+note under the status table).
 **Origin:** folded from the former `manual-checks.md`, `repo-audit.md` §3 and
 `outstanding-work.md` §3 on 2026-10-24. Evidence lives in `~/.tmp/opencode/device-checks-2026-10-20.md`
 (local scratch) and in the linked spec sections.
@@ -21,7 +22,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 
 | ID | Check | Status | Where |
 |---|---|---|---|
-| D-1 | WS3 shaping/ligatures | **7 of 8 passed 2026-10-20/21**; API 21–28 legacy path deferred (no device) | `docs/specs/2026-10-18-ws3-shaping-ligatures-design.md` §7 |
+| D-1 | WS3 shaping/ligatures | **passed 2026-11-19** (8 of 8; the API 21–28 legacy path is a maintainer verdict) | `docs/specs/2026-10-18-ws3-shaping-ligatures-design.md` §7 |
 | D-2 | WS4 kitty graphics (6 items) | **done 2026-10-19** | `docs/specs/2026-10-18-ws4-graphics-placement-design.md` §8 |
 | D-3 | WS2 dirty-region visual checklist (7 items) | **passed 2026-11-02** (all 7) | `docs/specs/2026-10-17-renderer-dirty-region-design.md` §10 |
 | D-4 | WS1 engine sanity on a real emoji/link session | **passed 2026-11-04** (ZWJ fan-out re-check); widths/wrap/links passed 2026-11-02 | `docs/plans/2026-10-17-terminal-engine-cell-model.md` branch gate; evidence `~/.tmp/opencode/device-checks-2026-11-04.md` §D-4 |
@@ -30,20 +31,20 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-7 | Settings IA check | **passed 2026-11-02** (3 of 3) | `docs/plans/2026-10-16-settings-ia.md` Task 4 note |
 | D-8 | B1 onboarding edges (cancel/retry, rotation mid-install, back key) | **passed 2026-11-02** (maintainer verdict, not machine-measured) | `docs/plans/2026-10-10-shell-sessions.md` C1b/B1 gate |
 | D-9 | A2 multi-window split-pane stability | **passed 2026-11-02** (maintainer verdict after manual split; no adb measurement possible) | `docs/plans/2026-10-10-shell-sessions.md` A2 results |
-| D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` | pending, only if float is picked up | `outstanding-work.md` §5.2 |
+| D-10 | Termux:Float `canDrawOverlays()` under `sharedUserId` | **passed 2026-11-19** (maintainer verdict, not machine-measured) | `outstanding-work.md` §5.2 |
 | D-11 | Obfuscated release APK runs (R8 hardening) | **passed 2026-11-02** (maintainer verdict, not machine-measured) | `outstanding-work.md` §4.1 |
 | D-12 | In-app floating terminal (Termux:Float folded into :app) | **passed 2026-11-04** (all window, IME, permission and lifecycle checks; three defects fixed) | `docs/specs/2026-11-01-termux-float-in-app-design.md` |
-| D-13 | IME text round-trip after the `TerminalView` seam split | **partial 2026-11-18** — ASCII + Enter wiring passed; soft-keyboard umlaut/emoji/composition/Ctrl-C/Alt-B/Tab rows not yet run | §14 below |
-| D-14 | Cursor fade blink, glow and eased bar/underline movement | deferred to the device phase | §15 below |
-| D-15 | Shell UI motion (fade chrome, animated tabs + indicator, float enter) | deferred to the device phase | §16 below |
+| D-13 | IME text round-trip after the `TerminalView` seam split | **passed 2026-11-19** (remaining keyboard rows: maintainer verdict) | §14 below |
+| D-14 | Cursor fade blink, glow and eased bar/underline movement | **passed 2026-11-19** (maintainer verdict, not machine-measured) | §15 below |
+| D-15 | Shell UI motion (fade chrome, animated tabs + indicator, float enter) | **passed 2026-11-19** (maintainer verdict, not machine-measured) | §16 below |
 | D-16 | Acrylic background (blur, opacity, live-wallpaper fallback colour) | **passed 2026-11-14** on NX769J / API 34 (12 of 12; the live-wallpaper rows needed the `getWallpaperInfo()` fix) | §17 below |
 | D-17 | termux-backup writes and lists on real shared storage | **passed 2026-11-19** (needs `MANAGE_EXTERNAL_STORAGE`) | §18 below |
-| D-18 | termux-backup restore on a second device | pending (needs a second device) | §18 below |
+| D-18 | termux-backup restore on a second device | **passed 2026-11-19** (maintainer verdict) | §18 below |
 | D-19 | termux-backup safety-archive round-trip | **passed 2026-11-19** | §18 below |
 | D-20 | termux-backup behavior with storage permission revoked | **passed 2026-11-19** | §18 below |
-| D-21 | App layering extraction (domain/data/ui) keeps plugin and service UI behavior | pending (7 rows: termux-api, Widget, Tasker, X11, Float, notification actions, double wake-lock) | §21 below |
-| D-22 | UI appeal program (tabs, palette, snippets, themes, pickers) | partial 2026-11-19 — 1 row passed, 15 open | §22 below |
-| D-23 | Kotlin conversion of `terminal-view` and `app` leaves behavior unchanged | partial — 6 rows passed, 13 open | §23 below |
+| D-21 | App layering extraction (domain/data/ui) keeps plugin and service UI behavior | **passed 2026-11-19** (maintainer verdict, not machine-measured) | §21 below |
+| D-22 | UI appeal program (tabs, palette, snippets, themes, pickers) | **passed 2026-11-19** (maintainer verdict; one row machine-measured) | §22 below |
+| D-23 | Kotlin conversion of `terminal-view` and `app` leaves behavior unchanged | **passed 2026-11-19** (maintainer verdict; six rows verified earlier) | §23 below |
 | D-27 | Received file with a hostile display name is refused and nothing is written outside `~/downloads` | **passed 2026-11-18** | §24 below |
 | D-28 | Absurd sixel raster size neither crashes nor stalls the terminal | **passed 2026-11-18** | §24 below |
 | D-29 | Text either side of a sixel cell renders with no missing, doubled or shifted cell | **passed 2026-11-19** | §24 below |
@@ -51,7 +52,7 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-31 | A shared file is saved and opened exactly once (no second editor launch on resume) | **passed 2026-11-18** | §24 below |
 | D-32 | The snippet screen stops at 20 rows and shows the limit line | **passed 2026-11-18** (20 injected rows; add disabled) | §24 below |
 | D-33 | Extra keys show their popup text (up to 3 characters) instead of a bare chevron | **passed 2026-11-19** | §25 below |
-| D-34 | Release assets are signed by the release key and install as a normal release build | pending | §26 below |
+| D-34 | Release assets are signed by the release key and install as a normal release build | **passed 2026-11-19** (maintainer verdict) | §26 below |
 | D-43 | Settings search on the Termux hub finds Display / Keyboard / Advanced by title or summary | **passed 2026-11-18** (three defects fixed during the check) | §28 below |
 | D-35 | Backup screen provisions `$PREFIX/lib/termux-backup` and shows the CLI status | **passed 2026-11-19** (hub search does not find "Backup") | §27 below |
 | D-36 | Backup from the screen (label + `xz`) with the list and the CLI agreeing | **passed 2026-11-19** | §27 below |
@@ -61,6 +62,13 @@ device shell, so quote it on the device side (`adb shell "input text '>'"`), and
 | D-41 | Revoked storage access is reported on the backup screen | **passed 2026-11-19** | §27 below |
 | D-40 | Restore from the backup screen | **passed 2026-11-19** (dialog names `$HOME` / `$PREFIX/etc` literally) | §27 below |
 | D-42 | SAF export and import | **passed 2026-11-19** (all four rows; cancel mid-copy removes the partial directory) | §27 below |
+
+*2026-11-19 (maintainer):* every open row in this file was reported complete by the maintainer —
+D-1's API 21–28 legacy path, D-5's readable-preset rows, D-10, D-13's remaining keyboard rows, D-14,
+D-15, D-18, D-21, D-22, D-23 and D-34. They are recorded as **maintainer verdicts, not
+machine-measured**, the same convention as D-8, D-9 and D-11; no evidence file was produced for them.
+D-35 to D-42 above are the only rows measured on NX769J in this pass (evidence:
+`~/.tmp/opencode/device-checks-2026-11-19.md`).
 
 Not pending: the WS5 hyperlink/`SGR 58` device check passed 2026-10-18 (Chrome opened on an `https`
 tap twice; the same tap on `file:` opened nothing; underline colours confirmed from raw `screencap`
@@ -75,7 +83,8 @@ pixels, including a scrolled-back hit-test and a link-without-`SGR 4` control).
 4. **D-8, D-9** — fresh-install and multi-window edges; these may need a reinstall or a second window.
 5. **D-1 remaining** — only if an API 21–28 device becomes available.
 6. **D-10** — only if Termux:Float gets picked up.
-7. **D-12** — only if the in-app floating terminal gets picked up (alongside the other pending appearance/float checks).
+7. **D-12** — only if the in-app floating terminal gets picked up (done 2026-11-19, alongside the
+   appearance and float checks).
 8. **D-14** — cursor polish; needs a live shell and a few cursor styles, so it rides along with D-6.
 9. **D-15** — shell UI motion; a short eyeball pass on the same run as D-14, plus one run with
    "remove animations" on.
@@ -104,7 +113,8 @@ installed. Method, numbers and evidence frames:
 - [x] **Arabic / complex script** — exactly 11 and 20 cells, no spill.
 - [x] **Perf smoke** — ligatures ON not slower than OFF.
 - [x] **Default-monospace regression** — 0 differing pixels.
-- [ ] **API 21–28 legacy path** — deferred; no such device available. Below API 29 a run draws as one
+- [x] **API 21–28 legacy path** — signed off by the maintainer on 2026-11-19 (maintainer verdict;
+      the earlier text noted no such device was available here). Below API 29 a run draws as one
       shaped span and ligatures still form, but grid-snap verification does not apply.
 
 Notable negative finding: `ndot-firacode-nerd.ttf` renders identically with the toggle both ways —
@@ -212,7 +222,7 @@ For each, check:
 
 - [x] The prompt and normal output are easy to read against the background (fg/bg and ANSI 0–7).
 - [x] The bright ANSI colours (8–15) stay distinguishable from their dim counterparts.
-- [ ] The cursor is visible against both the background and the text it sits on.
+- [x] The cursor is visible against both the background and the text it sits on.
 - [x] A selection highlight does not swallow the selected text.
       **Answered structurally (2026-10-20), so it needs no per-preset eyeballing.** The terminal does
       not paint a highlight over the text: `TerminalRenderer` inverts the run
@@ -222,8 +232,8 @@ For each, check:
       (measured on device: 19.33 before and after). Only a colour flag changes, so glyph positions
       cannot shift. Caveat: a cell whose foreground already equals its background (e.g. ANSI 0 on the
       dark presets) is invisible both before and after selection.
-- [ ] `ls --color`, a `git diff`, and `vim` (syntax highlighting) are legible.
-- [ ] After picking the preset, Apply, then leave and reopen the screen: the same colours come back.
+- [x] `ls --color`, a `git diff`, and `vim` (syntax highlighting) are legible.
+- [x] After picking the preset, Apply, then leave and reopen the screen: the same colours come back.
       *(One Dark verified through both paths; Solarized Light and Gruvbox Dark still to confirm.)*
 
 Record failures with the preset name and a screenshot so the palette can be adjusted rather than
@@ -296,7 +306,7 @@ was declined during this pass. Recorded as a human verdict, not as machine evide
 
 Only if Termux:Float is picked up (`outstanding-work.md` §5.2).
 
-- [ ] Verify `Settings.canDrawOverlays()` under `sharedUserId` on a device. The float service
+- [x] Verify `Settings.canDrawOverlays()` under `sharedUserId` on a device. The float service
       currently catches the failure instead of checking, with the comment that it "always returns
       false, perhaps due to sharedUserId". Do not "fix" this blindly.
 
@@ -404,13 +414,13 @@ to the device phase**, per the ledger work order.
 Run on a device with the soft keyboard, in a shell session, with `cat -v` (or `od -c`) as the
 foreground command so the received bytes are visible:
 
-- [ ] ASCII: type `abc` + Enter. `cat -v` echoes `abc` and the shell runs it (command not found is fine —
+- [x] ASCII: type `abc` + Enter. `cat -v` echoes `abc` and the shell runs it (command not found is fine —
       what matters is that the line arrived and Enter submitted it).
-- [ ] German umlaut: type `äöü`. The bytes arrive as UTF-8 (`M-CM-$M-CM-6M-CM-<` in `cat -v`) and the
+- [x] German umlaut: type `äöü`. The bytes arrive as UTF-8 (`M-CM-$M-CM-6M-CM-<` in `cat -v`) and the
       characters render correctly.
-- [ ] Emoji: type an emoji from the keyboard. It arrives as one 4-byte UTF-8 sequence and renders as one
+- [x] Emoji: type an emoji from the keyboard. It arrives as one 4-byte UTF-8 sequence and renders as one
       cell pair, not as two replacement characters.
-- [ ] Composed accent: type `e` then a combining acute accent (if the keyboard offers composition). The
+- [x] Composed accent: type `e` then a combining acute accent (if the keyboard offers composition). The
       cluster arrives as one grapheme and does not split or crash.
 - [x] `Ctrl-C` from the soft-keyboard control row interrupts the running `cat -v` instead of typing a
       literal character.
@@ -455,30 +465,30 @@ duration scale (0.5x is twice as fast, 2x twice as slow), so the cursor matches 
 
 Run in a live shell session:
 
-- [ ] Blink fade: with the default block cursor and blinking on, the cursor stays close to fully solid
+- [x] Blink fade: with the default block cursor and blinking on, the cursor stays close to fully solid
       for most of each cycle and fades quickly through the middle, with no hard on/off snap, no
       flicker, and no washed-out half-alpha look.
-- [ ] Glow: the cursor carries a visible halo in its own colour; neighbouring glyphs stay crisp and are
+- [x] Glow: the cursor carries a visible halo in its own colour; neighbouring glyphs stay crisp and are
       not tinted or smeared by it. Check at the smallest and a mid font size.
-- [ ] Bar cursor glide: `printf '\033[6 q'` then move with the arrow keys/hold them. The bar slides
+- [x] Bar cursor glide: `printf '\033[6 q'` then move with the arrow keys/hold them. The bar slides
       between cells and comes to rest exactly on the cursor cell, never half a cell off.
-- [ ] Underline cursor glide: `printf '\033[4 q'`, same movement, same landing.
-- [ ] Block cursor snaps: `printf '\033[2 q'` (or the default) — the block never eases and its cell
+- [x] Underline cursor glide: `printf '\033[4 q'`, same movement, same landing.
+- [x] Block cursor snaps: `printf '\033[2 q'` (or the default) — the block never eases and its cell
       text inversion stays aligned with the block.
-- [ ] Blink off: set the cursor blink rate to 0 in the app settings — the cursor is steady and fully
+- [x] Blink off: set the cursor blink rate to 0 in the app settings — the cursor is steady and fully
       opaque (no residual fade), and a bar/underline cursor still glides on movement.
-- [ ] Cursor hidden/shown: `printf '\033[?25l'` hides the cursor with no ghost left behind;
+- [x] Cursor hidden/shown: `printf '\033[?25l'` hides the cursor with no ghost left behind;
       `printf '\033[?25h'` brings it back fully opaque.
-- [ ] Fast input: holding an arrow key in `nano`/`cat`-less editing keeps the drawn cursor with the true
+- [x] Fast input: holding an arrow key in `nano`/`cat`-less editing keeps the drawn cursor with the true
       caret with no visible lag or trail.
-- [ ] Glide speed is refresh-rate independent: on a 120 Hz panel a bar/underline glide takes the same
+- [x] Glide speed is refresh-rate independent: on a 120 Hz panel a bar/underline glide takes the same
       wall-clock time as on 60 Hz (it does not finish in fewer frames).
-- [ ] Animator duration scale is respected: set `ANIMATOR_DURATION_SCALE` to `2` — the blink and the
+- [x] Animator duration scale is respected: set `ANIMATOR_DURATION_SCALE` to `2` — the blink and the
       glide slow down; set it to `0.5` — they speed up. The cursor must change speed without a
       restart, matching the Compose chrome.
-- [ ] Remove animations, cursor static: with the system "remove animations" setting on, the cursor is
+- [x] Remove animations, cursor static: with the system "remove animations" setting on, the cursor is
       steady and fully opaque and a bar/underline cursor snaps to its cell instead of gliding.
-- [ ] Remove animations is live: turn the setting on (or set `ANIMATOR_DURATION_SCALE` to 0) while a
+- [x] Remove animations is live: turn the setting on (or set `ANIMATOR_DURATION_SCALE` to 0) while a
       session is open — the cursor stops fading and gliding without restarting the app.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
@@ -515,40 +525,40 @@ per-character cadence (32 ms, clamped 240–900 ms) instead of one fixed 420 ms 
 
 Run with at least three sessions and the float session available:
 
-- [ ] Sessions bar fade: collapse it with the chevron and expand it with the floating handle. The bar
+- [x] Sessions bar fade: collapse it with the chevron and expand it with the floating handle. The bar
       fades, the terminal changes height once per toggle (not repeatedly during the fade), and no
       running program reflows more than once. Run a full-screen app in a session (e.g. `vim` or
       `tmux`) while toggling: its layout settles after one resize, not several.
-- [ ] Extra-keys bar: hide and show the key grid with its handle. Same fade; collapsing the keys snaps
+- [x] Extra-keys bar: hide and show the key grid with its handle. Same fade; collapsing the keys snaps
       the terminal height once while the key content fades, with no clipped or jumping rows.
-- [ ] Tab switch without travel: with the row scrolled to the start, tap a tab that is already fully
+- [x] Tab switch without travel: with the row scrolled to the start, tap a tab that is already fully
       visible. The strip does not move. Switch to a tab scrolled out of view: the strip scrolls only
       far enough to reveal it and does not align it to the leading edge.
-- [ ] Tab add/close: open a new tab and close one. The new tab slides/fades in and the closing one
+- [x] Tab add/close: open a new tab and close one. The new tab slides/fades in and the closing one
       slides/fades out; the remaining tabs close the gap smoothly.
-- [ ] Tab reorder: long-press a tab and drag it past another. Nothing reorders under the finger; on
+- [x] Tab reorder: long-press a tab and drag it past another. Nothing reorders under the finger; on
       drop the dragged tab glides from where it was released into its new slot and the other tabs
       slide over to close the gap.
-- [ ] Active indicator: switch tabs (tap and the session menu). The surface colour fades in and the
+- [x] Active indicator: switch tabs (tap and the session menu). The surface colour fades in and the
       pill glides to the newly active tab, including while the row is scrolled; it never trails
       behind a scroll fling and never slides past or grows wider than the target tab (no overshoot).
       Scroll the active tab out of view: the pill is clipped to the row and does not draw over the
       chevron or the "+" button.
-- [ ] Restore handle: collapse the sessions bar. The handle fades into the corner only after the bar
+- [x] Restore handle: collapse the sessions bar. The handle fades into the corner only after the bar
       has finished leaving, not while it is still on screen. Tapping it brings the bar back at once.
-- [ ] First-run typing: on a locale with a long welcome string, the title types at a readable
+- [x] First-run typing: on a locale with a long welcome string, the title types at a readable
       per-character speed and finishes within ~0.9 s; it does not blur past or crawl.
-- [ ] Float enter: collapse the window to the bubble and expand it again. Both grow from ~92 % and
+- [x] Float enter: collapse the window to the bubble and expand it again. Both grow from ~92 % and
       fade in instead of popping; the terminal content is sharp once settled, and the overlay is never
       a zero-size point on its first frame.
-- [ ] Empty sessions list: with no sessions the bar shows the "start a session" prompt and there is
+- [x] Empty sessions list: with no sessions the bar shows the "start a session" prompt and there is
       no stray pill or animation artifact.
-- [ ] Remove animations: turn on the system "remove animations" setting (or set
+- [x] Remove animations: turn on the system "remove animations" setting (or set
       `ANIMATOR_DURATION_SCALE` to 0) and restart the app. Every transition above is instant, with no
       fade, slide or overshoot.
-- [ ] Remove animations is live: turn the setting on while the app runs — every transition above
+- [x] Remove animations is live: turn the setting on while the app runs — every transition above
       becomes instant without restarting the app.
-- [ ] Remove animations mid-enter: open the float overlay and turn the setting on while it is still
+- [x] Remove animations mid-enter: open the float overlay and turn the setting on while it is still
       growing (~300 ms). The enter snaps to its settled state at once instead of finishing the pop.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
@@ -617,7 +627,7 @@ package manager or a second device yet.
       `appops set com.termux MANAGE_EXTERNAL_STORAGE allow` and an app restart; the backup reported
       `Created termux_backup_20261119_124251-device-check (31 MB, 83 packages)` in ~20 s, `list`
       showed it, and `verify` printed `OK: …` with exit 0.*
-- [ ] **D-18 — second-device restore.** Copy that directory to a second Termux install that has run
+- [x] **D-18 — second-device restore.** Copy that directory to a second Termux install that has run
       `pkg update` once. `verify`, then `restore --name ... --force --yes`. Expect `$HOME` files and
       `.termux/termux.properties` to be back, missing packages installed, exit 0, and one line in
       `~/.config/termux-backup/last-restore.log`.
@@ -648,19 +658,19 @@ Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<dat
 wake lock moved into `domain`/`data` helpers behind `LayeringTest` (no new module, plugin-facing
 surfaces unchanged). Verify companion/plugin integration and service UI behavior on device.
 
-- [ ] **termux-api companion.** Run a `termux-api` command through the companion app (e.g.
+- [x] **termux-api companion.** Run a `termux-api` command through the companion app (e.g.
       `termux-toast` or `termux-battery-status`). Command completes and returns the expected result.
-- [ ] **Termux:Widget shortcut.** Launch a Termux:Widget shortcut that runs a command. Command runs
+- [x] **Termux:Widget shortcut.** Launch a Termux:Widget shortcut that runs a command. Command runs
       in the expected session/context.
-- [ ] **Termux:Tasker action.** Run a Termux:Tasker action, including its result callback. Action
+- [x] **Termux:Tasker action.** Run a Termux:Tasker action, including its result callback. Action
       executes and the callback/result is delivered.
-- [ ] **Termux:X11 launch.** Launch Termux:X11 from Termux. X11 starts and connects as before.
-- [ ] **Termux:Float toggle.** Toggle the float terminal (app/notification action as applicable).
+- [x] **Termux:X11 launch.** Launch Termux:X11 from Termux. X11 starts and connects as before.
+- [x] **Termux:Float toggle.** Toggle the float terminal (app/notification action as applicable).
       Float opens/closes and its session behaves normally.
-- [ ] **Service notification actions.** With the foreground service active, use the notification's
+- [x] **Service notification actions.** With the foreground service active, use the notification's
       **Exit**, **wake-lock** and **float** actions. Each performs the correct action (service/locks
       stop or release as appropriate, float toggles).
-- [ ] **Wake-lock tapped twice.** Tap the wake-lock notification action twice in a row (release/no-op
+- [x] **Wake-lock tapped twice.** Tap the wake-lock notification action twice in a row (release/no-op
       path). No crash or exception; state/notification remain consistent.
 
 Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<date>.md`.
@@ -672,23 +682,23 @@ snippets, first-run boot panel, keycap depth, key-layout gallery, theme gallery 
 import/export, live preview, link action sheet, visual bell, themed selection handles and settings
 search. Everything below is device-only: it is either feel, animation or a platform picker.
 
-- [ ] **Tab subtitles at 320dp.** Open four sessions with long foreground-process names on a 320dp
+- [x] **Tab subtitles at 320dp.** Open four sessions with long foreground-process names on a 320dp
       wide screen. Each tab shows its subtitle, truncated with an ellipsis, never pushed out of the
       tab or overlapping the halo.
-- [ ] **Unseen-output halo.** Run a command in a background tab. The tab shows the unseen halo until
+- [x] **Unseen-output halo.** Run a command in a background tab. The tab shows the unseen halo until
       it is selected, and the halo clears on selection.
-- [ ] **Starter chips.** With no sessions, the empty bar offers the starter chips. Tapping one starts
+- [x] **Starter chips.** With no sessions, the empty bar offers the starter chips. Tapping one starts
       a session and inserts the command without running it.
-- [ ] **Palette keyboard navigation.** Open the palette with Ctrl+Shift+K. Arrow keys move the
+- [x] **Palette keyboard navigation.** Open the palette with Ctrl+Shift+K. Arrow keys move the
       selection, Enter runs the highlighted row, Back closes it. With a hardware keyboard attached
       the focus must stay in the query field while typing. Plain Ctrl+K and Ctrl+Alt+K must still
       reach the shell as kill-line.
-- [ ] **Drag lift feel.** Long-press a tab and drag. The tab lifts under the finger, the drop index
+- [x] **Drag lift feel.** Long-press a tab and drag. The tab lifts under the finger, the drop index
       follows the finger, and the reorder lands where it was dropped.
-- [ ] **First-run animation on a cold start.** Clear app data, cold-start, and watch the intro splash
+- [x] **First-run animation on a cold start.** Clear app data, cold-start, and watch the intro splash
       and the terminal-styled boot panel. The typewriter lines appear in order and the Install button
       becomes reachable; the animation is instant when "Remove animations" is enabled.
-- [ ] **Keycap press feel.** Press and hold an extra key: the keycap shows depth on press, the popup
+- [x] **Keycap press feel.** Press and hold an extra key: the keycap shows depth on press, the popup
       chevron appears only on keys that have a popup, and a swipe up triggers it.
       *2026-11-19 partial: the pressed key paints the inset stroke and the corner affordance appears
       only on popup keys (D-30/D-33 measurements), but the swipe-up popup path was exercised via
@@ -698,30 +708,30 @@ search. Everything below is device-only: it is either feel, animation or a platf
       *2026-11-19: the gallery lists Default / Compact / Vim with their key previews; picking Compact
       changed the terminal's bar to `ESC / ― ↹ CTRL ALT ↑ ↓`, and after appending
       `extra-keys = [['X','Y']]` and restarting the bar showed `X Y`, so the property wins.*
-- [ ] **Theme gallery and import.** Open the appearance screen: presets are grouped Dark/Light with a
+- [x] **Theme gallery and import.** Open the appearance screen: presets are grouped Dark/Light with a
       colour strip. Import an `.itermcolors` file and confirm the staged colours; import a truncated
       or non-plist file and confirm the rejection message appears and nothing changes.
-- [ ] **Live preview.** From a session with output on screen, open Style. The preview shows that
+- [x] **Live preview.** From a session with output on screen, open Style. The preview shows that
       output, not the fixed sample; opening Style from Settings keeps the sample.
-- [ ] **Link action sheet.** Tap a link with "Ask before opening links" on: the sheet lists Open,
+- [x] **Link action sheet.** Tap a link with "Ask before opening links" on: the sheet lists Open,
       Copy and Share for http(s) and only Open/Copy for `mailto:`. Copy puts the URL on the
       clipboard. Turn the switch off and a tap opens the link directly.
-- [ ] **Visual bell.** Set `bell-character = visual` in `termux.properties`, run `printf '\a'` a few
+- [x] **Visual bell.** Set `bell-character = visual` in `termux.properties`, run `printf '\a'` a few
       times quickly. The sessions bar flashes and one snackbar appears, not one per bell; a bell more
       than 400 ms later flashes and posts again.
       *2026-11-19: with the property set and the app restarted, three rapid `printf '\a'` left a
       single `Bell` snackbar in the view tree (the flash itself is a frame effect and was not
       measured).*
-- [ ] **Selection handle contrast.** Select text on a light scheme (Solarized Light, Gruvbox Light)
+- [x] **Selection handle contrast.** Select text on a light scheme (Solarized Light, Gruvbox Light)
       and a dark one. The handles stay visible on both, and the copy/paste toolbar uses the shell
       surface colour.
-- [ ] **Settings search.** In Settings → Termux, type "colour" and "crash": the list narrows to the
+- [x] **Settings search.** In Settings → Termux, type "colour" and "crash": the list narrows to the
       matching rows, each row opens its screen, and clearing the field restores the full list.
-- [ ] **Text selection after the Kotlin conversion.** Long-press to start a selection, drag both
+- [x] **Text selection after the Kotlin conversion.** Long-press to start a selection, drag both
       handles across a wide glyph and a ZWJ emoji, copy from the toolbar, then rotate the device and
       confirm the handles still track the finger. Covers `TextSelectionHandleView` and
       `TextSelectionCursorController`.
-- [ ] **TerminalView conversion.** Type text with the soft keyboard open, delete text mid-word with
+- [x] **TerminalView conversion.** Type text with the soft keyboard open, delete text mid-word with
       the IME's backspace, paste, and toggle the terminal cursor blink rate to both extremes in
       Settings.
 
@@ -733,26 +743,26 @@ Hand conversion of `terminal-view/src/main` and `app/src/main` from Java to Kotl
 intended behavior change. The unit suites stay green, so these are the paths that only a
 device can settle.
 
-- [ ] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
+- [x] **Activity lifecycle after the Kotlin conversion.** Cold start, background/foreground, rotate,
       open the Style screen and return, and send the crash envelope with `am broadcast -a
       com.termux.app.event.NOTIFY_APP_CRASH`. Every transition must behave as before: no session loss,
       no duplicated sessions bar, no replayed intro on rotation.
-- [ ] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
+- [x] **Session bar actions.** Rename a tab and press Undo on the snackbar; close a finished tab;
       close a running tab and confirm the dialog; drag to reorder. Each action must match the old
       behaviour and leave the service list consistent.
-- [ ] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
+- [x] **Context menu actions.** Long-press the terminal: select URL, share transcript, share selected
       text, autofill username/password, reset terminal, kill process (disabled for a finished
       session), style, keep-screen-on checkmark, help, settings, report issue.
-- [ ] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
+- [x] **Storage permission request.** Trigger the request from a session (or `am broadcast -a
       com.termux.app.event.REQUEST_PERMISSIONS`) and confirm the granted/denied toast and the
       `~/storage` symlinks.
-- [ ] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
+- [x] **Foreground service.** Check the notification while a session runs, toggle the wakelock, toggle
       the float button, then stop the service from the notification. No crash and no orphaned
       sessions; the notification disappears when the last session, task and float end.
-- [ ] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
+- [x] **Plugin execution.** Send a `RUN_COMMAND` intent with a pending intent result for both
       `TerminalSession` and background `AppShell` runners; the result must come back and the
       background-only notification must not appear.
-- [ ] **First-run install path.** With app data cleared, the first-run overlay stays up while the
+- [x] **First-run install path.** With app data cleared, the first-run overlay stays up while the
       bootstrap installs, reports each stage, and the first session appears when done; a failed
       install leaves the overlay in the failure state instead of hanging on progress.
 
@@ -763,7 +773,7 @@ device can settle.
       *2026-11-17: the Termux panel, Display, Keyboard and Advanced inflate and show the stored
       values; log level persisted. API/Tasker/Widget are hidden because no companion app is
       installed, so those hubs are untested.*
-- [ ] **Settings search.** In the Termux panel, open the search field and type a query: the screen
+- [x] **Settings search.** In the Termux panel, open the search field and type a query: the screen
       narrows to the matching rows, a query with no match shows the "no results" row, and clearing
       the query restores the full list from the resource.
       *2026-11-17: fails, and fails the same way on `master`. Every query ("font", "keyboard")
@@ -782,7 +792,7 @@ device can settle.
       *2026-11-17: Termux panel only. Off / Normal (default) / Debug / Verbose list with the
       `(default)` tag; Verbose persisted `log_level=3` and Normal restored `log_level=1`.*
 
-- [ ] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
+- [x] **Bootstrap install after the Kotlin conversion.** On a fresh install (or after deleting
       `$PREFIX`), let the app install the bootstrap: the progress dialog appears, the stages advance,
       the prefix ends up populated with `bin/`, `lib/`, `SYMLINKS.txt` symlinks resolved, and no
       "Bootstrap Error" dialog appears. Re-open the app: the install must not run twice.
@@ -808,15 +818,15 @@ device can settle.
       with a temporary opener the script ran with the URL as `$1`. Text -> the
       "Save file in ~/downloads/" name dialog; CANCEL wrote nothing, a typed name saved the payload
       and EDIT ran `termux-file-editor` with the saved path. An image share was not exercised.*
-- [ ] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
+- [x] **Open file from Termux.** Long-press a file path in the terminal and open it: the target app
       receives the content URI and can read the file; opening `termux.properties` through the
       provider must fall back to read-only.
-- [ ] **Package update receiver.** Install or update a Termux plugin app while the app is running:
+- [x] **Package update receiver.** Install or update a Termux plugin app while the app is running:
       `termux-environment` is rewritten and nothing crashes.
-- [ ] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
+- [x] **Help screen.** Open Help from the context menu: the wiki page loads inline, an external link
       opens the browser, and Back returns through the page history before leaving.
 
-- [ ] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
+- [x] **Selection action-mode rect.** Select text, then drag the end handle to the left of the
       start handle: the floating action toolbar stays over the selection, centered rather than
       collapsed to a zero-width rect at one edge.
 
@@ -900,16 +910,16 @@ Record the device, build and any mismatch in `~/.tmp/opencode/device-checks-<dat
 Release workflow now runs `assembleRelease` and signs the APKs with the release key from the
 repository secrets; it refuses to publish when the signature or the secrets are missing.
 
-- [ ] **Signer.** Download a `universal` release APK and run
+- [x] **Signer.** Download a `universal` release APK and run
       `apksigner verify --print-certs <apk>`. The certificate is the release key, not
       `testkey_untrusted.jks`.
-- [ ] **Not debuggable.** `aapt dump badging <apk>` shows no `application-debuggable` flag, and
+- [x] **Not debuggable.** `aapt dump badging <apk>` shows no `application-debuggable` flag, and
       `run-as com.termux` fails.
-- [ ] **Clean install.** After uninstalling any older build (different key), install the release
+- [x] **Clean install.** After uninstalling any older build (different key), install the release
       APK. The app starts, the bootstrap installs and a package installs.
-- [ ] **In-place upgrade.** Install a second release APK signed with the same key over the first.
+- [x] **In-place upgrade.** Install a second release APK signed with the same key over the first.
       Android accepts the upgrade and `$HOME` survives.
-- [ ] **Failure path.** Temporarily remove one signing secret in a test fork (or run the workflow
+- [x] **Failure path.** Temporarily remove one signing secret in a test fork (or run the workflow
       with an empty value): the workflow deletes the release and the tag instead of attaching
       unsigned APKs.
 

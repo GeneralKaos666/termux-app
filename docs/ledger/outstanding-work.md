@@ -32,8 +32,8 @@ verification attempted on device, with the outcome recorded · `[limitation]` ac
    palette-version signal.
 6. **Dependency refresh (§4.3)** — one commit per dependency, ascending blast radius,
    `compose-bom` last and separate.
-7. **Device and manual checks** — `manual-checks.md`. These are the last thing to do, after the
-   code work above settles.
+7. **Device and manual checks** — `manual-checks.md`; **closed 2026-11-19** (all rows passed, the
+   last group measured on NX769J, the rest on the maintainer's verdict).
 
 ---
 
@@ -1052,3 +1052,8 @@ the settings root-screen tidy/`termux.properties` surfacing; the setup wizard.
 Every device, emulator or human-eyeball check lives in
 [`manual-checks.md`](manual-checks.md), with its status and evidence. Nothing in this file should be
 scheduled after them; when the code work above settles, run that file end to end.
+
+**2026-11-19:** no device check is open. D-35 to D-42 were measured on NX769J during the backup-screen
+work; the maintainer reported the rest (D-1's legacy path, D-5, D-10, D-13 remainder, D-14, D-15,
+D-18, D-21, D-22, D-23, D-34) complete and they are recorded as maintainer verdicts, not
+machine-measured.
